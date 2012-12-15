@@ -1,0 +1,37 @@
+#######################################
+# Syntax Coloring Map For LCD
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+LCD KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+version	KEYWORD2
+lcdinit	KEYWORD2
+dispBits	KEYWORD2
+dispString	KEYWORD2
+dispNum	KEYWORD2
+LCDcmd	KEYWORD2
+LCDwr	KEYWORD2
+command	KEYWORD2
+clear	KEYWORD2
+clearToEOL	KEYWORD2
+setLoc	KEYWORD2
+getLoc	KEYWORD2
+display	KEYWORD2
+init	KEYWORD2
+write	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+LCD	KEYWORD2
+#######################################
+# Constants (LITERAL1)
+#######################################

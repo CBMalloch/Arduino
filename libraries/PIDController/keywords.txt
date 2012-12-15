@@ -1,0 +1,28 @@
+#######################################
+# Syntax Coloring Map For PIDController
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+PIDController KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+setpoint	KEYWORD2
+doControl	KEYWORD2
+get_internal_variables KEYWORD2
+get_dutyCycle KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+PIDCONTROLLER_VERSION LITERAL1

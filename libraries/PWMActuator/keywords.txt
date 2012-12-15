@@ -1,0 +1,29 @@
+#######################################
+# Syntax Coloring Map For PWMActuator
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+PWMActuator KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+version	KEYWORD2
+enable	KEYWORD2
+enabled	KEYWORD2
+PWMPeriodms	KEYWORD2
+dutyCycle	KEYWORD2
+dutyCyclems	KEYWORD2
+tickle	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+LCD	KEYWORD2
+#######################################
+# Constants (LITERAL1)
+#######################################

@@ -1,0 +1,32 @@
+#######################################
+# Syntax Coloring Map For EWMA
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+EWMA KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+FFT							KEYWORD2
+freeRam					KEYWORD2
+FFTsetup				KEYWORD2
+FFTloop   			KEYWORD2
+FFT_print_spg1	KEYWORD2
+FFT_print_spg2	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+FFT_VERSION LITERAL1
+
+
