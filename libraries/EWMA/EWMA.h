@@ -75,6 +75,12 @@ class EWMA
     // periods deprecated; to be replaced by alpha
     double alpha (int nPeriodsOfHalfLife);
     double alpha (unsigned long nPeriodsOfHalfLife);
+    // if using the external timing (passing in loop_time) then a suggested value for the first (untimed) loop
+    // is a very large number, such as 2147483647L
+    // if loop_time is specified, its units must match those of desired_time
+    // if loop_time is not specified, then desired_time must be in units of seconds
+    double dynamic_alpha (double desired_response, double desired_time, double loop_time = -1.0);
+
 	
 	protected:
 		// anything that needs to be available only to:
