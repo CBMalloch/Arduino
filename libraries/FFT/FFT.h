@@ -46,27 +46,6 @@ Here are my additional notes:
  
 */
 
-
-
-
-
-
-
-
-
-
-/*
-
-in .h and .cpp:
-
-using namespace FFT;
-
-in main:
-
-FFT::foo = 9;
-
-*/
-
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 //#pragma GCC optimize (always_inline)
