@@ -6,6 +6,7 @@
 	
 */
 
+#include <Arduino.h>
 #include <Math.h>
 #include "EWMA.h"
 
@@ -28,6 +29,35 @@ double EWMA::alpha (int nPeriodsOfHalfLife) {
   // and the function returns the requisite value for alpha
 	// WRONG -> return (-log(0.5)/nPeriodsOfHalfLife);  // note log is ln, log10 is other
   return (1 - exp(log(0.5) / nPeriodsOfHalfLife));
+}
+
+double EWMA::dynamic_alpha (double desired_response, double desired_time, double loop_time) {
+  // if loop_time is specified, its units must match those of desired_time
+  // if loop_time is not specified, then desired_time must be in units of seconds
+  // The Excel formula is =1-EXP(LN(desired_response) / (desired_time / step_interval))
+  
+  static unsigned long lastCalledAt_us = 0;
+  unsigned long step_interval_us;
+  double alpha;
+
+  if (loop_time > 0.0) {
+    // called with actual loop time
+    alpha = 1 - exp (   log ( desired_response ) 
+                      / ( desired_time / loop_time ) );
+  } else if ( lastCalledAt_us == 0 ) {
+    // doing our own timing, but never called before -- force initialization of y(t+1) to new value
+    alpha = 1.0;
+  } else {
+    step_interval_us = micros() - lastCalledAt_us;
+    lastCalledAt_us = micros();
+    // note log is natural log
+    alpha = 1 - exp (   log ( desired_response ) 
+                      / ( ( desired_time * 1e6) / double ( step_interval_us ) ) );
+  }
+  
+  lastCalledAt_us = micros();
+  
+  return ( alpha );
 }
 
 EWMA::EWMA()
