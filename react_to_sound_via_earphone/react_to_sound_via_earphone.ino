@@ -1,5 +1,5 @@
-#define VERSION "2.2.2"
-#define VERDATE "2012-12-19"
+#define VERSION "3.1.1"
+#define VERDATE "2013-01-29"
 #define PROGMONIKER "RSE"
 
 /*
@@ -17,22 +17,46 @@
                     fixed multiply #defined paTHRESHOLD
   2012-12-23 v3.0.0 loop rate adjustable with A3 pot
                     pulled all EWMA stuff out, replaced with a longer read
+  2013-01-27 v3.1.0 control pot now has 4 positions:
+                    0: motors enabled, not verbose
+                    1: motors disabled, not verbose
+                    2: motors enabled, verbose
+                    3: motors disabled, verbose
 
 */
 
 #include <math.h>
 
+// disable serial comm if BAUDRATE is undefined
+// because serial comm pulls power 5V down by 500mV !!!
+// #undef BAUDRATE
 #define BAUDRATE 115200
 static int VERBOSE = 2;
-#define paVERBOSE 3
+static int motorsEnabled;
+#define paCONTROL 3
+
+#define USE_SERVO_3
 
 #define paMIKE 0
 #define paMINTHRESHOLD 4
 #define paTHRESHOLD 5
-#define BAUDRATE 115200
-#define pdMotorA1 2
-#define pdMotorA2 3
-#define ppMotorA 10
+
+/*
+  NOTE regarding the motor enable lines - when these are low, the affected outputs are 
+  hi-z (tri-stated). This is OK for DC motors, but not so for servos. So to control:
+    DC motor - set direction with digital writes to motor pins, control speed with PWM on enables
+    servo motor - enable output with digital write, then control position with PWM on motor pin
+    stepper motor - enable output, then step using digital writes to motor pins
+*/
+
+#define pdMotor1A 3
+#define pdMotor2A 5
+#define ppMotorEnable12 10
+
+#define pdMotor3A 6
+#define pdMotor4A 9
+#define ppMotorEnable34 11
+
 #define pdLED 13
 
 // to get a reading, need to average over at least a half-cycle of sound. If min freq is 110, 
@@ -51,28 +75,59 @@ char strBuf[bufLen];
 
 // the current averages; one slow-moving, the other fast-moving.
 float centerline, amplitude;
+int minReading, maxReading;
 
 
 void setup () {
+#ifdef BAUDRATE
   Serial.begin(BAUDRATE);
 	snprintf(strBuf, bufLen, "%s: React to Sound via Earphone v%s (%s)\n", 
 	  PROGMONIKER, VERSION, VERDATE);
   Serial.print(strBuf);
+#endif
 
   pinMode(pdLED, OUTPUT);
   
-  pinMode(pdMotorA1, OUTPUT);
-  pinMode(pdMotorA2, OUTPUT);
-  pinMode(ppMotorA, OUTPUT);
+  pinMode(pdMotor1A, OUTPUT);
+  pinMode(pdMotor2A, OUTPUT);
+  pinMode(ppMotorEnable12, OUTPUT);
 
-  digitalWrite (ppMotorA, LOW);
-  digitalWrite (pdMotorA1, LOW);
-  digitalWrite (pdMotorA2, HIGH);
-  analogWrite (ppMotorA, 255);
+  digitalWrite (ppMotorEnable12, LOW);
+  digitalWrite (pdMotor1A, LOW);
+  digitalWrite (pdMotor2A, HIGH);
+  analogWrite (ppMotorEnable12, 255);
   delay(1000);
-  digitalWrite (ppMotorA, LOW);
-  digitalWrite (pdMotorA1, LOW);
-  digitalWrite (pdMotorA2, LOW);
+  digitalWrite (ppMotorEnable12, LOW);
+  digitalWrite (pdMotor1A, LOW);
+  digitalWrite (pdMotor2A, LOW);
+
+  pinMode(pdMotor3A, OUTPUT);
+  pinMode(pdMotor4A, OUTPUT);
+  pinMode(ppMotorEnable34, OUTPUT);
+
+  digitalWrite (ppMotorEnable34, LOW);
+  digitalWrite (pdMotor3A, LOW);
+  digitalWrite (pdMotor4A, HIGH);
+  analogWrite (ppMotorEnable34, 255);
+  delay(1000);
+  digitalWrite (ppMotorEnable34, LOW);
+  digitalWrite (pdMotor3A, LOW);
+  digitalWrite (pdMotor4A, LOW);
+  
+  #ifdef USE_SERVO_3
+  digitalWrite (ppMotorEnable34, 1);
+  for (int i = 0; i <= 100; i++) {
+    analogWrite (pdMotor3A, map (i, 0, 100, 0, 180));
+#ifdef BAUDRATE
+    Serial.print ("Servo 3: "); Serial.println (map (i, 0, 100, 0, 180));
+#endif
+    delay (500);
+  }
+  #endif
+
+  
+  motorsEnabled = 0;
+
 }
 
 void loop () {
@@ -83,8 +138,8 @@ void loop () {
   float fReading, fVarReading;
 
   // variables related to evaluating a reading vs our thresholds
-  short threshold, minThreshold;
-  static short oldThreshold, oldMinThreshold;
+  int threshold, minThreshold;
+  static int oldThreshold, oldMinThreshold;
   static unsigned long thresholdChangedAt = 0UL;
   short responseLevel;
 
@@ -100,8 +155,10 @@ void loop () {
   loopTook_us = micros() - loopBeganAt_us;
   loopBeganAt_us = micros();
   
-  VERBOSE = analogRead(paVERBOSE) > 512 ? 10 : 2;
-  if (analogRead(paVERBOSE) > 256) {
+  r = analogRead(paCONTROL);
+  VERBOSE = r > 512 ? 10 : 2;
+  motorsEnabled = ! ( r & 0x0100 );
+  if (analogRead(paCONTROL) > 256) {
     thresholdChangedAt = millis();
   }
   
@@ -121,11 +178,15 @@ void loop () {
   readingBeganAt = millis();
   fReading = 0.0;
   fVarReading = 0.0;
+  minReading = 2000;
+  maxReading = -5;
   while ((millis() - readingBeganAt) < SAMPLING_PERIOD_MS) {
     nReadings++;
     r = analogRead(paMIKE);
     fReading += r;
     fVarReading += abs( r - centerline );
+    if (r < minReading) minReading = r;
+    if (r > maxReading) maxReading = r;
   }
   amplitude = int (20.0 * fVarReading / nReadings);
   centerline = int (fReading / nReadings);            // the new centerline will be used next loop
@@ -150,58 +211,80 @@ void loop () {
   
   /*
     One good test would be with the manual threshold
-    as in if (amplitude > threshold) {  etc.
+    as in if (score > threshold) {  etc.
     But we want automatically set threshold
     So we use a grand average (centerline) to compare against
     but give it a little wiggle room
   */
-  
-  if (amplitude > threshold) {
-    digitalWrite (pdLED, HIGH);
-  } else {
-    digitalWrite (pdLED, LOW);
-  }
-  
-  if (score < minThreshold) {
-    // do nothing / stop everything
-    responseLevel = 0;
-    digitalWrite (ppMotorA, LOW);
-    digitalWrite (pdMotorA1, LOW);
-    digitalWrite (pdMotorA2, LOW);
-    lastReversal = 0;
-    // Serial.println ("LEVEL 0");
-  } else if (score < threshold) {
-    // responseLevel 1 - move with speed related to score
-    responseLevel = 1;
-    digitalWrite (ppMotorA, LOW);
-    digitalWrite (pdMotorA1, LOW);
-    digitalWrite (pdMotorA2, HIGH);
-    analogWrite (ppMotorA, map (score, 0, 100, 0, 255));
-    direction = 0;
-    lastReversal = 0;
-    // Serial.println ("                  LEVEL 1");
-  } else {
-    // responseLevel 2 - move back and forth at top speed
-    responseLevel = 2;
-    if ((millis() - lastReversal) > 500) {
-      digitalWrite (ppMotorA, LOW);
-      if (direction == 0) {
-        digitalWrite (pdMotorA2, LOW);
-        digitalWrite (pdMotorA1, HIGH);
-        direction = 1;
-      } else {
-        digitalWrite (pdMotorA1, LOW);
-        digitalWrite (pdMotorA2, HIGH);
-        direction = 0;
-      }
-      lastReversal = millis();
-      analogWrite (ppMotorA, map (score, 0, 100, 0, 255));
+  if (motorsEnabled > 0) {
+    if (score > threshold) {
+      digitalWrite (pdLED, HIGH);
+    } else {
+      digitalWrite (pdLED, LOW);
     }
-    // Serial.println ("                                      LEVEL 2");
+    
+    if (score < minThreshold) {
+      // do nothing / stop everything
+      responseLevel = 0;
+      digitalWrite (ppMotorEnable12, LOW);
+      digitalWrite (pdMotor1A, LOW);
+      digitalWrite (pdMotor2A, LOW);
+      lastReversal = 0;
+#ifdef BAUDRATE
+      // Serial.println ("LEVEL 0");
+#endif
+    } else if (score < threshold) {
+      // responseLevel 1 - move with speed related to score
+      responseLevel = 1;
+      // digitalWrite (ppMotorEnable12, LOW);
+      digitalWrite (pdMotor1A, LOW);
+      digitalWrite (pdMotor2A, HIGH);
+      analogWrite (ppMotorEnable12, map (score, 0, 100, 0, 255));
+      direction = 0;
+      lastReversal = 0;
+#ifdef BAUDRATE
+      // Serial.println ("                  LEVEL 1");
+#endif
+    } else {
+      // responseLevel 2 - move back and forth at top speed
+      responseLevel = 2;
+      if ((millis() - lastReversal) > 500) {
+        // digitalWrite (ppMotorEnable12, LOW);
+        if (direction == 0) {
+          digitalWrite (pdMotor2A, LOW);
+          digitalWrite (pdMotor1A, HIGH);
+          direction = 1;
+        } else {
+          digitalWrite (pdMotor1A, LOW);
+          digitalWrite (pdMotor2A, HIGH);
+          direction = 0;
+        }
+        lastReversal = millis();
+        analogWrite (ppMotorEnable12, map (score, 0, 100, 0, 255));
+      }
+      // Serial.println ("                                      LEVEL 2");
+    }
+    
+    
+    
+    
+    #ifdef USE_SERVO_3
+    analogWrite (ppMotorEnable34, 255);
+    digitalWrite (pdMotor3A, map (score, 0, 100, 0, 180));
+#ifdef BAUDRATE
+    Serial.print ("Servo 3: "); Serial.println ( map (score, 0, 100, 0, 180) );
+#endif
+    #endif
+  } else {
+    // motors not enabled
+    digitalWrite (ppMotorEnable12, LOW);
+    digitalWrite (pdMotor1A, LOW);
+    digitalWrite (pdMotor2A, LOW);
   }
   
   // *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=* *=*  
   
+#ifdef BAUDRATE
   if ( ( millis() - thresholdChangedAt ) < BARCHARTREPORTINGINTERVAL_MS ) {
     // Serial.print (centerline);
     // Serial.print ("  ");
@@ -214,8 +297,12 @@ void loop () {
     
     Serial.println ();
     if (VERBOSE > 5) {
-      Serial.print ("centerline   : "); Serial.println (centerline);
-      Serial.print ("amplitude    : "); Serial.println (amplitude);      
+      Serial.print ("verbose        : "); Serial.println (VERBOSE);
+      Serial.print ("motors enabled : "); Serial.println (motorsEnabled);
+      Serial.print ("centerline     : "); Serial.println (centerline);
+      Serial.print ("amplitude      : "); Serial.println (amplitude);
+      Serial.print ("min            : "); Serial.println (minReading);
+      Serial.print ("max            : "); Serial.println (maxReading);
     }
     Serial.print ("min thr      : "); printBar (minThreshold);
     Serial.print ("thr          : "); printBar (threshold);
@@ -233,9 +320,11 @@ void loop () {
     delay (DELAYAFTERREPORTING_MS);
     
   }
+#endif
   
 }
 
+#ifdef BAUDRATE
 void printBar (unsigned short barLen) {
   barLen = constrain (barLen, 0, lineLen);
   for (int i = 0; i < barLen; i++) strBuf[i] = '-';
@@ -245,3 +334,4 @@ void printBar (unsigned short barLen) {
   strBuf[bufLen - 1] = '\0';
   Serial.println (strBuf);
 }
+#endif
