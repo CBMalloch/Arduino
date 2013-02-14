@@ -28,6 +28,7 @@
 
 class MODBUS_Slave {
 	public:
+    MODBUS_Slave ();
 		MODBUS_Slave (  unsigned char address, 
                     unsigned short nCoils,       // number of individual *bits*
                     unsigned short * coilArray,
@@ -35,6 +36,13 @@ class MODBUS_Slave {
                     short * regArray,
                     Stream *serialPort
                  );
+		void Init ( unsigned char address, 
+                unsigned short nCoils,       // number of individual *bits*
+                unsigned short * coilArray,
+                unsigned short nRegs,
+                short * regArray,
+                Stream *serialPort
+             );
 		void Process_Data    ( unsigned char* msg_buffer, unsigned char msg_len );
     int Check_Data_Frame ( unsigned char* msg_buffer, unsigned char msg_len );
     

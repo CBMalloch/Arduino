@@ -35,8 +35,8 @@
 #include "MODBUS_Slave.h"
 #include <CRC16.h>
 
-// #define TESTMODE 1
-#undef TESTMODE
+#define TESTMODE 1
+// #undef TESTMODE
 
 CRC CheckSum;	// From Checksum Library, CRC15.h, CRC16.cpp
 
@@ -45,6 +45,9 @@ CRC CheckSum;	// From Checksum Library, CRC15.h, CRC16.cpp
 // Returns: Nothing
 // Effect:  Initializes Library
 
+MODBUS_Slave::MODBUS_Slave() {
+}
+
 MODBUS_Slave::MODBUS_Slave( unsigned char my_address, 
                             unsigned short nCoils,
                             unsigned short * coilArray,
@@ -52,6 +55,16 @@ MODBUS_Slave::MODBUS_Slave( unsigned char my_address,
                             short * regArray,
                             Stream *port
                           ) {
+	Init (my_address, nCoils, coilArray, nRegs, regArray, port);
+}
+
+void MODBUS_Slave::Init(  unsigned char my_address, 
+                          unsigned short nCoils,
+                          unsigned short * coilArray,
+                          unsigned short nRegs,
+                          short * regArray,
+                          Stream *port
+                        ) {
 	_address = my_address;
 	_nCoils = nCoils;
 	_coilArray = coilArray;
@@ -63,6 +76,23 @@ MODBUS_Slave::MODBUS_Slave( unsigned char my_address,
 	_error = 0;
   
 }
+
+
+// helper function
+
+#ifdef TESTMODE
+void formatHex (unsigned short x, char * buf) {
+  // expect buf to be of length at least 7
+  char h[] = {'0', '1', '2', '3', '4', '5', '6', '7',
+              '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+  buf[0] = '0'; buf[1] = 'x';
+  buf[2] = h [ ( x >> 12 ) & 0x000f ];
+  buf[3] = h [ ( x >>  8 ) & 0x000f ];
+  buf[4] = h [ ( x >>  4 ) & 0x000f ];
+  buf[5] = h [ ( x       ) & 0x000f ];
+  buf[6] = '\0';
+}
+#endif
 
 //################## Check Data Frame ###################
 // Takes:   Data stream buffer from serial port, number of characters
@@ -83,10 +113,16 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char *msg_buffer, unsigned char ms
 	if ( msg_address > 247 ) {					
     // invalid
 		_error = 1;
+    #ifdef TESTMODE
+      _port->write ( "  invalid message\n" );
+    #endif
 		return (0);
 	}
   if ( msg_address != 0 && msg_address != _address) {
     // ignore unless address matches or it's a broadcast (0)
+    #ifdef TESTMODE
+      _port->write ( "  message not for me\n" );
+    #endif
     return (0);
   }
   
@@ -107,6 +143,10 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char *msg_buffer, unsigned char ms
       break;
     case 15: // write multiple coils
     case 16: // write multiple registers
+      if ( len < 7 ) {
+        // no length character available yet
+        return ( -1 );  // frame is incomplete
+      }
       len = 7 + msg_buffer[6];  // length in bytes of data segment...
       break;
     default: // unimplemented function code
@@ -117,16 +157,26 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char *msg_buffer, unsigned char ms
     return (-1);
   }
   
-  #ifndef TESTMODE
   // check CRC
-  unsigned short msg_CRC = ( ( msg_buffer[msg_len] << 8 ) | msg_buffer[msg_len-1] );
+  unsigned short msg_CRC = ( ( msg_buffer [ msg_len - 1 ] << 8 ) | msg_buffer [ msg_len - 2 ] );
   // my calculated CRC
-  unsigned short recalculated_CRC = CheckSum.CRC16( msg_buffer, msg_len - 1 );
+  unsigned short recalculated_CRC = CheckSum.CRC16( msg_buffer, msg_len - 2 );
   if ( recalculated_CRC != msg_CRC ) {
     _error = 2;
-    return (0);
+    #ifdef TESTMODE
+      char buf[7];
+      _port->write ( " -- failed CRC -- got " );
+      formatHex ( msg_CRC, buf );
+      _port->write ( buf );
+      _port->write ( "; expected " );
+      formatHex ( recalculated_CRC, buf );
+      _port->write ( buf );
+      _port->write ( "\n" );
+      // don't return - simply ignore invalidity of CRC
+    #else
+      return (0);
+    #endif
   }
-  #endif
   
   return (1);
 }
