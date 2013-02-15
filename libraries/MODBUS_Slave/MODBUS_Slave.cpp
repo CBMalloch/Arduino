@@ -32,6 +32,12 @@
 	To get a copy of the GNU General Public License see <http://www.gnu.org/licenses/>.
 */
 
+#if defined(ARDUINO) && ARDUINO >= 100
+#include <Arduino.h>
+#else
+#include <WProgram.h>
+#endif
+
 #include "MODBUS_Slave.h"
 #include <CRC16.h>
 
@@ -53,7 +59,8 @@ MODBUS_Slave::MODBUS_Slave( unsigned char my_address,
                             unsigned short * coilArray,
                             unsigned short nRegs,
                             short * regArray,
-                            Stream *port
+                            Stream *port,
+                            short pdTalkEnable
                           ) {
 	Init (my_address, nCoils, coilArray, nRegs, regArray, port);
 }
@@ -63,7 +70,8 @@ void MODBUS_Slave::Init(  unsigned char my_address,
                           unsigned short * coilArray,
                           unsigned short nRegs,
                           short * regArray,
-                          Stream *port
+                          Stream *port,
+                          short pdTalkEnable
                         ) {
 	_address = my_address;
 	_nCoils = nCoils;
@@ -72,6 +80,7 @@ void MODBUS_Slave::Init(  unsigned char my_address,
   _regArray = regArray;
   
   _port = port;
+  _pdTalkEnable = pdTalkEnable;
   
 	_error = 0;
   
@@ -251,9 +260,11 @@ void MODBUS_Slave::Send_Response ( unsigned char *buf, unsigned short nChars ) {
     unsigned short CRC = CheckSum.CRC16 ( buf, nChars );
     buf[nChars++] = CRC & 0x00ff;				// lower byte
     buf[nChars++] = CRC >> 8;						// upper byte
+    if ( _pdTalkEnable >= 0 ) digitalWrite ( _pdTalkEnable, HIGH );
     for(int i = 0; i < nChars; i++) {
       _port->write ( buf[i] );
     }
+    if ( _pdTalkEnable >= 0 ) digitalWrite ( _pdTalkEnable, LOW );
   }
 }
 
@@ -513,3 +524,67 @@ void MODBUS_Slave::Write_Reg ( unsigned char *buf ) {
   Send_Response ( buf, 6) ;
 }
 
+
+
+// ******************************************************************************
+// ******************************************************************************
+// ******************************************************************************
+
+//################## Read Reg ###################
+// Takes:   In Data Buffer: address into regArray, count of registers to read
+// Returns: Nothing
+// Effect:  Reads bytes at a time and composes 16 bit replies.  Sets Reply Data and sends Response
+
+unsigned char MODBUS_Slave::Execute ( ) {
+
+  static unsigned long messageReceiptBeganAt_ms = 0;
+  unsigned char somethingChanged = 0;
+  
+  #define bufLen 80
+  static unsigned char strBuf [ bufLen + 1 ];
+  static int bufPtr;
+
+  if ( ( ( millis() - messageReceiptBeganAt_ms ) > MESSAGE_TIME_TO_LIVE_ms ) && bufPtr != 0 ) {
+    // kill old messages to keep from blocking up with a bad message piece
+    #ifdef TESTMODE
+      _port->println ( "timeout" );
+    #endif
+    bufPtr = 0;
+    messageReceiptBeganAt_ms = 0;
+  }
+  
+  // capture characters from stream
+  while ( _port->available() ) {
+
+    if ( bufPtr == 0 ) {
+      // we are starting the receipt of a message
+      messageReceiptBeganAt_ms = millis();
+    }
+    
+    if ( bufPtr < bufLen ) {
+      // grab the available character
+      strBuf[bufPtr++] = _port->read();
+    } else {
+      // error - buffer overrun -- whine
+      for (;;) {
+        digitalWrite (pdLED, 1);
+        delay (100);
+        digitalWrite (pdLED, 0);
+        delay (100);
+      }
+    }
+  }
+
+  // bufPtr points to (vacant) char *after* the character string in strBuf,
+  // and so it is the number of chars currently in the buffer
+  if ( Check_Data_Frame ( strBuf, bufPtr ) == 1 ) {
+    // process it
+    digitalWrite (pdLED, 1);
+    Process_Data ( strBuf, bufPtr );
+    somethingChanged = 1;
+    digitalWrite (pdLED, 0);
+    bufPtr = 0;
+  }
+  
+  return ( somethingChanged );
+}
