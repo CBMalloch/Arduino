@@ -26,6 +26,15 @@
 
 #include <Stream.h>
 
+// how much time we allow for a message to be under construction before we
+// decide it's time to discard it as an orphan or as a malformed frame
+// #define MESSAGE_TIME_TO_LIVE_ms ( 2 * ( bufLen * 10 ) / ( BAUDRATE / 1000 ) )
+// 80 * 10 / 11.5 is about 70 plus some fudge is 100
+#define MESSAGE_TIME_TO_LIVE_ms 100
+
+#define pdLED 13
+
+
 class MODBUS_Slave {
 	public:
     MODBUS_Slave ();
@@ -34,15 +43,19 @@ class MODBUS_Slave {
                     unsigned short * coilArray,
                     unsigned short nRegs,
                     short * regArray,
-                    Stream *serialPort
+                    Stream *serialPort,
+                    short paTalkEnable = -1
                  );
 		void Init ( unsigned char address, 
                 unsigned short nCoils,       // number of individual *bits*
                 unsigned short * coilArray,
                 unsigned short nRegs,
                 short * regArray,
-                Stream *serialPort
+                Stream *serialPort,
+                short pdTalkEnable = -1
              );
+    
+    unsigned char Execute ();
 		void Process_Data    ( unsigned char* msg_buffer, unsigned char msg_len );
     int Check_Data_Frame ( unsigned char* msg_buffer, unsigned char msg_len );
     
@@ -65,6 +78,7 @@ class MODBUS_Slave {
     unsigned short _nRegs;
     short * _regArray;
     Stream * _port;
+    short _pdTalkEnable;
 		unsigned char _error;
 };
 
