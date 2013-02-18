@@ -13,12 +13,13 @@
 
 	To get a copy of the GNU General Public License see <http://www.gnu.org/licenses/>.
 */
+
 #ifndef CRC16_h
 #define CRC16_h
 class CRC
 {
 	public:
 		CRC();
-		unsigned short CRC16(unsigned char *puchMsg,unsigned short usDataLen);
+		unsigned short CRC16 ( unsigned char * puchMsg, unsigned short usDataLen );
 };
 #endif

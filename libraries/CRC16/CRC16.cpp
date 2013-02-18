@@ -62,7 +62,7 @@ CRC::CRC()
 
 }
 
-unsigned short CRC::CRC16(unsigned char *puchMsg,unsigned short usDataLen)
+unsigned short CRC::CRC16 ( unsigned char * puchMsg, unsigned short usDataLen )
 {
 unsigned char uchCRCHi = 0xff;
 unsigned char uchCRCLo = 0xff;
@@ -74,5 +74,5 @@ while(usDataLen--)
   uchCRCHi = auchCRCLo[uIndex];
   
 }
-return (uchCRCHi<<8|uchCRCLo);
+return (uchCRCHi << 8 | uchCRCLo);
 }

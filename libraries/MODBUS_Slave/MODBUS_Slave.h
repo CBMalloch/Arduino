@@ -24,13 +24,20 @@
 #ifndef MODBUS_Slave_h
 #define MODBUS_Slave_h
 
+#define MODBUS_Slave_version 1.2.1
+
 #include <Stream.h>
+#include <CRC16.h>
 
 // how much time we allow for a message to be under construction before we
 // decide it's time to discard it as an orphan or as a malformed frame
 // #define MESSAGE_TIME_TO_LIVE_ms ( 2 * ( bufLen * 10 ) / ( BAUDRATE / 1000 ) )
 // 80 * 10 / 11.5 is about 70 plus some fudge is 100
-#define MESSAGE_TIME_TO_LIVE_ms 100
+// #define MESSAGE_TIME_TO_LIVE_ms 100
+// Instead of the *first* char starting the timer, let's use the most recent one. 
+// At 9600 baud (slowest likely rate), one character of 10 bits takes 1/960 sec,
+// so timeout could be 1 ms
+#define MESSAGE_TIMEOUT_ms 5
 
 #define pdLED 13
 
@@ -38,44 +45,44 @@
 class MODBUS_Slave {
 	public:
     MODBUS_Slave ();
-		MODBUS_Slave (  unsigned char address, 
-                    unsigned short nCoils,       // number of individual *bits*
+		MODBUS_Slave (  char address, 
+                    short nCoils,       // number of individual *bits*
                     unsigned short * coilArray,
-                    unsigned short nRegs,
+                    short nRegs,
                     short * regArray,
                     Stream *serialPort,
                     short paTalkEnable = -1
                  );
-		void Init ( unsigned char address, 
-                unsigned short nCoils,       // number of individual *bits*
+		void Init ( char address, 
+                short nCoils,       // number of individual *bits*
                 unsigned short * coilArray,
-                unsigned short nRegs,
+                short nRegs,
                 short * regArray,
                 Stream *serialPort,
                 short pdTalkEnable = -1
              );
     
-    unsigned char Execute ();
-		void Process_Data    ( unsigned char* msg_buffer, unsigned char msg_len );
-    int Check_Data_Frame ( unsigned char* msg_buffer, unsigned char msg_len );
+    int Execute ();
+		void Process_Data    ( unsigned char * msg_buffer, char msg_len );
+    int Check_Data_Frame ( unsigned char * msg_buffer, char msg_len );
     
 	private:
-    void Send_Response( unsigned char *Data_In,unsigned short Length );
+    void Send_Response ( unsigned char * Data_In, short Length );
     
-    void Read_Exception( unsigned char *Data_In );    // Function code 7
+    void Read_Exception ( unsigned char * Data_In );    // Function code 7
     
-    void Read_Coils( unsigned char *Data_In );        // Function code 1 (coils), 2 (discrete inputs)
-    void Write_Single_Coil( unsigned char *Data_In ); // Function code 5
-    void Write_Coils( unsigned char *Data_In );       // Function code 15
+    void Read_Coils ( unsigned char * Data_In );        // Function code 1 (coils), 2 (discrete inputs)
+    void Write_Single_Coil ( unsigned char * Data_In ); // Function code 5
+    void Write_Coils ( unsigned char * Data_In );       // Function code 15
     
-    void Read_Reg( unsigned char *Data_In );  // Function code 3 (holding reg), 4 (input reg)
-    void Write_Single_Reg( unsigned char *Data_In );  // Function code 6
-    void Write_Reg( unsigned char *Data_In );  // Function code 16
+    void Read_Reg ( unsigned char * Data_In );          // Function code 3 (holding reg), 4 (input reg)
+    void Write_Single_Reg ( unsigned char * Data_In );  // Function code 6
+    void Write_Reg ( unsigned char * Data_In );         // Function code 16
     
-		unsigned char _address;
-		unsigned short _nCoils;
+		char _address;
+		short _nCoils;
 		unsigned short * _coilArray;
-    unsigned short _nRegs;
+    short _nRegs;
     short * _regArray;
     Stream * _port;
     short _pdTalkEnable;

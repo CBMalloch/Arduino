@@ -1,0 +1,14 @@
+  1 0x01 read_coils        < ss 01 aaaa nnnn cccc >             -> < ss 01 bc xx ... cccc >
+  2 0x02 read_inputs       < ss 02 aaaa nnnn cccc >             -> < ss 02 bc xx ... cccc >
+  3 0x03 read_holding_reg  < ss 03 aaaa nnnn cccc >             -> < ss 03 bc xxxx ... cccc >
+  4 0x04 read_input_reg    < ss 04 aaaa nnnn cccc >             -> < ss 04 bc xxxx ... cccc >
+  5 0x05 write_1_coil      < ss 05 aaaa vvvv cccc >             -> < ss 05 bc xx ... cccc > 
+  6 0x06 write_1_reg       < ss 06 aaaa vvvv cccc >             -> < ss 06 bc xxxx ... cccc >
+  7 0x07 read_exception    < ss 07 cccc >                       -> < ss 07 xx cccc >
+ 15 0x0f write_coils       < ss 0f aaaa nnnn bc vv ... cccc >   -> < ss 0f aaaa nnnn bc vv ... cccc >
+ 16 0x10 write_regs        < ss 10 aaaa nnnn bc vvvv ... cccc > -> < ss 10 aaaa nnnn bc vvvv ... cccc >
+ 
+ fc 1 and 2 are equivalent
+ fc 3 and 4 are equivalent
+ 
+ in reply, fc high-order bit set signals error
