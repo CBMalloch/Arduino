@@ -38,13 +38,12 @@
 #include <WProgram.h>
 #endif
 
-#include "MODBUS_Slave.h"
-#include <CRC16.h>
+#include <MODBUS_Slave.h>
 
-#define TESTMODE 1
-// #undef TESTMODE
+// #define TESTMODE 1
+#undef TESTMODE
 
-CRC CheckSum;	// From Checksum Library, CRC15.h, CRC16.cpp
+CRC CheckSum;	// From Checksum Library, CRC16.h, CRC16.cpp
 
 //################## MODBUS_Slave ###################
 // Takes:   Slave Address, Pointer to Registers and Number of Available Registers
@@ -54,10 +53,10 @@ CRC CheckSum;	// From Checksum Library, CRC15.h, CRC16.cpp
 MODBUS_Slave::MODBUS_Slave() {
 }
 
-MODBUS_Slave::MODBUS_Slave( unsigned char my_address, 
-                            unsigned short nCoils,
+MODBUS_Slave::MODBUS_Slave( char my_address, 
+                            short nCoils,
                             unsigned short * coilArray,
-                            unsigned short nRegs,
+                            short nRegs,
                             short * regArray,
                             Stream *port,
                             short pdTalkEnable
@@ -65,10 +64,10 @@ MODBUS_Slave::MODBUS_Slave( unsigned char my_address,
 	Init (my_address, nCoils, coilArray, nRegs, regArray, port);
 }
 
-void MODBUS_Slave::Init(  unsigned char my_address, 
-                          unsigned short nCoils,
+void MODBUS_Slave::Init(  char my_address, 
+                          short nCoils,
                           unsigned short * coilArray,
-                          unsigned short nRegs,
+                          short nRegs,
                           short * regArray,
                           Stream *port,
                           short pdTalkEnable
@@ -89,7 +88,7 @@ void MODBUS_Slave::Init(  unsigned char my_address,
 
 // helper function
 
-#ifdef TESTMODE
+// #ifdef TESTMODE
 void formatHex (unsigned short x, char * buf) {
   // expect buf to be of length at least 7
   char h[] = {'0', '1', '2', '3', '4', '5', '6', '7',
@@ -101,7 +100,7 @@ void formatHex (unsigned short x, char * buf) {
   buf[5] = h [ ( x       ) & 0x000f ];
   buf[6] = '\0';
 }
-#endif
+// #endif
 
 //################## Check Data Frame ###################
 // Takes:   Data stream buffer from serial port, number of characters
@@ -111,7 +110,7 @@ void formatHex (unsigned short x, char * buf) {
 //           1 if frame complete and valid
 // Effect:  Checks completeness, validity, and appropriateness of frame
 
-int MODBUS_Slave::Check_Data_Frame ( unsigned char *msg_buffer, unsigned char msg_len ) {
+int MODBUS_Slave::Check_Data_Frame ( unsigned char * msg_buffer, char msg_len ) {
 
   if ( msg_len < 4 ) {
     // valid frame has address (1), function code (1), and CRC (2)
@@ -119,50 +118,57 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char *msg_buffer, unsigned char ms
   }
   
   unsigned char msg_address = msg_buffer[0];
-	if ( msg_address > 247 ) {					
+	if ( msg_address > 247 ) {
     // invalid
 		_error = 1;
     #ifdef TESTMODE
-      _port->write ( "  invalid message\n" );
+      _port->write ( "  invalid addressee\n" );
     #endif
 		return (0);
 	}
   if ( msg_address != 0 && msg_address != _address) {
     // ignore unless address matches or it's a broadcast (0)
     #ifdef TESTMODE
-      _port->write ( "  message not for me\n" );
+      _port->write ( "  msg not for me (msg: " ); 
+      _port->write ( msg_address ); _port->write ( " != me: " ); 
+      _port->write ( _address ); _port->write ( ")\n" ); 
     #endif
     return (0);
   }
   
-  unsigned char function_code = msg_buffer[1];
-  unsigned char len;
+  char function_code = msg_buffer[1];
+  char required_len;
   // check completeness by function code
   switch (function_code) {
-    case 1:  // read MODBUS coils
-    case 2:  // read discrete inputs
-    case 3:  // read holding reg
-    case 4:  // read input reg
-    case 5:  // write one coil
-    case 6:  // write one register
-      len = 6;
+    case 0x01:  // read MODBUS coils
+    case 0x02:  // read discrete inputs
+    case 0x03:  // read holding reg
+    case 0x04:  // read input reg
+    case 0x05:  // write one coil
+    case 0x06:  // write one register
+      required_len = 6;
       break;
-    case 7:   // read exception
-      len =  2;
+    case 0x07:   // read exception
+      required_len =  2;
       break;
-    case 15: // write multiple coils
-    case 16: // write multiple registers
-      if ( len < 7 ) {
+    case 0x0f: // write multiple coils
+    case 0x10: // write multiple registers
+      if ( msg_len < 7 ) {
         // no length character available yet
         return ( -1 );  // frame is incomplete
       }
-      len = 7 + msg_buffer[6];  // length in bytes of data segment...
+      required_len = 7 + msg_buffer[6];  // length in bytes of data segment...
       break;
     default: // unimplemented function code
+      #ifdef TESTMODE
+        _port->write ( "  unimplemented function code (" );
+        _port->write ( function_code ); _port->write ( ")\n" );
+      #endif
+      _error = 0x01;
       return (0);
   }
-  len += 2;  // two more bytes needed for CRC
-  if ( msg_len < len ) {
+  required_len += 2;  // two more bytes needed for CRC
+  if ( msg_len < required_len ) {
     return (-1);
   }
   
@@ -172,17 +178,16 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char *msg_buffer, unsigned char ms
   unsigned short recalculated_CRC = CheckSum.CRC16( msg_buffer, msg_len - 2 );
   if ( recalculated_CRC != msg_CRC ) {
     _error = 2;
-    #ifdef TESTMODE
-      char buf[7];
-      _port->write ( " -- failed CRC -- got " );
-      formatHex ( msg_CRC, buf );
-      _port->write ( buf );
-      _port->write ( "; expected " );
-      formatHex ( recalculated_CRC, buf );
-      _port->write ( buf );
-      _port->write ( "\n" );
+    char buf[7];
+    _port->write ( " -- failed CRC -- got " );
+    formatHex ( msg_CRC, buf );
+    _port->write ( buf );
+    _port->write ( "; expected " );
+    formatHex ( recalculated_CRC, buf );
+    _port->write ( buf );
+    _port->write ( "\n" );
+    #ifndef TESTMODE
       // don't return - simply ignore invalidity of CRC
-    #else
       return (0);
     #endif
   }
@@ -196,7 +201,7 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char *msg_buffer, unsigned char ms
 // Returns: Nothing
 // Effect:  Accepts and parses data
 
-void MODBUS_Slave::Process_Data(unsigned char* msg_buffer, unsigned char msg_len) {
+void MODBUS_Slave::Process_Data(unsigned char * msg_buffer, char msg_len) {
 
   int frame_valid = Check_Data_Frame ( msg_buffer, msg_len );
   switch ( frame_valid ) {
@@ -208,38 +213,38 @@ void MODBUS_Slave::Process_Data(unsigned char* msg_buffer, unsigned char msg_len
       break;
   }
   
-  unsigned char function_code = msg_buffer[1];
+  char function_code = msg_buffer[1];
   switch ( function_code ) {
-    case 1:  // read MODBUS coils
-    case 2:  // read discrete inputs
+    case 0x01:  // read MODBUS coils
+    case 0x02:  // read discrete inputs
       Read_Coils ( msg_buffer );
       break;
-    case 3:  // read register
-    case 4:  // read input reg
+    case 0x03:  // read register
+    case 0x04:  // read input reg
       Read_Reg ( msg_buffer );
       break;
-    case 5:
+    case 0x05:
       Write_Single_Coil ( msg_buffer );
       break;
-    case 6: 
+    case 0x06: 
       Write_Single_Reg ( msg_buffer );
       break;
-    case 7:
+    case 0x07:
       Read_Exception ( msg_buffer );
       break;
-    case 15:
+    case 0x0f:
       Write_Coils ( msg_buffer );
       break;
-    case 16:
+    case 0x10:
       Write_Reg ( msg_buffer );
       break;
     default:
       #ifdef TESTMODE
         _port->write ("bad cmd code");
       #endif
+      _error = 0x01;
       break;
   }
-  // _error = 0;
   
 }
 
@@ -252,20 +257,31 @@ void MODBUS_Slave::Process_Data(unsigned char* msg_buffer, unsigned char msg_len
 // Returns: Nothing
 // Effect:  Sends Response over serial port
 
-void MODBUS_Slave::Send_Response ( unsigned char *buf, unsigned short nChars ) {
+void MODBUS_Slave::Send_Response ( unsigned char *buf, short nChars ) {
 	if ( buf[0] == 0 )
     // don't reply	to broadcast
 		return;
   if ( nChars > 0 )	{
+    // set the error flag if an exception occurred
+    if ( _error ) {
+      if ( buf[1] != 0x07 ) {
+        // error flag is set, function is not "read exception"
+        buf[1] |= 0x80;
+      } else {
+        // reading the exception; reset the error
+        _error = 0;
+      }
+    }
     unsigned short CRC = CheckSum.CRC16 ( buf, nChars );
     buf[nChars++] = CRC & 0x00ff;				// lower byte
     buf[nChars++] = CRC >> 8;						// upper byte
     if ( _pdTalkEnable >= 0 ) digitalWrite ( _pdTalkEnable, HIGH );
-    for(int i = 0; i < nChars; i++) {
+    for( int i = 0; i < nChars; i++ ) {
       _port->write ( buf[i] );
     }
     if ( _pdTalkEnable >= 0 ) digitalWrite ( _pdTalkEnable, LOW );
   }
+  
 }
 
 //################## Read Exception ###################
@@ -320,10 +336,10 @@ void MODBUS_Slave::Read_Coils( unsigned char *buf ) {
 		return;
 	}
   
-  unsigned short Item = 3;
+  short Item = 3;
   Working_Byte = 0;
   Sub_Bit_Count = 0;
-  for ( int Bit = 0; Bit < Bit_Count; Bit++ ) {
+  for ( unsigned int Bit = 0; Bit < Bit_Count; Bit++ ) {
     Working_Byte = Working_Byte 
                    | ( ( ( _coilArray [ Address >> 4 ] >> ( Address & 0x000f ) ) & 0x01 )
                        << Sub_Bit_Count );
@@ -375,9 +391,9 @@ void MODBUS_Slave::Write_Single_Coil ( unsigned char *buf ) {
 		_error = 2;
 		return;
 	}
-  if ( Value_Hi > 0 | Value_Lo > 0 ) {
+  if ( Value_Hi > 0 || Value_Lo > 0 ) {
     // Real Protocol requires 0xFF00 = On and 0x0000 = Off, Custom, using anything other than 0 => ON
-    _coilArray[Write_Address] |= ( 1 << Write_Bit );
+    _coilArray[Write_Address] |=   ( 1 << Write_Bit );
   } else {
     _coilArray[Write_Address] &= ~ ( 1 << Write_Bit );
   }
@@ -398,7 +414,7 @@ void MODBUS_Slave::Write_Coils ( unsigned char *buf ) {
   unsigned char Byte_Count = buf[6];  // number of data bytes following
   
   unsigned short Address = Addr_Lo + ( Addr_Hi << 8 );
-  unsigned short Write_Bit_Count = Cnt_Lo + ( Cnt_Hi << 8 );
+  short Write_Bit_Count = Cnt_Lo + ( Cnt_Hi << 8 );
   
   // #ifdef TESTMODE
     // _port->write ("write bit count: "); _port->write (Write_Bit_Count); _port->write ('\n');
@@ -409,6 +425,11 @@ void MODBUS_Slave::Write_Coils ( unsigned char *buf ) {
 		_error = 2;
 		return;
 	}
+  
+  if ( Byte_Count < ( 16 * Write_Bit_Count ) ) {
+    _error = 2;
+    return;
+  }
   
   unsigned short Write_Address = Address >> 4;
   unsigned char Write_Bit = Address & 0x000f;
@@ -454,7 +475,7 @@ void MODBUS_Slave::Read_Reg ( unsigned char *buf ) {
   unsigned short Cnt_Hi = buf[4];
   unsigned short Cnt_Lo = buf[5];
   
-  unsigned short Count = Cnt_Lo + ( Cnt_Hi << 8 );  // number of registers ( 2 bytes each )
+  short Count = Cnt_Lo + ( Cnt_Hi << 8 );  // number of registers ( 2 bytes each )
   buf[2] = Count * 2;  // turn into bytes
   
   unsigned short Address = (Addr_Lo + ( Addr_Hi << 8 ) );
@@ -462,7 +483,7 @@ void MODBUS_Slave::Read_Reg ( unsigned char *buf ) {
 		_error = 2;
 		return;
 	}
-  unsigned short Item = 3;
+  short Item = 3;
   for ( int i = 0; i < Count; i++ ) {
     buf [ Item     ] = ( _regArray [ Address ] & 0xff00 ) >> 8;
     buf [ Item + 1 ] =   _regArray [ Address ] & 0x00ff;
@@ -483,7 +504,7 @@ void MODBUS_Slave::Write_Single_Reg ( unsigned char *buf ) {
   unsigned short Value_Hi = buf[4];
   unsigned short Value_Lo = buf[5];
 
-  unsigned short Address = ( Addr_Lo + ( Addr_Hi << 8 ) );
+  short Address = ( Addr_Lo + ( Addr_Hi << 8 ) );
   
   if ( Address + 1 > _nRegs )	{
   // Invalid Address;
@@ -504,11 +525,11 @@ void MODBUS_Slave::Write_Reg ( unsigned char *buf ) {
   unsigned short Addr_Lo = buf[3];
   unsigned short Cnt_Hi = buf[4];
   unsigned short Cnt_Lo = buf[5];
-  unsigned char Byte_Count = buf[6];
+  char Byte_Count = buf[6];
   
   unsigned short Address = ( Addr_Lo + ( Addr_Hi << 8 ) );
   unsigned short Count = Cnt_Lo + ( Cnt_Hi << 8 );
-  unsigned short Read_Byte = 7;  // First entry in input buf
+  short Read_Byte = 7;  // First entry in input buf
 
   if ( ( Address + Count ) > _nRegs )	{
   // Invalid Address
@@ -532,59 +553,77 @@ void MODBUS_Slave::Write_Reg ( unsigned char *buf ) {
 
 //################## Read Reg ###################
 // Takes:   In Data Buffer: address into regArray, count of registers to read
-// Returns: Nothing
+// Returns: Status: 
+//     negative value means there was a MODBUS error
+//       - 1 - MODBUS error: illegal function
+//       - 2 - MODBUS error: illegal data address
+//       - 3 - MODBUS error: illegal data value
+//       -81 - timeout
 // Effect:  Reads bytes at a time and composes 16 bit replies.  Sets Reply Data and sends Response
 
-unsigned char MODBUS_Slave::Execute ( ) {
+int MODBUS_Slave::Execute ( ) {
 
-  static unsigned long messageReceiptBeganAt_ms = 0;
+  unsigned long lastCharReceivedAt_ms;
   unsigned char somethingChanged = 0;
+  int status = 0;
   
   #define bufLen 80
   static unsigned char strBuf [ bufLen + 1 ];
   static int bufPtr;
+  
+// a character time at 57600 baud = 5760 cps is 1/5.76 ms = 0.17 ms
+// at 9600 baud = 960 cps it's 1/.96 = 1 ms
+#define MODBUS_RECEIVE_TIMEOUT_ms 2
 
-  if ( ( ( millis() - messageReceiptBeganAt_ms ) > MESSAGE_TIME_TO_LIVE_ms ) && bufPtr != 0 ) {
+  lastCharReceivedAt_ms = millis();
+  while ( ( millis() - lastCharReceivedAt_ms ) < MODBUS_RECEIVE_TIMEOUT_ms ) {
+    
+    // capture characters from stream
+    if ( _port->available() ) {
+      
+      if ( bufPtr < bufLen ) {
+        // grab the available character
+        strBuf [ bufPtr++ ] = _port->read();
+        lastCharReceivedAt_ms = millis();
+      } else {
+        // error - buffer overrun -- whine
+        for (;;) {
+          digitalWrite (pdLED, 1);
+          delay (100);
+          digitalWrite (pdLED, 0);
+          delay (100);
+        }
+      }
+    }  // chars available
+  }  // timeout
+
+  if ( ( ( millis() - lastCharReceivedAt_ms ) > MESSAGE_TIMEOUT_ms ) && bufPtr != 0 ) {
     // kill old messages to keep from blocking up with a bad message piece
     #ifdef TESTMODE
       _port->println ( "timeout" );
     #endif
+    status = -81;  // timeout
     bufPtr = 0;
-    messageReceiptBeganAt_ms = 0;
   }
-  
-  // capture characters from stream
-  while ( _port->available() ) {
-
-    if ( bufPtr == 0 ) {
-      // we are starting the receipt of a message
-      messageReceiptBeganAt_ms = millis();
-    }
     
-    if ( bufPtr < bufLen ) {
-      // grab the available character
-      strBuf[bufPtr++] = _port->read();
-    } else {
-      // error - buffer overrun -- whine
-      for (;;) {
-        digitalWrite (pdLED, 1);
-        delay (100);
-        digitalWrite (pdLED, 0);
-        delay (100);
-      }
-    }
-  }
-
   // bufPtr points to (vacant) char *after* the character string in strBuf,
   // and so it is the number of chars currently in the buffer
   if ( Check_Data_Frame ( strBuf, bufPtr ) == 1 ) {
     // process it
     digitalWrite (pdLED, 1);
     Process_Data ( strBuf, bufPtr );
-    somethingChanged = 1;
     digitalWrite (pdLED, 0);
+    somethingChanged = 1;
     bufPtr = 0;
   }
   
-  return ( somethingChanged );
+  // _error is normally 0, so status normally returns 0 ( nothing changed ) or 1 ( something did change )
+  if ( _error ) {
+    status = - _error;
+    bufPtr = 0;
+    _error = 0;
+  } 
+  
+  return ( status ? status : somethingChanged );
+  
 }

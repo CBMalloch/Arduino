@@ -1,5 +1,5 @@
-#define VERSION "0.2.1"
-#define VERDATE "2013-02-15"
+#define VERSION "0.2.3"
+#define VERDATE "2013-02-16"
 #define PROGMONIKER "TMS"
 
 /*
@@ -22,37 +22,46 @@
   Arduino connections (digital pins):
      0 RX - reserved for serial comm - left unconnected
      1 TX - reserved for serial comm - left unconnected
-     2 RX - RS485 connected to MAX485 pin 1
-     3 TX - RS485 connected to MAX485 pin 4
-     4 MAX485 driver enable
-     5 pulled-up input - COIL 0
-     6 pulled-up input - COIL 1
-     7 RS485 address high bit
-     8 RS485 address low bit
-     9 pulled-up input - COIL 2
-    10 -
-    11  } coils 3-5 outputs to LEDs
-    12 -
+     2 RS485 address high bit   Note: address is two bits but 4 is added ( 0 is defined as BROADCAST )
+     3 RS485 address low bit
+     4 pulled-up input - COIL 0
+     5 pulled-up input - COIL 1
+     6 pulled-up input - COIL 2
+     7 -
+     8  } coils 3-5 outputs to LEDs
+     9 -
+    10 RX - RS485 connected to MAX485 pin 1
+    11 TX - RS485 connected to MAX485 pin 4
+    12 MAX485 driver enable
     13 status LED
 
+    
+  Plans:
+    Either #define or inline functions for offset and mask values given position and size
+    Consider a core MODBUS library including CRC16, MODBUS core, and MODBUS slave bits.
+    
 */
 
 // TESTMODE will use regular serial port and enable more reporting
-// #undef TESTMODE
-#define TESTMODE 1
+#undef TESTMODE
+// #define TESTMODE 1
 
 #define BAUDRATE 115200
+// it appears strongly that SoftwareSerial can't go 115200, but maybe will do 57600.
+#define BAUDRATE485 57600
 
-#include <SoftwareSerial.h>
+#include <CRC16.h>
 #include <MODBUS_Slave.h>
 
+#define RS485RX 10
+#define RS485TX 11
 // RS485_TX_ENABLE = 1 -> transmit enable
-#define pdRS485_TX_ENABLE 4
-#define RS485RX 2
-#define RS485TX 3
+#define pdRS485_TX_ENABLE 12
 
-#define SLAVE_ADDRESS_HIGH 7
-#define SLAVE_ADDRESS_LOW  8
+#define pdLED 13
+
+#define SLAVE_ADDRESS_HIGH 2
+#define SLAVE_ADDRESS_LOW  3
 
 // note that short is 16 bits
 
@@ -63,15 +72,17 @@ static byte nPinDefs;
 #define PINDEF_ITEMS 3
 // ( input/output mode ( 1 input ); digital pin; coil # )
 short pinDefs [ ] [ PINDEF_ITEMS ] = {  
-                                        { 1,  4, -1 },
-                                        { 1,  5,  0 },
-                                        { 1,  6,  1 },
-                                        { 1,  7, -1 },
-                                        { 1,  8, -1 },
-                                        { 1,  9,  2 },
-                                        { 0, 10,  3 },
-                                        { 0, 11,  4 },
-                                        { 0, 12,  5 },
+                                        { 1,  2, -1 },
+                                        { 1,  3, -1 },
+                                        { 1,  4,  0 },
+                                        { 1,  5,  1 },
+                                        { 1,  6,  2 },
+                                        { 0,  7,  3 },
+                                        { 0,  8,  4 },
+                                        { 0,  9,  5 },
+                                    //    { 0, 10,  3 },
+                                    //    { 0, 11,  4 },
+                                        { 0, 12, -1 },
                                         { 0, 13, -1 }
                                       };
                                       
@@ -81,29 +92,30 @@ short regs[nRegs];
 #ifdef TESTMODE
   #define MAX485 Serial
 #else
+  #include <SoftwareSerial.h>
   SoftwareSerial MAX485 (RS485RX, RS485TX);
 #endif
 
 MODBUS_Slave mb;
 
 #define bufLen 80
-byte strBuf [ bufLen + 1 ];
+unsigned char strBuf [ bufLen + 1 ];
 int bufPtr;
 
 void setup() {
 
   int i;
   
-  MAX485.begin(BAUDRATE);  
+  MAX485.begin(BAUDRATE485);  
   bufPtr = 0;
   
   nPinDefs = sizeof ( pinDefs ) / sizeof ( pinDefs [ 0 ] );
   for ( i = 0; i < nPinDefs; i++ ) {
-    #if TESTMODE
-      MAX485.print ( i ); MAX485.print ( ": " );
-      MAX485.print ( pinDefs [i] [0] ); MAX485.print ( ", " );
-      MAX485.print ( pinDefs [i] [1] ); MAX485.print ( ", " );
-      MAX485.print ( pinDefs [i] [2] ); MAX485.println ( );
+    #if 0 && TESTMODE
+      Serial.print ( i ); Serial.print ( ": " );
+      Serial.print ( pinDefs [i] [0] ); Serial.print ( ", " );
+      Serial.print ( pinDefs [i] [1] ); Serial.print ( ", " );
+      Serial.print ( pinDefs [i] [2] ); Serial.println ( );
     #endif
     if ( pinDefs [i] [0] == 1 ) {
       // input pin
@@ -116,17 +128,17 @@ void setup() {
     }
   }
   
-  mySlaveAddress = ( digitalRead ( SLAVE_ADDRESS_HIGH ) << 1 ) | digitalRead ( SLAVE_ADDRESS_LOW );
+  mySlaveAddress = ( digitalRead ( SLAVE_ADDRESS_HIGH ) << 1 ) | ( digitalRead ( SLAVE_ADDRESS_LOW ) + 4 );
   mb.Init ( mySlaveAddress, nCoils, coils, nRegs, regs, (Stream*) &MAX485, pdRS485_TX_ENABLE );
   
   #if TESTMODE
-    MAX485.print ( PROGMONIKER );
-    MAX485.print ( ": Test MODBUS Slave v");
-    MAX485.print ( VERSION );
-    MAX485.print ( " (" );
-    MAX485.print ( VERDATE );
-    MAX485.print ( ")\n" );
-    MAX485.print ("  at address 0x"); MAX485.print (mySlaveAddress, HEX); MAX485.println (" ready in TEST mode");
+    Serial.print ( PROGMONIKER );
+    Serial.print ( ": Test MODBUS Slave v");
+    Serial.print ( VERSION );
+    Serial.print ( " (" );
+    Serial.print ( VERDATE );
+    Serial.print ( ")\n" );
+    Serial.print ("  at address 0x"); Serial.print (mySlaveAddress, HEX); Serial.println (" ready in TEST mode");
   #endif
 
   for (i = 0; i < ( nCoils + 15 ) >> 4; i++) {
@@ -144,28 +156,33 @@ void setup() {
 
 void loop() {
 
-  unsigned char somethingChanged;
-  static unsigned long lastBlinkAt_ms = 0;
+  int status;
+  static unsigned long lastBlinkToggleAt_ms = 0;
 
-  somethingChanged = mb.Execute ();
+  status = mb.Execute ();
   #ifdef TESTMODE
-    if ( somethingChanged ) {
+    if ( status == 1 ) {
       reportCoils();
       reportRegs();
     }
   #endif
+  if ( status < 0 ) {
+    // error
+    MAX485.print ( "Error: " ); MAX485.println ( status );
+  }
   
   refreshCoils();
   
-  if ( millis() - lastBlinkAt_ms > 500 ) {
-    digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
+  if ( ( millis() - lastBlinkToggleAt_ms ) > 1000 ) {
+    digitalWrite ( pdLED, ! digitalRead ( pdLED ) );
+    lastBlinkToggleAt_ms = millis();
   }
   
 }
 
 void refreshCoils () {
   
-  unsigned char somethingChanged = 0;
+  unsigned char coilsThatChanged = 0;
   int i;
   unsigned short mask, coilWord;
   for ( i = 0; i < nPinDefs; i++ ) {
@@ -181,11 +198,11 @@ void refreshCoils () {
         // input pin
         if ( digitalRead ( pinDefs [i] [1] ) ) {
           // high
-          somethingChanged |= ! ( coils[coilWord] & mask );
+          coilsThatChanged |= ~coils[coilWord] & mask;
           coils[coilWord]  |=   mask;
         } else {
           // low
-          somethingChanged |=   ( coils[coilWord] & mask );
+          coilsThatChanged |=  coils[coilWord] & mask;
           coils[coilWord]  &= ~ mask;
         }
       } else {
@@ -196,10 +213,13 @@ void refreshCoils () {
   }
      
   #ifdef TESTMODE
-    if ( somethingChanged ) {
+    if ( coilsThatChanged ) {
+      // will fail if more than 16 coils, because each word will be mapped on this single word!
+      Serial.print ( "Mask of coils that changed: 0x" ); Serial.print ( coilsThatChanged, HEX ); Serial.println ();
       reportCoils();
     }
   #endif
+  
 }
 
 
