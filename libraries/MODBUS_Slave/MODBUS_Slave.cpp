@@ -11,6 +11,8 @@
 	Arduino MODBUS Slave is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; 
 	without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 	See the GNU General Public License for more details.
+
+	To get a copy of the GNU General Public License see <http://www.gnu.org/licenses/>.
   
   Heavily modified by Charles B. Malloch, PhD  2013-02-12
   Mainly to allow me to use either hardware serial or SoftwareSerial for the RS485 communications
@@ -28,8 +30,7 @@
   addresses into coilArray and regArray.
   
   counts in requests are in terms of the units requested ( coils are bits, registers are 2 bytes )
-
-	To get a copy of the GNU General Public License see <http://www.gnu.org/licenses/>.
+  
 */
 
 #if defined(ARDUINO) && ARDUINO >= 100
@@ -608,13 +609,19 @@ int MODBUS_Slave::Execute ( ) {
     
   // bufPtr points to (vacant) char *after* the character string in strBuf,
   // and so it is the number of chars currently in the buffer
-  if ( Check_Data_Frame ( strBuf, bufPtr ) == 1 ) {
-    // process it
-    digitalWrite (pdLED, 1);
-    Process_Data ( strBuf, bufPtr );
-    digitalWrite (pdLED, 0);
-    somethingChanged = 1;
-    bufPtr = 0;
+  switch ( Check_Data_Frame ( strBuf, bufPtr ) ) {
+    case -1 : // incomplete message; keep looking
+      break;
+    case 0 : // not for me; discard it
+      bufPtr = 0;
+      break;
+    case 1 : // process it
+      digitalWrite ( pdLED, ! digitalRead ( pdLED ) );
+      Process_Data ( strBuf, bufPtr );
+      digitalWrite ( pdLED, ! digitalRead ( pdLED ) );
+      somethingChanged = 1;
+      bufPtr = 0;
+      break;
   }
   
   // _error is normally 0, so status normally returns 0 ( nothing changed ) or 1 ( something did change )

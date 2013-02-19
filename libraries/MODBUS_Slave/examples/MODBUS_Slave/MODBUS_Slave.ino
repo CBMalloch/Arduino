@@ -1,5 +1,5 @@
-#define VERSION "0.2.3"
-#define VERDATE "2013-02-16"
+#define VERSION "0.2.4"
+#define VERDATE "2013-02-17"
 #define PROGMONIKER "TMS"
 
 /*
@@ -55,7 +55,6 @@
 
 #define RS485RX 10
 #define RS485TX 11
-// RS485_TX_ENABLE = 1 -> transmit enable
 #define pdRS485_TX_ENABLE 12
 
 #define pdLED 13
@@ -80,8 +79,8 @@ short pinDefs [ ] [ PINDEF_ITEMS ] = {
                                         { 0,  7,  3 },
                                         { 0,  8,  4 },
                                         { 0,  9,  5 },
-                                    //    { 0, 10,  3 },
-                                    //    { 0, 11,  4 },
+                                    //    { 0, 10,  3 },    // handled by SoftwareSerial
+                                    //    { 0, 11,  4 },    // handled by SoftwareSerial
                                         { 0, 12, -1 },
                                         { 0, 13, -1 }
                                       };

@@ -43,21 +43,22 @@
 
 #define RS485RX 10
 #define RS485TX 11
-// RS485_TX_ENABLE = 1 -> transmit enable
 #define pdRS485_TX_ENABLE 12
 
 #define pdLED 13
+
+#define paPOT 0
 
 #define MSGDELAY_MS 250
 
 #include <CRC16.h>
 
-CRC CheckSum;	// From Checksum Library, CRC15.h, CRC16.cpp
+CRC CheckSum;	// From Checksum Library, CRC16.h, CRC16.cpp
 
 #include <SoftwareSerial.h>
 SoftwareSerial MAX485(RS485RX, RS485TX);
 
-static byte nPinDefs;
+byte nPinDefs;
 #define PINDEF_ITEMS 3
 // ( input/output mode ( 1 input ); digital pin; coil # )
 short pinDefs [ ] [ PINDEF_ITEMS ] = {  
@@ -72,6 +73,10 @@ int bufPtr;
 #define bufLen485 80
 unsigned char strBuf485[bufLen485+1];
 int bufPtr485;
+int receive_status = 0;
+
+unsigned char slaves [ ] = { 0x00, 0x06, 0x07 };
+byte nSlaves;
 
 void setup() {
  // Open serial communications and wait for port to open:
@@ -90,6 +95,8 @@ void setup() {
       digitalWrite ( pinDefs [i] [1], 0 );
     }
   }
+
+  nSlaves = sizeof ( slaves ) / sizeof ( byte );
 
   bufPtr = 0;
   bufPtr485 = 0;
@@ -114,6 +121,7 @@ void MODBUS_Send ( unsigned char *buf, short nChars ) {
   return;
 }
 
+#define MESSAGE_TIMEOUT_ms 5
 #define MODBUS_RECEIVE_TIMEOUT_ms 2
 
 void MODBUS_Receive ( ) {
@@ -148,48 +156,80 @@ void MODBUS_Receive ( ) {
     
   }
   
+  if ( ( ( millis() - lastCharReceivedAt_ms ) > MESSAGE_TIMEOUT_ms ) && bufPtr485 != 0 ) {
+    // kill old messages to keep from blocking up with a bad message piece
+    #ifdef TESTMODE
+      _port->println ( "timeout" );
+    #endif
+    receive_status = -81;  // timeout
+    bufPtr = 0;
+  }
+
   return;
 }
 
 void loop() {
 
-  #define SEND_COMMAND_INTERVAL_ms 1000
+  short send_command_interval_ms;
   static unsigned long lastSendAt_ms = 0;
   
-  static unsigned char s7c4s = 0x01;
-  static unsigned char coil = 3;
+  static char slave_k = 0;
+  static char coil = -1;
+  static unsigned char coil_value = 0x00;
   
-  if ( ( millis() - lastSendAt_ms ) > SEND_COMMAND_INTERVAL_ms ) {
-    // slave 7's coil 4
+  send_command_interval_ms = analogRead ( paPOT );
+  
+  if ( ( millis() - lastSendAt_ms ) > send_command_interval_ms ) {
     memcpy ( strBuf485, "\x07\x05\x00\x04\x00\x00\x00\x00", 8 );
     
     if ( coil < 5 ) {
       coil++;
     } else {
       coil = 3;
-      s7c4s ^= 0x01;
+      coil_value ^= 0x01;
+      if (coil_value == 0x00) slave_k = ( slave_k + 1 ) % nSlaves;
     }
         
+    strBuf485 [ 0 ] = slaves [ slave_k ];
     strBuf485 [ 3 ] = coil;
-    strBuf485 [ 5 ] = s7c4s;
-    digitalWrite (pdLED, s7c4s);
+    strBuf485 [ 5 ] = coil_value;
+    digitalWrite ( pdLED, ( ( coil & 0x01 ) ^ coil_value ) );
+    
+    snprintf ( strBuf, bufLen, "%d: coil %d set %d\n", 
+      slaves [ slave_k ], coil, coil_value );
+    Serial.print ( strBuf );
     
     MODBUS_Send ( strBuf485, 6 );
+    
+    // just to make sure we don't mistakenly think the slave replied when it didn't
     memcpy ( strBuf485, "\x77\x77\x77\x77\x77\x77\x77\x77", 8 );
+    
     bufPtr485 = 0;  // clear buffer...
-    Serial.print ( "." );
     lastSendAt_ms = millis();
   }
   
   MODBUS_Receive ( );
   
   if ( bufPtr485 > 0 ) {
-    Serial.print ("Received: ");
+  
+    if ( ( receive_status == 0 ) 
+      && ( bufPtr485 > 1 )
+      && ( strBuf485[1] & 0x80 ) ) {
+      receive_status = 99;
+    }
+    
+    Serial.print ("        Received: ");
     for ( int i = 0; i < bufPtr485; i++ ) {
       Serial.print ( " 0x" ); Serial.print ( strBuf485 [ i ], HEX );
     }
-    Serial.println ();
+    
+    snprintf ( strBuf, bufLen, "; status %d\n", receive_status );
+    Serial.print ( strBuf );
+    
     bufPtr485 = 0;
+
+  } else {
+    Serial.println ();
   }
     
 }
