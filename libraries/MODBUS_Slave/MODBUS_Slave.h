@@ -11,6 +11,8 @@
 	without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 	See the GNU General Public License for more details.
   
+	To get a copy of the GNU General Public License see <http://www.gnu.org/licenses/>.
+  
   Heavily modified by Charles B. Malloch, PhD  2013-02-12
   Mainly to allow me to use either hardware serial or SoftwareSerial for the RS485 communications
   But then also for my peculiar anally-motivated readability standards
@@ -18,13 +20,12 @@
   Note that in main program, one should define coilArray thus:
     unsigned short coils[ ( nCoils + 15 ) >> 4 ];
 
-	To get a copy of the GNU General Public License see <http://www.gnu.org/licenses/>.
 */
 
 #ifndef MODBUS_Slave_h
 #define MODBUS_Slave_h
 
-#define MODBUS_Slave_version 1.2.1
+#define MODBUS_Slave_version 1.2.3
 
 #include <Stream.h>
 #include <CRC16.h>
