@@ -1,5 +1,5 @@
-#define VERSION "0.2.4"
-#define VERDATE "2013-02-17"
+#define VERSION "0.3.0"
+#define VERDATE "2013-02-22"
 #define PROGMONIKER "TMS"
 
 /*
@@ -50,9 +50,6 @@
 // it appears strongly that SoftwareSerial can't go 115200, but maybe will do 57600.
 #define BAUDRATE485 57600
 
-#include <CRC16.h>
-#include <MODBUS_Slave.h>
-
 #define RS485RX 10
 #define RS485TX 11
 #define pdRS485_TX_ENABLE 12
@@ -62,9 +59,22 @@
 #define SLAVE_ADDRESS_HIGH 2
 #define SLAVE_ADDRESS_LOW  3
 
+#include <SoftwareSerial.h>
+SoftwareSerial MAX485 (RS485RX, RS485TX);
+
+// wah... indirectly used, but have to include for compiler
+#include <RS485.h>
+#include <CRC16.h>
+
+#include <MODBUS.h>
+MODBUS MODBUS_port ( ( Stream * ) &MAX485, pdRS485_TX_ENABLE );
+
+#include <MODBUS_Slave.h>
+MODBUS_Slave mb;
+
 // note that short is 16 bits
 
-byte mySlaveAddress;
+char mySlaveAddress;
 #define nCoils 6
 unsigned short coils [ ( nCoils + 15 ) >> 4 ];
 static byte nPinDefs;
@@ -88,29 +98,26 @@ short pinDefs [ ] [ PINDEF_ITEMS ] = {
 #define nRegs 8
 short regs[nRegs];
 
-#ifdef TESTMODE
-  #define MAX485 Serial
-#else
-  #include <SoftwareSerial.h>
-  SoftwareSerial MAX485 (RS485RX, RS485TX);
-#endif
-
-MODBUS_Slave mb;
-
+#ifdef BAUDRATE
 #define bufLen 80
 unsigned char strBuf [ bufLen + 1 ];
 int bufPtr;
+#endif
 
 void setup() {
 
   int i;
   
-  MAX485.begin(BAUDRATE485);  
+  #ifdef BAUDRATE
+    Serial.begin ( BAUDRATE );
+  #endif
+  
+  MAX485.begin ( BAUDRATE485 );  
   bufPtr = 0;
   
   nPinDefs = sizeof ( pinDefs ) / sizeof ( pinDefs [ 0 ] );
   for ( i = 0; i < nPinDefs; i++ ) {
-    #if 0 && TESTMODE
+    #if 0 && BAUDRATE
       Serial.print ( i ); Serial.print ( ": " );
       Serial.print ( pinDefs [i] [0] ); Serial.print ( ", " );
       Serial.print ( pinDefs [i] [1] ); Serial.print ( ", " );
@@ -127,10 +134,12 @@ void setup() {
     }
   }
   
-  mySlaveAddress = ( digitalRead ( SLAVE_ADDRESS_HIGH ) << 1 ) | ( digitalRead ( SLAVE_ADDRESS_LOW ) + 4 );
-  mb.Init ( mySlaveAddress, nCoils, coils, nRegs, regs, (Stream*) &MAX485, pdRS485_TX_ENABLE );
+  mySlaveAddress = ( digitalRead ( SLAVE_ADDRESS_HIGH ) << 1 ) 
+                 | ( digitalRead ( SLAVE_ADDRESS_LOW ) + 4 );
+  mb.Init ( mySlaveAddress, nCoils, coils, nRegs, regs, MODBUS_port );
+  mb.Set_Verbose ( ( Stream * ) &Serial, -1 );
   
-  #if TESTMODE
+  #if BAUDRATE
     Serial.print ( PROGMONIKER );
     Serial.print ( ": Test MODBUS Slave v");
     Serial.print ( VERSION );
@@ -147,10 +156,6 @@ void setup() {
     regs[i] = i * 3;
   }
   
-  #if TESTMODE
-    // reportCoils();
-    // reportRegs();
-  #endif
 }
 
 void loop() {
@@ -159,16 +164,16 @@ void loop() {
   static unsigned long lastBlinkToggleAt_ms = 0;
 
   status = mb.Execute ();
-  #ifdef TESTMODE
+  #ifdef BAUDRATE
     if ( status == 1 ) {
       reportCoils();
       reportRegs();
     }
+    if ( status < 0 ) {
+      // error
+      Serial.print ( "Error: " ); Serial.println ( status );
+    }
   #endif
-  if ( status < 0 ) {
-    // error
-    MAX485.print ( "Error: " ); MAX485.println ( status );
-  }
   
   refreshCoils();
   
@@ -211,7 +216,7 @@ void refreshCoils () {
     }
   }
      
-  #ifdef TESTMODE
+  #ifdef BAUDRATE
     if ( coilsThatChanged ) {
       // will fail if more than 16 coils, because each word will be mapped on this single word!
       Serial.print ( "Mask of coils that changed: 0x" ); Serial.print ( coilsThatChanged, HEX ); Serial.println ();
@@ -222,7 +227,7 @@ void refreshCoils () {
 }
 
 
-#ifdef TESTMODE
+#ifdef BAUDRATE
 void reportCoils () {
   int i;
   unsigned short bitval;

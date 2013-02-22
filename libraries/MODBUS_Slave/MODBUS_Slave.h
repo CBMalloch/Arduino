@@ -29,8 +29,11 @@
 
 #include <Stream.h>
 #include <CRC16.h>
+#include <MODBUS.h>
 
-// how much time we allow for a message to be under construction before we
+#define pdLED 13
+
+// how much time we allow for an incoming message to be under construction before we
 // decide it's time to discard it as an orphan or as a malformed frame
 // #define MESSAGE_TIME_TO_LIVE_ms ( 2 * ( bufLen * 10 ) / ( BAUDRATE / 1000 ) )
 // 80 * 10 / 11.5 is about 70 plus some fudge is 100
@@ -38,34 +41,35 @@
 // Instead of the *first* char starting the timer, let's use the most recent one. 
 // At 9600 baud (slowest likely rate), one character of 10 bits takes 1/960 sec,
 // so timeout could be 1 ms
-#define MESSAGE_TIMEOUT_ms 5
-
-#define pdLED 13
-
+#define MESSAGE_TTL_ms 5
 
 class MODBUS_Slave {
 	public:
     MODBUS_Slave ();
-		MODBUS_Slave (  char address, 
+
+		MODBUS_Slave (  
+                    char address,
                     short nCoils,       // number of individual *bits*
                     unsigned short * coilArray,
                     short nRegs,
                     short * regArray,
-                    Stream *serialPort,
-                    short paTalkEnable = -1
+                    MODBUS MODBUS_port
                  );
-		void Init ( char address, 
+
+		void Init ( 
+                char address,
                 short nCoils,       // number of individual *bits*
                 unsigned short * coilArray,
                 short nRegs,
                 short * regArray,
-                Stream *serialPort,
-                short pdTalkEnable = -1
+                MODBUS MODBUS_port
              );
-    
+
     int Execute ();
-		void Process_Data    ( unsigned char * msg_buffer, char msg_len );
     int Check_Data_Frame ( unsigned char * msg_buffer, char msg_len );
+		void Process_Data    ( unsigned char * msg_buffer, char msg_len );
+    
+    void Set_Verbose ( Stream * diagnostic_port, int VERBOSITY );
     
 	private:
     void Send_Response ( unsigned char * Data_In, short Length );
@@ -85,8 +89,11 @@ class MODBUS_Slave {
 		unsigned short * _coilArray;
     short _nRegs;
     short * _regArray;
-    Stream * _port;
-    short _pdTalkEnable;
+    
+    MODBUS _MODBUS_port;
+    Stream * _diagnostic_port;
+    int _VERBOSITY;
+
 		unsigned char _error;
 };
 
