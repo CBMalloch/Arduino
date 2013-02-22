@@ -1,5 +1,5 @@
-#define VERSION "0.1.0"
-#define VERDATE "2013-02-17"
+#define VERSION "0.2.0"
+#define VERDATE "2013-02-21"
 #define PROGMONIKER "MBM"
 
 /*
@@ -15,7 +15,7 @@
     7 B - inverting receiver input and inverting driver output
     8 Vcc - 4.75V-5.25V
 
-    Not all pins on the Leonardo support change interrupts, so only the following can be used for RX: 
+    Not all pins on the Leonardo supMODBUS_port change interrupts, so only the following can be used for RX: 
       8, 9, 10, 11, 14 (MISO), 15 (SCK), 16 (MOSI). 
  
  
@@ -34,9 +34,19 @@
     11 TX - RS485 connected to MAX485 pin 4 - handled by SoftwareSerial
     12 MAX485 driver enable
     13 status LED
-
+    
+    
+    Statistics:
+       In 2556 message pairs, the mean time between the completion of the sending and the 
+       completion of the receipt of the reply was 6.84ms, with a standard deviation of 2.31ms.
+       With a 2 ms inter-character timeout
+       With a 1 ms timeout, mean = 7.28, std = 2.70
+       With a 3 ms timeout, mean = 7.48, std = 1.90
+       With a 10 ms timeout, mean = 12.99, std = 0.71
+      With a 2 ms timeout, the average number of iterations to receive a message was 2.79 with a std of 0.98.
 */
 
+#define VERBOSE 2
 #define BAUDRATE 115200
 // it appears strongly that SoftwareSerial can't go 115200, but maybe will do 57600.
 #define BAUDRATE485 57600
@@ -49,14 +59,15 @@
 
 #define paPOT 0
 
-#define MSGDELAY_MS 250
-
+// wah... indirectly used, but have to include for compiler
+#include <RS485.h>
 #include <CRC16.h>
 
-CRC CheckSum;	// From Checksum Library, CRC16.h, CRC16.cpp
-
 #include <SoftwareSerial.h>
-SoftwareSerial MAX485(RS485RX, RS485TX);
+SoftwareSerial MAX485 ( RS485RX, RS485TX );
+
+#include <MODBUS.h>
+MODBUS MODBUS_port ( ( Stream * ) &MAX485, pdRS485_TX_ENABLE );
 
 byte nPinDefs;
 #define PINDEF_ITEMS 3
@@ -73,13 +84,15 @@ int bufPtr;
 #define bufLen485 80
 unsigned char strBuf485[bufLen485+1];
 int bufPtr485;
-int receive_status = 0;
+int receive_status;
+
+#define MESSAGE_TTL_ms 5
 
 unsigned char slaves [ ] = { 0x00, 0x06, 0x07 };
 byte nSlaves;
 
 void setup() {
- // Open serial communications and wait for port to open:
+ // Open serial communications and wait for MODBUS_port to open:
   Serial.begin(BAUDRATE);
   MAX485.begin(BAUDRATE485);
   
@@ -106,78 +119,30 @@ void setup() {
 
 }
 
-void MODBUS_Send ( unsigned char *buf, short nChars ) {
-  if ( nChars > 0 )	{
-    // set the error flag if an exception occurred
-    unsigned short CRC = CheckSum.CRC16 ( buf, nChars );
-    buf[nChars++] = CRC & 0x00ff;				// lower byte
-    buf[nChars++] = CRC >> 8;						// upper byte
-    digitalWrite ( pdRS485_TX_ENABLE, HIGH );
-    for ( int i = 0; i < nChars; i++ ) {
-      MAX485.write ( buf[i] );
-    }
-    digitalWrite ( pdRS485_TX_ENABLE, LOW );
-  }
-  return;
-}
-
-#define MESSAGE_TIMEOUT_ms 5
-#define MODBUS_RECEIVE_TIMEOUT_ms 2
-
-void MODBUS_Receive ( ) {
-
-  static unsigned long lastCharReceivedAt_ms;
-  
-  // capture characters from stream
-  lastCharReceivedAt_ms = millis();
-  while ( ( millis() - lastCharReceivedAt_ms ) < MODBUS_RECEIVE_TIMEOUT_ms ) {
-    
-    if ( MAX485.available() ) {
-    
-      if ( bufPtr485 < bufLen485 ) {
-        // grab the available character
-        unsigned char c;
-        c = MAX485.read();
-        // if ( c != (char) '0xff' ) {
-          
-        strBuf485 [ bufPtr485++ ] = c;
-        lastCharReceivedAt_ms = millis();
-      } else {
-        // error - buffer overrun -- whine
-        for (;;) {
-          digitalWrite (pdLED, 1);
-          delay (100);
-          digitalWrite (pdLED, 0);
-          delay (100);
-        }
-      }
-      digitalWrite ( pdLED, ! digitalRead ( pdLED ) );
-    }  // character available
-    
-  }
-  
-  if ( ( ( millis() - lastCharReceivedAt_ms ) > MESSAGE_TIMEOUT_ms ) && bufPtr485 != 0 ) {
-    // kill old messages to keep from blocking up with a bad message piece
-    #ifdef TESTMODE
-      _port->println ( "timeout" );
-    #endif
-    receive_status = -81;  // timeout
-    bufPtr = 0;
-  }
-
-  return;
-}
-
 void loop() {
 
-  short send_command_interval_ms;
-  static unsigned long lastSendAt_ms = 0;
+  short send_command_interval_ms, print_interval_ms = 1000;
+  static unsigned long lastLoopAt_us, lastPrintAt_ms = 0, lastSendAt_ms = 0, lastMsgReceivedAt_ms = 0;
   
   static char slave_k = 0;
   static char coil = -1;
   static unsigned char coil_value = 0x00;
+  unsigned char commandSentThisLoop = 0;
+  
+  receive_status = 0;
   
   send_command_interval_ms = analogRead ( paPOT );
+  
+  #if VERBOSE > 1
+  if ( ( millis() - lastPrintAt_ms ) > print_interval_ms ) {
+    Serial.print ( "Send interval (ms): " ); Serial.println ( send_command_interval_ms );
+    if ( lastLoopAt_us != 0LU ) {
+      Serial.print( "  Loop time (us): "); Serial.println ( micros() - lastLoopAt_us );
+    }
+    lastPrintAt_ms = millis();
+  }
+  lastLoopAt_us = micros();
+  #endif
   
   if ( ( millis() - lastSendAt_ms ) > send_command_interval_ms ) {
     memcpy ( strBuf485, "\x07\x05\x00\x04\x00\x00\x00\x00", 8 );
@@ -195,42 +160,86 @@ void loop() {
     strBuf485 [ 5 ] = coil_value;
     digitalWrite ( pdLED, ( ( coil & 0x01 ) ^ coil_value ) );
     
-    snprintf ( strBuf, bufLen, "%d: coil %d set %d\n", 
-      slaves [ slave_k ], coil, coil_value );
-    Serial.print ( strBuf );
+    #if VERBOSE >= 4
+      snprintf ( strBuf, bufLen, "%d: coil %d set %d\n", 
+        slaves [ slave_k ], coil, coil_value );
+      Serial.print ( strBuf );
+    #endif
     
-    MODBUS_Send ( strBuf485, 6 );
+    MODBUS_port.Send ( strBuf485, 6 );
     
     // just to make sure we don't mistakenly think the slave replied when it didn't
     memcpy ( strBuf485, "\x77\x77\x77\x77\x77\x77\x77\x77", 8 );
     
     bufPtr485 = 0;  // clear buffer...
     lastSendAt_ms = millis();
+    commandSentThisLoop = 1;
   }
   
-  MODBUS_Receive ( );
+  
+  // **************** receive reply ****************
+  
+  if ( commandSentThisLoop && ( slaves [ slave_k ] != 0x00 ) ) {
+  
+    #define timeToWaitForReply_us 20000LU
+    unsigned long beganWaitingForReply_us = micros();
+    int nIterationsRequired = 0;
+    while ( ( ! bufPtr485 ) && ( ( micros() - beganWaitingForReply_us ) < timeToWaitForReply_us ) ) {
+      bufPtr485 = MODBUS_port.Receive ( strBuf485, bufLen485, 2 );
+      Serial.print ( "." );
+      nIterationsRequired++;
+    }
+    unsigned long itTook_us = micros() - beganWaitingForReply_us;
+    
+    if ( bufPtr485 ) {
+      lastMsgReceivedAt_ms = millis();
+      Serial.print ( "Reply receipt turnaround took " );
+      Serial.print ( itTook_us );
+      Serial.print ( "us in " );
+      Serial.print ( nIterationsRequired );
+      Serial.println ( " iterations" );
+    } else {
+      Serial.print ( "Message receive timed out of testing (" );
+      Serial.print ( timeToWaitForReply_us );
+      Serial.println ( "us)" );
+    }
+  }
+  
+  if ( ( ( millis() - lastMsgReceivedAt_ms ) > MESSAGE_TTL_ms ) && ( bufPtr485 != 0 ) ) {
+    // kill old messages to keep from blocking up with a bad message piece
+    Serial.println ( "timeout" );
+    receive_status = -81;  // timeout
+    bufPtr485 = 0;
+  }
+
   
   if ( bufPtr485 > 0 ) {
   
     if ( ( receive_status == 0 ) 
       && ( bufPtr485 > 1 )
       && ( strBuf485[1] & 0x80 ) ) {
+      // high order bit of command code in reply indicates error condition exists
       receive_status = 99;
     }
     
-    Serial.print ("        Received: ");
-    for ( int i = 0; i < bufPtr485; i++ ) {
-      Serial.print ( " 0x" ); Serial.print ( strBuf485 [ i ], HEX );
-    }
-    
-    snprintf ( strBuf, bufLen, "; status %d\n", receive_status );
-    Serial.print ( strBuf );
+    #if VERBOSE >= 5      Serial.print ("        Received: ");
+      for ( int i = 0; i < bufPtr485; i++ ) {
+        Serial.print ( " 0x" ); Serial.print ( strBuf485 [ i ], HEX );
+      }
+      
+      snprintf ( strBuf, bufLen, "; status %d\n", receive_status );
+      Serial.print ( strBuf );
+    #endif
     
     bufPtr485 = 0;
 
   } else {
-    Serial.println ();
+    #if VERBOSE >= 5
+      Serial.println ();
+    #endif
   }
     
+  commandSentThisLoop = 0;
+  
 }
 
