@@ -43,6 +43,26 @@
 // so timeout could be 1 ms
 #define MESSAGE_TTL_ms 5
 
+/*
+  Trying to strip it down to run on an ATtiny85 or ATtiny84. In order to do that, I want to 
+  remove all extra code from the class. In particular, the VERBOSITY code should be disabled 
+  when compiling for an ATtiny. To this end, I wanted to use conditional compilation 
+  and so needed to find the designation for the ATtiny85 that I am using.
+  
+#if defined(__AVR_ATmega328P__)
+#error GOT 328
+#elif ! defined(ATtiny85)
+#error NOT GOT ATtiny85
+#elif defined(__AVR_ATtiny85__)
+#error GOT __AVR_ATtiny85__
+#else
+#error ERROR BAD ASS!!!
+#endif
+
+*/
+
+
+
 class MODBUS_Slave {
 	public:
     MODBUS_Slave ();
@@ -91,8 +111,10 @@ class MODBUS_Slave {
     short * _regArray;
     
     MODBUS _MODBUS_port;
+    #if ! defined(ATtiny85)
     Stream * _diagnostic_port;
     int _VERBOSITY;
+    #endif
 
 		unsigned char _error;
 };
