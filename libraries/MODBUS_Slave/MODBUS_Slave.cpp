@@ -86,7 +86,9 @@ void MODBUS_Slave::Init(
   
   _MODBUS_port = MODBUS_port;
   
-  _VERBOSITY = 0;
+  #if ! defined(ATtiny85)
+    _VERBOSITY = 0;
+  #endif
   
 	_error = 0;
   
@@ -111,18 +113,22 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char * msg_buffer, char msg_len ) 
 	if ( msg_address > 247 ) {
     // invalid
 		_error = 1;
-    if ( _VERBOSITY >= 5 ) {
-      _diagnostic_port->print ( "  invalid addressee: 0x" ); _diagnostic_port->println ( msg_address, HEX );
-    }
+    #if ! defined(ATtiny85)
+      if ( _VERBOSITY >= 5 ) {
+        _diagnostic_port->print ( "  invalid addressee: 0x" ); _diagnostic_port->println ( msg_address, HEX );
+      }
+    #endif
 		return (0);
 	}
   if ( msg_address != 0 && msg_address != _address) {
     // ignore unless address matches or it's a broadcast (0)
-    if ( _VERBOSITY >= 10 ) {
-      _diagnostic_port->print ( "  msg not for me (msg: 0x" ); 
-      _diagnostic_port->print ( msg_address, HEX ); _diagnostic_port->print ( " != me: 0x" ); 
-      _diagnostic_port->print ( _address, HEX ); _diagnostic_port->print ( ")\n" ); 
-    }
+    #if ! defined(ATtiny85)
+      if ( _VERBOSITY >= 10 ) {
+        _diagnostic_port->print ( "  msg not for me (msg: 0x" ); 
+        _diagnostic_port->print ( msg_address, HEX ); _diagnostic_port->print ( " != me: 0x" ); 
+        _diagnostic_port->print ( _address, HEX ); _diagnostic_port->print ( ")\n" ); 
+      }
+    #endif
     return (0);
   }
   
@@ -150,11 +156,14 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char * msg_buffer, char msg_len ) 
       required_len = 7 + msg_buffer[6];  // length in bytes of data segment...
       break;
     default: // unimplemented function code
-      if ( _VERBOSITY >= 5 ) {
-        _diagnostic_port->print ( "  unimplemented function code (0x" );
-        _diagnostic_port->print ( function_code, HEX ); 
-        _diagnostic_port->print ( ")\n" );
-      }
+      #if ! defined(ATtiny85)
+        if ( _VERBOSITY >= 5 ) {
+          _diagnostic_port->print ( "  unimplemented function code (0x" );
+          _diagnostic_port->print ( function_code, HEX ); 
+          _diagnostic_port->print ( ")\n" );
+        }
+      #endif
+      
       _error = 0x01;
       return (0);
   }
@@ -170,16 +179,18 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char * msg_buffer, char msg_len ) 
   unsigned short recalculated_CRC = CheckSum.CRC16( msg_buffer, msg_len - 2 );
   if ( recalculated_CRC != msg_CRC ) {
     _error = 2;
-    if ( _VERBOSITY >= 5 ) {
-      char buf[7];
-      _diagnostic_port->print ( " -- failed CRC -- got " );
-      formatHex ( msg_CRC, buf );
-      _diagnostic_port->print ( buf );
-      _diagnostic_port->print ( "; expected " );
-      formatHex ( recalculated_CRC, buf );
-      _diagnostic_port->print ( buf );
-      _diagnostic_port->print ( "\n" );
-    }
+    #if ! defined(ATtiny85)
+      if ( _VERBOSITY >= 5 ) {
+        char buf[7];
+        _diagnostic_port->print ( " -- failed CRC -- got " );
+        formatHex ( msg_CRC, buf );
+        _diagnostic_port->print ( buf );
+        _diagnostic_port->print ( "; expected " );
+        formatHex ( recalculated_CRC, buf );
+        _diagnostic_port->print ( buf );
+        _diagnostic_port->print ( "\n" );
+      }
+    #endif
     #ifndef TESTMODE
       // don't return - simply ignore invalidity of CRC
       return (0);
@@ -233,9 +244,11 @@ void MODBUS_Slave::Process_Data ( unsigned char * msg_buffer, char msg_len ) {
       Write_Reg ( msg_buffer );
       break;
     default:
-      if ( _VERBOSITY >= 5 ) {
-        _diagnostic_port->print ("bad cmd code: 0x"); _diagnostic_port->println ( function_code, HEX );
-      }
+      #if ! defined(ATtiny85)
+        if ( _VERBOSITY >= 5 ) {
+          _diagnostic_port->print ("bad cmd code: 0x"); _diagnostic_port->println ( function_code, HEX );
+        }
+      #endif
       _error = 0x01;
       break;
   }
@@ -321,9 +334,11 @@ void MODBUS_Slave::Read_Coils( unsigned char *buf ) {
     Sub_Bit_Count++;
     
     if ( Sub_Bit_Count >= 8 ) {
-      if ( _VERBOSITY >= 15 ) {
-        _diagnostic_port->print ("  BBBB 0x"); _diagnostic_port->println ( Working_Byte, HEX );
-      }
+      #if ! defined(ATtiny85)
+        if ( _VERBOSITY >= 15 ) {
+          _diagnostic_port->print ("  BBBB 0x"); _diagnostic_port->println ( Working_Byte, HEX );
+        }
+      #endif
       buf[Item++] = Working_Byte;
       Working_Byte = 0;
       Sub_Bit_Count=0;
@@ -332,9 +347,11 @@ void MODBUS_Slave::Read_Coils( unsigned char *buf ) {
   }
   // if Bit_Count didn't end at a word boundary, we have leftovers
   if ( Sub_Bit_Count != 0 ) {
-      if ( _VERBOSITY >= 15 ) {
-        _diagnostic_port->print ("  BBBC 0x"); _diagnostic_port->println ( Working_Byte, HEX );
-      }
+      #if ! defined(ATtiny85)
+        if ( _VERBOSITY >= 15 ) {
+          _diagnostic_port->print ("  BBBC 0x"); _diagnostic_port->println ( Working_Byte, HEX );
+        }
+      #endif
     buf[Item++] = Working_Byte;
     Working_Byte = 0;
     Sub_Bit_Count = 0;
@@ -390,11 +407,13 @@ void MODBUS_Slave::Write_Coils ( unsigned char *buf ) {
   unsigned short Address = Addr_Lo + ( Addr_Hi << 8 );
   short Write_Bit_Count = Cnt_Lo + ( Cnt_Hi << 8 );
   
-  if ( _VERBOSITY >= 10 ) {
-    _diagnostic_port->print ("write bit count: "); 
-    _diagnostic_port->print (Write_Bit_Count); 
-    _diagnostic_port->print ('\n');
-  }
+  #if ! defined(ATtiny85)
+    if ( _VERBOSITY >= 10 ) {
+      _diagnostic_port->print ("write bit count: "); 
+      _diagnostic_port->print (Write_Bit_Count); 
+      _diagnostic_port->print ('\n');
+    }
+  #endif
 
   	
   if ( ( Address + Write_Bit_Count ) > _nCoils ) {
@@ -553,23 +572,27 @@ int MODBUS_Slave::Execute ( ) {
   
   if ( bufPtr ) {
     lastMsgReceivedAt_ms = millis();
-    if ( _VERBOSITY >= 1 ) {
-      
-      _diagnostic_port->println ( "Received: " );
-      for ( int i = 0; i < bufPtr; i++ ) {
-        formatHex ( strBuf [ i ], hexBuf, 2);
-        _diagnostic_port->print ( hexBuf );
-        _diagnostic_port->print ( " " );
+    #if ! defined(ATtiny85)
+      if ( _VERBOSITY >= 1 ) {
+        
+        _diagnostic_port->println ( "Received: " );
+        for ( int i = 0; i < bufPtr; i++ ) {
+          formatHex ( strBuf [ i ], hexBuf, 2);
+          _diagnostic_port->print ( hexBuf );
+          _diagnostic_port->print ( " " );
+        }
+        _diagnostic_port->print ( '\n' );
       }
-      _diagnostic_port->print ( '\n' );
-    }
+    #endif
   }
 
   if ( ( ( millis() - lastMsgReceivedAt_ms ) > MESSAGE_TTL_ms ) && bufPtr != 0 ) {
     // kill old messages to keep from blocking up with a bad message piece
-    if ( _VERBOSITY >= 1 ) {
-      _diagnostic_port->println ( "timeout" );
-    }
+    #if ! defined(ATtiny85)
+      if ( _VERBOSITY >= 1 ) {
+        _diagnostic_port->println ( "timeout" );
+      }
+    #endif
     status = -81;  // timeout
     bufPtr = 0;
   }
@@ -606,9 +629,13 @@ int MODBUS_Slave::Execute ( ) {
 // ******************************************************************************
 // ******************************************************************************
 
+#if ! defined(ATtiny85)
+
 void MODBUS_Slave::Set_Verbose ( Stream * diagnostic_port, int VERBOSITY ) {
   _diagnostic_port = diagnostic_port;
   _VERBOSITY = VERBOSITY;
   return;
 }
+
+#endif
 

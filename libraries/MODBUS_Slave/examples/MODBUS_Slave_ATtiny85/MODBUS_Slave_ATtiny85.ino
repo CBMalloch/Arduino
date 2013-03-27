@@ -19,26 +19,20 @@
 
 /*
 
-  Arduino connections (digital pins):
-     0 RX - reserved for serial comm - left unconnected
-     1 TX - reserved for serial comm - left unconnected
-     2 RS485 address high bit   Note: address is two bits but 4 is added ( 0 is defined as BROADCAST )
-     3 RS485 address low bit
-     4 pulled-up input - COIL 0
-     5 pulled-up input - COIL 1
-     6 pulled-up input - COIL 2
-     7 -
-     8  } coils 3-5 outputs to LEDs
-     9 -
-    10 RX - RS485 connected to MAX485 pin 1
-    11 TX - RS485 connected to MAX485 pin 4
-    12 MAX485 driver enable
-    13 status LED
+  ATtiny connections (digital pins):
+
+     0 RX - RS485 connected to MAX485 pin 1
+     1 TX - RS485 connected to MAX485 pin 4
+     2 MAX485 driver enable
+     3-
+     4 } coils 0-2 outputs to LEDs
+     5 -
 
     
   Plans:
     Either #define or inline functions for offset and mask values given position and size
-    Consider a core MODBUS library including CRC16, MODBUS core, and MODBUS slave bits.  DONE
+    
+    SO SAD... TOO BAD... TOO BIG TO FIT ON ATTINY85!
     
 */
 
@@ -46,18 +40,14 @@
 #undef TESTMODE
 // #define TESTMODE 1
 
-#define BAUDRATE 115200
+#undef BAUDRATE
+// #define BAUDRATE 115200
 // it appears strongly that SoftwareSerial can't go 115200, but maybe will do 57600.
 #define BAUDRATE485 57600
 
-#define RS485RX 10
-#define RS485TX 11
-#define pdRS485_TX_ENABLE 12
-
-#define pdLED 13
-
-#define SLAVE_ADDRESS_HIGH 2
-#define SLAVE_ADDRESS_LOW  3
+#define RS485RX 0
+#define RS485TX 1
+#define pdRS485_TX_ENABLE 2
 
 #include <SoftwareSerial.h>
 SoftwareSerial MAX485 (RS485RX, RS485TX);
@@ -75,24 +65,16 @@ MODBUS_Slave mb;
 // note that short is 16 bits
 
 char mySlaveAddress;
-#define nCoils 6
+#define nCoils 3
 unsigned short coils [ ( nCoils + 15 ) >> 4 ];
 static byte nPinDefs;
 #define PINDEF_ITEMS 3
 // ( input/output mode ( 1 input ); digital pin; coil # )
 short pinDefs [ ] [ PINDEF_ITEMS ] = {  
                                         { 1,  2, -1 },
-                                        { 1,  3, -1 },
-                                        { 1,  4,  0 },
-                                        { 1,  5,  1 },
-                                        { 1,  6,  2 },
-                                        { 0,  7,  3 },
-                                        { 0,  8,  4 },
-                                        { 0,  9,  5 },
-                                    //    { 0, 10,  3 },    // handled by SoftwareSerial
-                                    //    { 0, 11,  4 },    // handled by SoftwareSerial
-                                        { 0, 12, -1 },
-                                        { 0, 13, -1 }
+                                        { 0,  3,  0 },
+                                        { 0,  4,  1 },
+                                        { 0,  5,  2 }
                                       };
                                       
 #define nRegs 8
@@ -110,7 +92,6 @@ void setup() {
   
   #ifdef BAUDRATE
     Serial.begin ( BAUDRATE );
-    bufPtr = 0;
   #endif
   
   MAX485.begin ( BAUDRATE485 );
@@ -134,8 +115,7 @@ void setup() {
     }
   }
   
-  mySlaveAddress = ( digitalRead ( SLAVE_ADDRESS_HIGH ) << 1 ) 
-                 | ( digitalRead ( SLAVE_ADDRESS_LOW ) + 4 );
+  mySlaveAddress = 0x03;
   mb.Init ( mySlaveAddress, nCoils, coils, nRegs, regs, MODBUS_port );
   
   #if BAUDRATE
