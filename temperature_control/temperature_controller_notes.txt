@@ -1,0 +1,1 @@
+power connection: + is tip (ctr); - is shell

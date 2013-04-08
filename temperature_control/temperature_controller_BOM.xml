@@ -1,0 +1,280 @@
+<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <LastAuthor>Charles B. Malloch, PhD</LastAuthor>
+  <Created>2012-01-12T15:31:02Z</Created>
+  <LastSaved>2012-01-26T19:29:53Z</LastSaved>
+  <Version>11.9999</Version>
+ </DocumentProperties>
+ <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+  <WindowHeight>8700</WindowHeight>
+  <WindowWidth>13275</WindowWidth>
+  <WindowTopX>180</WindowTopX>
+  <WindowTopY>120</WindowTopY>
+  <ProtectStructure>False</ProtectStructure>
+  <ProtectWindows>False</ProtectWindows>
+ </ExcelWorkbook>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="s21">
+   <NumberFormat ss:Format="&quot;$&quot;#,##0.00"/>
+  </Style>
+  <Style ss:ID="s22">
+   <NumberFormat ss:Format="Short Date"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="temperature_controller_BOM">
+  <Table ss:ExpandedColumnCount="7" ss:ExpandedRowCount="28" x:FullColumns="1"
+   x:FullRows="1">
+   <Column ss:AutoFitWidth="0" ss:Width="231.75"/>
+   <Column ss:AutoFitWidth="0" ss:Width="63.75"/>
+   <Column ss:AutoFitWidth="0" ss:Width="72.75"/>
+   <Column ss:AutoFitWidth="0" ss:Width="65.25"/>
+   <Column ss:StyleID="s21" ss:AutoFitWidth="0" ss:Width="45"/>
+   <Column ss:AutoFitWidth="0" ss:Width="21.75"/>
+   <Column ss:StyleID="s21" ss:AutoFitWidth="0" ss:Width="42"/>
+   <Row>
+    <Cell><Data ss:Type="String">Project box</Data></Cell>
+    <Cell><Data ss:Type="String">Organize</Data></Cell>
+    <Cell><Data ss:Type="Number">80844060569</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-08-15T00:00:00.000</Data></Cell>
+    <Cell ss:Formula="=1.99+8.99/3"><Data ss:Type="Number">4.9866666666666664</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">4.9866666666666664</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Standoffs and hardware</Data></Cell>
+    <Cell><Data ss:Type="String">Cables &amp; Connectors</Data></Cell>
+    <Cell><Data ss:Type="Number">9604</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2012-01-24T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell><Data ss:Type="Number">6</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">6</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Nokia LCD display</Data></Cell>
+    <Cell><Data ss:Type="String">SparkFun</Data></Cell>
+    <Cell><Data ss:Type="String">LCD-10168</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-07-11T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">9.95</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">9.95</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">pushbutton switch</Data></Cell>
+    <Cell><Data ss:Type="String">Mouser</Data></Cell>
+    <Cell><Data ss:Type="String">506-MSPS103C0</Data></Cell>
+    <Cell><Data ss:Type="String">cbm120105</Data></Cell>
+    <Cell><Data ss:Type="Number">2.54</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">7.62</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">ribbon cable</Data></Cell>
+    <Cell ss:Index="5"><Data ss:Type="Number">0.2</Data></Cell>
+    <Cell><Data ss:Type="Number">2</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">0.4</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">phone jack</Data></Cell>
+    <Cell><Data ss:Type="String">Mouser</Data></Cell>
+    <Cell><Data ss:Type="String">161-3144M-E</Data></Cell>
+    <Cell><Data ss:Type="String">cbm120105</Data></Cell>
+    <Cell><Data ss:Type="Number">0.95</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">2.8499999999999996</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">phone plug</Data></Cell>
+    <Cell><Data ss:Type="String">Mouser</Data></Cell>
+    <Cell><Data ss:Type="String">568-NYS226</Data></Cell>
+    <Cell><Data ss:Type="String">cbm120105</Data></Cell>
+    <Cell><Data ss:Type="Number">0.74199999999999999</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">2.226</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Twisted cable for power switches</Data></Cell>
+    <Cell><Data ss:Type="String">Mouser</Data></Cell>
+    <Cell><Data ss:Type="String">566-8451-100</Data></Cell>
+    <Cell><Data ss:Type="String">cbm120105</Data></Cell>
+    <Cell ss:Formula="=27.21/100"><Data ss:Type="Number">0.27210000000000001</Data></Cell>
+    <Cell><Data ss:Type="Number">24</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">6.5304000000000002</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Powerswitch Tail</Data></Cell>
+    <Cell><Data ss:Type="String">SparkFun</Data></Cell>
+    <Cell><Data ss:Type="String">COM-10747</Data></Cell>
+    <Cell ss:Index="5"><Data ss:Type="Number">21.95</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">65.85</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">4P4C jack</Data></Cell>
+    <Cell><Data ss:Type="String">Mouser</Data></Cell>
+    <Cell><Data ss:Type="String">806-GLX-A-44</Data></Cell>
+    <Cell><Data ss:Type="String">cbm120105</Data></Cell>
+    <Cell><Data ss:Type="Number">0.45</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">1.35</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">4P4C connectors</Data></Cell>
+    <Cell><Data ss:Type="String">Cables &amp; Connectors</Data></Cell>
+    <Cell ss:Index="4" ss:StyleID="s22"><Data ss:Type="DateTime">2012-01-24T00:00:00.000</Data></Cell>
+    <Cell ss:Formula="=10.95/100"><Data ss:Type="Number">0.10949999999999999</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">0.32849999999999996</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cat3 cable for thermistors</Data></Cell>
+    <Cell><Data ss:Type="String">Home Depot</Data></Cell>
+    <Cell ss:Index="5" ss:Formula="=80/1000"><Data ss:Type="Number">0.08</Data></Cell>
+    <Cell><Data ss:Type="Number">24</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">1.92</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Thermistor NTC</Data></Cell>
+    <Cell><Data ss:Type="String">DigiKey</Data></Cell>
+    <Cell><Data ss:Type="String">490-4653-ND</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-02-10T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">0.79</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">2.37</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Power supply</Data></Cell>
+    <Cell><Data ss:Type="String">Adafruit</Data></Cell>
+    <Cell><Data ss:Type="Number">63</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-11-17T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">6.95</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">6.95</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Barrel power connector</Data></Cell>
+    <Cell><Data ss:Type="String">Jameco</Data></Cell>
+    <Cell><Data ss:Type="String">GCD014-R</Data></Cell>
+    <Cell ss:StyleID="s22"/>
+    <Cell><Data ss:Type="Number">0.45</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">0.45</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Small power plug for Seeeduino</Data></Cell>
+    <Cell><Data ss:Type="String">Jameco</Data></Cell>
+    <Cell><Data ss:Type="String">22-01-3027</Data></Cell>
+    <Cell ss:Index="5"><Data ss:Type="Number">0.15</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">0.15</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Seeeduino</Data></Cell>
+    <Cell><Data ss:Type="String">SeeedStudio</Data></Cell>
+    <Cell><Data ss:Type="String">ARD128D2P</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-08-08T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">22.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">22.5</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Wing shield</Data></Cell>
+    <Cell><Data ss:Type="String">Adafruit</Data></Cell>
+    <Cell><Data ss:Type="Number">196</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-11-17T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">16</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">16</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">RTC and Data Logger shield</Data></Cell>
+    <Cell><Data ss:Type="String">Adafruit</Data></Cell>
+    <Cell><Data ss:Type="Number">243</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-11-17T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">19.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">19.5</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">1GB SD card</Data></Cell>
+    <Cell ss:Index="5"><Data ss:Type="Number">8.5</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">8.5</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prototyping perfboard</Data></Cell>
+    <Cell><Data ss:Type="String">Radio Shack</Data></Cell>
+    <Cell><Data ss:Type="String">276-147</Data></Cell>
+    <Cell ss:Index="5"><Data ss:Type="Number">3.99</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">3.99</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">28-pin DIP socket</Data></Cell>
+    <Cell><Data ss:Type="String">Mouser</Data></Cell>
+    <Cell><Data ss:Type="String">517-4828-3004-CP</Data></Cell>
+    <Cell><Data ss:Type="String">cbm120105</Data></Cell>
+    <Cell><Data ss:Type="Number">0.28</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">0.84000000000000008</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Ardweeny</Data></Cell>
+    <Cell><Data ss:Type="String">MakerShed</Data></Cell>
+    <Cell><Data ss:Type="String">MKSB012</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-10-12T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">16</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">48</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Water circulator pump</Data></Cell>
+    <Cell><Data ss:Type="String">Amazon</Data></Cell>
+    <Cell><Data ss:Type="String">VA-80</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="DateTime">2011-08-15T00:00:00.000</Data></Cell>
+    <Cell><Data ss:Type="Number">9.35</Data></Cell>
+    <Cell><Data ss:Type="Number">3</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">28.049999999999997</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Crock pot</Data></Cell>
+    <Cell ss:Index="4"><Data ss:Type="String">tag sale</Data></Cell>
+    <Cell><Data ss:Type="Number">9</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:Formula="=RC[-1]*RC[-2]"><Data ss:Type="Number">9</Data></Cell>
+   </Row>
+   <Row ss:Index="28">
+    <Cell ss:Index="7" ss:Formula="=SUM(R[-27]C:R[-3]C)"><Data ss:Type="Number">276.31156666666669</Data></Cell>
+   </Row>
+  </Table>
+  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+   <Print>
+    <ValidPrinterInfo/>
+    <VerticalResolution>0</VerticalResolution>
+   </Print>
+   <Selected/>
+   <Panes>
+    <Pane>
+     <Number>3</Number>
+     <ActiveRow>20</ActiveRow>
+     <ActiveCol>7</ActiveCol>
+    </Pane>
+   </Panes>
+   <ProtectObjects>False</ProtectObjects>
+   <ProtectScenarios>False</ProtectScenarios>
+  </WorksheetOptions>
+ </Worksheet>
+</Workbook>
