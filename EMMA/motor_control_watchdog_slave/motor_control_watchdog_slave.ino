@@ -1,22 +1,27 @@
 /*
-Arduino program for the EMMA slave that will directly communicate with the
-motor controller. Its task is to relay velocity commands to each wheel and to
-shut everything down if either:
-  1) ESTOP is asserted (active LOW)
-  2) updates from the command computer cease for watchdog_timeout_value_ms milliseconds.
+  Authors:
+    Adam Siegel
+    Charles B. Malloch, PhD
+    
+  Arduino program for the EMMA slave that will directly communicate with the
+  motor controller. Its task is to relay velocity commands to each wheel and to
+  shut everything down if either:
+    1) ESTOP is asserted (active LOW)
+    2) updates from the command computer cease for watchdog_timeout_value_ms milliseconds.
+     
+  Arduino connections (digital pins):
+     0 RX - reserved for serial comm - left unconnected
+     1 TX - reserved for serial comm - left unconnected
+     4 ESTOP
+     5 INTERRUPT (RFU)
+    10 RX - RS485 connected to MAX485 pin 1
+    11 TX - RS485 connected to MAX485 pin 4
+    12 MAX485 driver enable
+    13 status LED
    
-Arduino connections (digital pins):
-   0 RX - reserved for serial comm - left unconnected
-   1 TX - reserved for serial comm - left unconnected
-   4 ESTOP
-   5 INTERRUPT (RFU)
-  10 RX - RS485 connected to MAX485 pin 1
-  11 TX - RS485 connected to MAX485 pin 4
-  12 MAX485 driver enable
-  13 status LED
- 
-Plans:
- complete this code
+  Plans:
+   write code for master
+   test this code with master
  
 */
 
