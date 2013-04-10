@@ -50,8 +50,8 @@
 // it appears strongly that SoftwareSerial can't go 115200, but maybe will do 57600.
 #define BAUDRATE485 57600
 
-#define RS485RX 10
-#define RS485TX 11
+#define pdRS485RX 10
+#define pdRS485TX 11
 #define pdRS485_TX_ENABLE 12
 
 #define pdLED 13
@@ -60,7 +60,7 @@
 #define SLAVE_ADDRESS_LOW  3
 
 #include <SoftwareSerial.h>
-SoftwareSerial MAX485 (RS485RX, RS485TX);
+SoftwareSerial MAX485 (pdRS485RX, pdRS485TX);
 
 // wah... indirectly used, but have to include for compiler
 #include <RS485.h>

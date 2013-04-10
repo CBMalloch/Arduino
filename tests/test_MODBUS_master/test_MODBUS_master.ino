@@ -15,7 +15,7 @@
     7 B - inverting receiver input and inverting driver output
     8 Vcc - 4.75V-5.25V
 
-    Not all pins on the Leonardo supMODBUS_port change interrupts, so only the following can be used for RX: 
+    Not all pins on the Leonardo support change interrupts, so only the following can be used for RX: 
       8, 9, 10, 11, 14 (MISO), 15 (SCK), 16 (MOSI). 
  
  
@@ -35,7 +35,7 @@
     12 MAX485 driver enable
     13 status LED
     
-    
+  
     Statistics:
        In 2556 message pairs, the mean time between the completion of the sending and the 
        completion of the receipt of the reply was 6.84ms, with a standard deviation of 2.31ms.
@@ -51,20 +51,23 @@
 // it appears strongly that SoftwareSerial can't go 115200, but maybe will do 57600.
 #define BAUDRATE485 57600
 
-#define RS485RX 10
-#define RS485TX 11
+#define pdRS485RX 10
+#define pdRS485TX 11
 #define pdRS485_TX_ENABLE 12
 
 #define pdLED 13
 
 #define paPOT 0
 
+#define timeToWaitForReply_us 20000LU
+
+
 // wah... indirectly used, but have to include for compiler
 #include <RS485.h>
 #include <CRC16.h>
 
 #include <SoftwareSerial.h>
-SoftwareSerial MAX485 ( RS485RX, RS485TX );
+SoftwareSerial MAX485 ( pdRS485RX, pdRS485TX );
 
 #include <MODBUS.h>
 MODBUS MODBUS_port ( ( Stream * ) &MAX485, pdRS485_TX_ENABLE );
@@ -181,7 +184,6 @@ void loop() {
   
   if ( commandSentThisLoop && ( slaves [ slave_k ] != 0x00 ) ) {
   
-    #define timeToWaitForReply_us 20000LU
     unsigned long beganWaitingForReply_us = micros();
     int nIterationsRequired = 0;
     while ( ( ! bufPtr485 ) && ( ( micros() - beganWaitingForReply_us ) < timeToWaitForReply_us ) ) {

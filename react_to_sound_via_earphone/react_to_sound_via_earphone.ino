@@ -1,5 +1,5 @@
-#define VERSION "3.1.1"
-#define VERDATE "2013-01-29"
+#define VERSION "3.1.2"
+#define VERDATE "2013-03-19"
 #define PROGMONIKER "RSE"
 
 /*
@@ -35,7 +35,11 @@ static int VERBOSE = 2;
 static int motorsEnabled;
 #define paCONTROL 3
 
-#define USE_SERVO_3
+#define USE_SERVO_3 1
+// 1100
+#define SERVO_MIN_PULSE_us 500
+// 2410
+#define SERVO_MAX_PULSE_us 2500
 
 #define paMIKE 0
 #define paMINTHRESHOLD 4
@@ -114,10 +118,11 @@ void setup () {
   digitalWrite (pdMotor3A, LOW);
   digitalWrite (pdMotor4A, LOW);
   
-  #ifdef USE_SERVO_3
+  #ifdef USE_SERVO_3xxx
+  // don't use PWM for servos - they need 50Hz and pulse width of 500-2500us
   digitalWrite (ppMotorEnable34, 1);
   for (int i = 0; i <= 100; i++) {
-    analogWrite (pdMotor3A, map (i, 0, 100, 0, 180));
+    analogWrite (pdMotor3A, map (i, 0, 100, 00, 1000));
 #ifdef BAUDRATE
     Serial.print ("Servo 3: "); Serial.println (map (i, 0, 100, 0, 180));
 #endif
@@ -270,9 +275,19 @@ void loop () {
     
     #ifdef USE_SERVO_3
     analogWrite (ppMotorEnable34, 255);
-    digitalWrite (pdMotor3A, map (score, 0, 100, 0, 180));
+    // need to get a servo pulse width between SERVO_MIN_PULSE_us and SERVO_MAX_PULSE_us
+    // from commanded angle, given that we know the PWM frequency
+    int commandedAngle = map (score, 0, 100, 0, 180);
+    int pulseWidth_us = map (commandedAngle, 0, 180, SERVO_MIN_PULSE_us, SERVO_MAX_PULSE_us);
+    // PWM frequency is about 500Hz (period 20ms) so pulse width = period * duty cycle
+    int duty_cycle_x_1000 = pulseWidth_us / 20;  // will be between 0 and 1000
+    analogWrite (pdMotor3A, duty_cycle_x_1000);
 #ifdef BAUDRATE
-    Serial.print ("Servo 3: "); Serial.println ( map (score, 0, 100, 0, 180) );
+    Serial.print ("Servo 3: "); 
+    Serial.print ("command a: "); ( commandedAngle );
+    Serial.print ("; width us: "); ( pulseWidth_us );
+    Serial.print ("; dc * 1000: "); ( duty_cycle_x_1000 );
+    Serial.println ( map (score, 0, 100, 0, 180) );
 #endif
     #endif
   } else {
