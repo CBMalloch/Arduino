@@ -1,3 +1,7 @@
+#define VERSION "1.0.0"
+#define VERDATE "2013-04-10"
+#define PROGMONIKER "MCW"
+
 /*
   Authors:
     Adam Siegel
@@ -19,16 +23,15 @@
     12 MAX485 driver enable
     13 status LED
    
-  Plans:
-   write code for master
-   test this code with master
+ 
+Plans:
+  install flashing LED on pin 13 for status
  
 */
 
-#define watchdog_timeout_value_ms 200
+#define watchdog_timeout_value_ms 2000
 
 // TESTMODE will use regular serial port and enable more reporting
-// #undef TESTMODE
 #define TESTMODE 1
 
 // regular serial port talks to motor controller
@@ -95,8 +98,27 @@ int setCoilValue ( unsigned short * coils, int num_coils, int coilNo, int newVal
 
 void setup() {
   int i;
-  mb.Init ( SLAVE_ADDRESS, nCoils, coils, nRegs, regs, MODBUS_port );
+  
   Serial.begin( BAUDRATE ); 
+  bufPtr = 0;
+  MAX485.begin ( BAUDRATE485 );
+
+  mb.Init ( SLAVE_ADDRESS, nCoils, coils, nRegs, regs, MODBUS_port );
+  mb.Set_Verbose ( ( Stream * ) &Serial, -1 );
+
+  #if TESTMODE > 0
+    Serial.print ( PROGMONIKER );
+    Serial.print ( ": Test MODBUS Slave v");
+    Serial.print ( VERSION );
+    Serial.print ( " (" );
+    Serial.print ( VERDATE );
+    Serial.print ( ")\n" );
+    Serial.print ("  at address 0x"); 
+    Serial.print (SLAVE_ADDRESS, HEX); 
+    Serial.print (" ready in TEST mode ");
+    Serial.println ( TESTMODE );
+  #endif
+ 
   nPinDefs = sizeof ( pinDefs ) / sizeof ( pinDefs [ 0 ] );
   for ( i = 0; i < nPinDefs; i++ ) {
     Serial.print ( i ); Serial.print ( ": " );
@@ -114,13 +136,35 @@ void setup() {
     }
   }
   
+  // initialize the motor controller
+  // set timeout value (ms)
+  //   robot will stop automatically if no commands come for this interval
+  Serial.println ( "^rwd 1000" );
+  // mixing mode 0 (separate) or 1 (ch 1 speed, ch2 steering)
+  Serial.println ( "^mxmd 0" );
+  Serial.println ( "%eesav" );
+
+  
 }
 
 void loop () {
   static unsigned long last_command_at_ms;
   int status;
   static unsigned long lastBlinkToggleAt_ms = 0;
+  
   status = mb.Execute ();
+  
+  #if TESTMODE > 2
+    if ( status == 1 ) {
+      reportCoils();
+      reportRegs();
+    }
+    if ( status < 0 ) {
+      // error
+      Serial.print ( "Error: " ); Serial.println ( status );
+    }
+  #endif
+
   /*
     Every time through the loop, we will check to see if there’s a new command.
     If so, we handle the command and record the time we noticed the new command.
@@ -137,6 +181,7 @@ void loop () {
     Serial.print ( "!g 2 "); Serial.println( regs[1] );
     // note that we’ve processed this command
     setCoilValue ( coils, nCoils, 0, 0 );
+    digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
   }
   
   // we’ve handled any pending update from the master
@@ -159,10 +204,16 @@ void loop () {
       Serial.print ( strBuf );
     }
     
+    #if TESTMODE < 1
     // ( absorbing state ) loop forever
-    for (;;) {
-      delay ( 1000 );
-    }
+      digitalWrite ( pdLED, 1 );
+
+      for (;;) {
+        delay ( 1000 );
+      }
+    #else
+      delay ( 10 );
+    #endif
   }
 }
 
@@ -212,3 +263,26 @@ int setCoilValue ( unsigned short * coils, int num_coils, int coilNo, int newVal
     return ( -1 );
   }
 }
+
+
+#ifdef BAUDRATE
+void reportCoils () {
+  int i;
+  unsigned short bitval;
+  Serial.println ("Coils:");
+  for (i = 0; i < nCoils; i++) {
+    bitval = ( coils [ i >> 4 ] >> (  i & 0x000f ) ) & 0x0001;
+    Serial.print ("  "); Serial.print (i); Serial.print (": "); Serial.print (bitval); 
+    Serial.println ();
+  }
+}
+
+void reportRegs () {
+  int i;
+  Serial.println ("Registers:");
+  for (i = 0; i < nRegs; i++) {
+    Serial.print ("  "); Serial.print (i); Serial.print (": "); Serial.print (regs[i]); 
+    Serial.println ();
+  }
+}
+#endif

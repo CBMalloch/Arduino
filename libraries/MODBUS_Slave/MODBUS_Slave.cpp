@@ -607,6 +607,7 @@ int MODBUS_Slave::Execute ( ) {
       break;
     case 1 : // process it
       digitalWrite ( pdLED, ! digitalRead ( pdLED ) );
+      // Process_Data sends the response
       Process_Data ( strBuf, bufPtr );
       digitalWrite ( pdLED, ! digitalRead ( pdLED ) );
       somethingChanged = 1;
@@ -619,7 +620,7 @@ int MODBUS_Slave::Execute ( ) {
     status = - _error;
     bufPtr = 0;
     _error = 0;
-  } 
+  }
   
   return ( status ? status : somethingChanged );
   
