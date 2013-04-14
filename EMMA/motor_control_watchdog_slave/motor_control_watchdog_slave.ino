@@ -29,7 +29,7 @@ Plans:
  
 */
 
-#define watchdog_timeout_value_ms 2000
+#define watchdog_timeout_value_ms 500
 
 // TESTMODE will use regular serial port and enable more reporting
 #define TESTMODE 1
@@ -151,6 +151,7 @@ void loop () {
   static unsigned long last_command_at_ms;
   int status;
   static unsigned long lastBlinkToggleAt_ms = 0;
+  static bool halted = false;
   
   status = mb.Execute ();
   
@@ -174,11 +175,22 @@ void loop () {
   */
 
   if ( coilValue ( coils, nCoils, 0 ) == 1 ) {
+  
     // we got new values from the master
     last_command_at_ms = millis ();
-    // send new speed commands to motors
-    Serial.print ( "!g 1 "); Serial.println( regs[0] );
-    Serial.print ( "!g 2 "); Serial.println( regs[1] );
+    
+    if ( halted && ( regs[0] == 0 ) && ( regs[1] == 0 ) ) {
+      // reset if master has sent zeroes to all motors
+      halted = false;
+      Serial.println (" ********** RESET RECEIVED **********" );
+    }
+    
+    // don't use else here, since we want to test again
+    if ( ! halted ) {
+      // send new speed commands to motors
+      Serial.print ( "!g 1 "); Serial.println( regs[0] );
+      Serial.print ( "!g 2 "); Serial.println( regs[1] );
+    }
     // note that we’ve processed this command
     setCoilValue ( coils, nCoils, 0, 0 );
     digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
@@ -192,28 +204,25 @@ void loop () {
   if ( ( time_since_last_command_ms > watchdog_timeout_value_ms ) || ESTOP ) {
     // oops! we’ve had a timeout or an ESTOP. Stop everything
     
-    // set both wheel speeds to 0
-    Serial.println ( "!g 1 0");
-    Serial.println ( "!g 2 0");
+    if ( ! halted ) {
     
-    if ( ESTOP ) {
-      Serial.println ("Awk! ESTOP");
-    } else {
-      // must have been timeout
-      snprintf ( strBuf, bufLen, "Awk! Timeout of %d ms\n", time_since_last_command_ms );
-      Serial.print ( strBuf );
-    }
+      // set both wheel speeds to 0
+      Serial.println ( "!g 1 0");
+      Serial.println ( "!g 2 0");
     
-    #if TESTMODE < 1
-    // ( absorbing state ) loop forever
-      digitalWrite ( pdLED, 1 );
-
-      for (;;) {
-        delay ( 1000 );
+      if ( ESTOP ) {
+        Serial.println ("Awk! ESTOP");
+      } else {
+        // must have been timeout
+        snprintf ( strBuf, bufLen, "Awk! Timeout of %d ms\n", time_since_last_command_ms );
+        Serial.print ( strBuf );
       }
-    #else
-      delay ( 10 );
-    #endif
+      
+      halted = true;
+      
+      digitalWrite ( pdLED, 1 );
+    }
+
   }
 }
 

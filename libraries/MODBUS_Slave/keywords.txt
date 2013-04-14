@@ -1,0 +1,43 @@
+#######################################
+# Syntax Coloring Map For MODBUS_Slave
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+MODBUS_Slave      KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+Init              KEYWORD2
+Execute           KEYWORD2
+Check_Data_Frame  KEYWORD2
+Process_Data      KEYWORD2
+Set_Verbose       KEYWORD2
+Send_Response     KEYWORD2
+Read_Exception    KEYWORD2
+Read_Coils        KEYWORD2
+Write_Single_Coil KEYWORD2
+Write_Coils       KEYWORD2
+Read_Reg          KEYWORD2
+Write_Single_Reg  KEYWORD2
+Write_Regs        KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+MESSAGE_TTL_ms     LITERAL1
+
+#  KEYWORD1 Classes, datatypes, and C++ keywords
+#  KEYWORD2 Methods and functions
+#  KEYWORD3 setup and loop functions, as well as the Serial keywords
+#  LITERAL1 Constants
+#  LITERAL2 Built-in variables (unused by default)
