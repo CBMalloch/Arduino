@@ -102,7 +102,7 @@ class MODBUS_Slave {
     
     void Read_Reg ( unsigned char * Data_In );          // Function code 3 (holding reg), 4 (input reg)
     void Write_Single_Reg ( unsigned char * Data_In );  // Function code 6
-    void Write_Reg ( unsigned char * Data_In );         // Function code 16
+    void Write_Regs ( unsigned char * Data_In );        // Function code 16
     
 		char _address;
 		short _nCoils;

@@ -241,7 +241,7 @@ void MODBUS_Slave::Process_Data ( unsigned char * msg_buffer, char msg_len ) {
       Write_Coils ( msg_buffer );
       break;
     case 0x10:
-      Write_Reg ( msg_buffer );
+      Write_Regs ( msg_buffer );
       break;
     default:
       #if ! defined(ATtiny85)
@@ -510,12 +510,12 @@ void MODBUS_Slave::Write_Single_Reg ( unsigned char *buf ) {
   Send_Response ( buf, 6 );
 }
 
-//################## Write_Reg ###################
+//################## Write_Regs ###################
 // Takes:   In Data Buffer: address (zero-radix), count ( 2-byte registers ), number of following data bytes
 // Returns: Nothing
 // Effect:  Writes Register in Registers.  Sets Reply Data and sends Response
 
-void MODBUS_Slave::Write_Reg ( unsigned char *buf ) {
+void MODBUS_Slave::Write_Regs ( unsigned char *buf ) {
   unsigned short Addr_Hi = buf[2];
   unsigned short Addr_Lo = buf[3];
   unsigned short Cnt_Hi = buf[4];
