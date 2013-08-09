@@ -96,7 +96,7 @@ void MODBUS_Master::Write_Single_Coil ( unsigned char slave_address, short coilN
   //                   = 8
   
   int msgLen = 8;
-  if ( msgLen > BUF_LEN ) {
+  if ( msgLen > MODBUS_MASTER_BUF_LEN ) {
     _error = -1;
     return;
   }
@@ -110,6 +110,9 @@ void MODBUS_Master::Write_Single_Coil ( unsigned char slave_address, short coilN
   _bufPtr = appendShort ( _strBuf, _bufPtr, value );
   
   _MODBUS_port.Send ( _strBuf, msgLen - 2 );  // Send expects the length to exclude the CRC, which it places
+  
+  // actual port writing is asynchronous; at 57600 baud, it will take 1/5760 sec per char, or 1/6 ms per char
+  delay ( 1 + msgLen / 6 );
       
   GetReply();
 
@@ -129,7 +132,7 @@ void MODBUS_Master::Write_Regs ( unsigned char slave_address, short startReg, sh
   //                   = 9 + 2 * nRegs
   
   int msgLen = 9 + 2 * nRegs;
-  if ( msgLen > BUF_LEN ) {
+  if ( msgLen > MODBUS_MASTER_BUF_LEN ) {
     _error = -1;
     return;
   }
@@ -148,7 +151,7 @@ void MODBUS_Master::Write_Regs ( unsigned char slave_address, short startReg, sh
   
   _MODBUS_port.Send ( _strBuf, msgLen - 2 );  // Send expects the length to exclude the CRC, which it places
   
-  if ( _VERBOSITY > 5 ) {
+  if ( _VERBOSITY >= 7 ) {
     _diagnostic_port->println ("        Values: ");
     for ( int i = 0; i < nRegs; i++ ) {
       _diagnostic_port->print ( "          " ); _diagnostic_port->print ( values [ i ] );
@@ -162,9 +165,133 @@ void MODBUS_Master::Write_Regs ( unsigned char slave_address, short startReg, sh
     _diagnostic_port->print ( '\n' );
   }
 
+  // actual port writing is asynchronous; at 57600 baud, it will take 1/5760 sec per char, or 1/6 ms per char
+  delay ( 1 + msgLen / 6 );
       
   GetReply();
 
+}
+
+// ******************************************************************************
+// ******************************************************************************
+// ******************************************************************************
+
+int MODBUS_Master::Read_Reg ( unsigned char slave_address, short startReg, short nRegs, short * values, short lenValues ) {
+
+  // standard Arduino shorts are 1 byte; ints are 2 bytes; standard floats are 4 bytes.
+  // lenValues is in units of register_size, which is 2 bytes
+  
+  // memcpy ( strBuf485, "\x01\x10\x00\x00\x00\x02\x04\xff\xff\xff\xff\x00\x00", 13 );
+  
+  // length of command will be 1 (slave address) + 1 (command) + 2 (reg) + 2 (nRegs)
+  //                          + (added later) 2 (CRC16)
+  //                   = 8
+  
+  // length of response will be 1 (slave address) + 1 (command) + 1 (n data bytes) 
+  //                          + < the data bytes > + 2 (CRC16)
+  //                   = 5 + nBytes
+  
+  // see http://www.simplymodbus.ca/FC04.htm
+
+  // return value of _error:
+  //   -1 -> insufficient buffer length, either send buffer or destination vector (values)
+  //   bit 0 -> failed receipt from slave with status in _receive_status
+  //   bit 1 -> reply too short 
+  
+  int msgLen, expectedReplyLen;
+  msgLen = 8;
+  expectedReplyLen = 5 + 2 * nRegs;
+  
+  _error = 0;
+  
+  if ( ( msgLen > MODBUS_MASTER_BUF_LEN ) || ( nRegs > lenValues ) ) {
+    _error = -1;
+    return ( _error );
+  }
+  
+  _bufPtr = 0;
+  
+  // construct message
+  _strBuf [ _bufPtr++ ] = slave_address;
+  _strBuf [ _bufPtr++ ] = 0x04;            // function code: read register
+  _bufPtr = appendShort ( _strBuf, _bufPtr, startReg );
+  _bufPtr = appendShort ( _strBuf, _bufPtr, nRegs  );  // register count
+  
+  _MODBUS_port.Send ( _strBuf, msgLen - 2 );  // Send expects the length to exclude the CRC, which it places
+  _bufPtr = 0;  
+
+  if ( _VERBOSITY >= 6 ) {
+    _diagnostic_port->print ( "        Read " ); 
+    _diagnostic_port->print ( nRegs );
+    _diagnostic_port->print ( " regs, starting with ");
+    _diagnostic_port->println ( startReg );
+
+    // _diagnostic_port->print ("        Sent: ");
+    _diagnostic_port->print ( '\n' );
+  }
+
+  // actual port writing is asynchronous; at 57600 baud, it will take 1/5760 sec per char, or 1/6 ms per char
+  delay ( 1 + msgLen / 6 );
+  
+  for ( int i = 0; i < msgLen; i++ ) _strBuf [ i ] = 0x77;
+  delay ( 20 );
+      
+  GetReply();
+  
+  if ( ( _receive_status == 0 ) && ( _bufPtr >= expectedReplyLen ) ) {
+  
+    if ( _VERBOSITY >= 7 ) {
+      for ( int i = 0; i < _strBuf [ 2 ]; i++ ) {
+        _diagnostic_port->print ( " 0x" ); _diagnostic_port->print ( _strBuf [ i + 3 ], HEX );
+      }
+    }
+    
+    // memcpy ( values, &_strBuf [ 3 ], _strBuf [ 2 ] );  NO NO NO
+    
+    // note that the byte endian-ness has been switched for MODBUS, so we have to gyrate it back
+    for ( int k = 0; k < nRegs; k++ ) {
+      memcpy ( ( byte * ) values + 0 + 2 * k, &_strBuf [ 3 + 1 ] + 2 * k, 1 );
+      memcpy ( ( byte * ) values + 1 + 2 * k, &_strBuf [ 3 + 0 ] + 2 * k, 1 );
+    }
+    
+    if ( _VERBOSITY >= 7 ) {
+      _diagnostic_port->print ( " -> " );
+      for ( int i = 0; i < 4; i++ ) {
+        _diagnostic_port->print ( " 0x" ); 
+        _diagnostic_port->print ( * ( ( byte * ) values + i ), HEX );
+      }
+      _diagnostic_port->println ();
+    }
+    
+  } else {
+    // _receive_status != 0 or reply too short
+    
+  
+    if ( _receive_status != 0 ) {
+      if ( _VERBOSITY >= 2 ) {
+        _diagnostic_port->print ( "Bad reply: discarding and resetting receive status of 0x" );
+        _diagnostic_port->println ( _receive_status, HEX);
+      }
+      _error |= 0x01;
+    }
+    if ( _bufPtr < expectedReplyLen ) {
+        // reply too short
+      if ( _VERBOSITY >= 2 ) {
+        _diagnostic_port->print ( "Bad reply: reply len ( " );
+        _diagnostic_port->print ( _bufPtr );
+        _diagnostic_port->print ( " ) < required ( " );
+        _diagnostic_port->print ( expectedReplyLen );
+        _diagnostic_port->println ( " )" );
+      }
+      _error |= 0x02;
+    }
+    
+    _receive_status = 0;
+    _bufPtr = 0;
+  }
+    
+  return ( _error );
+  
 }
 
 // ******************************************************************************
@@ -175,6 +302,12 @@ void MODBUS_Master::GetReply  (
                                 unsigned long timeToWaitForReply_us 
                               ) {
 
+  // will leave _bufPtr pointing at first byte of CRC (_bufPtr will equal number of bytes received)
+  // will leave _receive_status alone unless there's an error
+  //       -81 -> orphan message timeout
+  //        99 -> error status from stream
+  //          2 -> error in returned message CRC
+  
   unsigned long beganWaitingForReply_us;
   unsigned long lastMsgReceivedAt_ms;
 
@@ -182,16 +315,31 @@ void MODBUS_Master::GetReply  (
     
   beganWaitingForReply_us = micros();
   _nIterationsRequired = 0;
+  _bufPtr = 0;
+  
+  if ( _VERBOSITY >= 1 ) {
+    for ( int k = 0; k < MODBUS_MASTER_BUF_LEN; k++ ) {
+      _strBuf [ k ] = '\0';
+    }
+  }
+  
   while ( ( ! _bufPtr ) && ( ( micros() - beganWaitingForReply_us ) < timeToWaitForReply_us ) ) {
-    _bufPtr = _MODBUS_port.Receive ( _strBuf, BUF_LEN, 2 );
-    if ( _VERBOSITY > 2 ) _diagnostic_port->print ( "." );
+    // RS485.Receive tests for buffer overrun and sets its errorFlag if it happens
+    // MODBUS.Receive sets its own errorFlag if RS485 reports an error
+    _bufPtr = _MODBUS_port.Receive ( _strBuf, MODBUS_MASTER_BUF_LEN, 2 );
+    if ( _MODBUS_port.errorFlag == 1 ) { 
+      _diagnostic_port->print ( "MODBUS_Master receive buffer overflow!\n" );
+    }
+    if ( _VERBOSITY >= 3 ) _diagnostic_port->print ( '.' );
     _nIterationsRequired++;
   }
   _itTook_us = micros() - beganWaitingForReply_us;
   
+  // _bufPtr is equal to the number of characters received, including any CRC
+  
   if ( _bufPtr ) {
     lastMsgReceivedAt_ms = millis();
-    if ( _VERBOSITY > 2 ) {
+    if ( _VERBOSITY >= 3 ) {
       _diagnostic_port->print ( "Reply receipt turnaround took " );
       _diagnostic_port->print ( _itTook_us );
       _diagnostic_port->print ( "us in " );
@@ -199,16 +347,16 @@ void MODBUS_Master::GetReply  (
       _diagnostic_port->println ( " iterations" );
     }
   } else {
-    if ( _VERBOSITY > 0 ) {
-      _diagnostic_port->print ( "Message receive timed out of testing (" );
+    if ( _VERBOSITY >= 1 ) {
+      _diagnostic_port->print ( "Message receive timeout (" );
       _diagnostic_port->print ( timeToWaitForReply_us );
-      _diagnostic_port->println ( "us)" );
+      _diagnostic_port->println ( "us) exceeded" );
     }
   }
   
   if ( ( ( millis() - lastMsgReceivedAt_ms ) > MBM_MESSAGE_TTL_ms ) && ( _bufPtr != 0 ) ) {
     // kill old messages to keep from blocking up with a bad message piece
-    _diagnostic_port->println ( "timeout" );
+    _diagnostic_port->println ( "orphan message timeout" );
     _receive_status = -81;  // timeout
     _bufPtr = 0;
   }
@@ -222,20 +370,39 @@ void MODBUS_Master::GetReply  (
       _receive_status = 99;
     }
     
-    if ( _VERBOSITY > 5 ) {
+    // check CRC
+    unsigned short msg_CRC = ( ( _strBuf [ _bufPtr - 1 ] << 8 ) | _strBuf [ _bufPtr - 2 ] );
+    // my calculated CRC
+    CRC CheckSum;
+    unsigned short recalculated_CRC = CheckSum.CRC16 ( _strBuf, _bufPtr - 2 );
+    if ( recalculated_CRC != msg_CRC ) {
+      #if ! defined(ATtiny85)
+        if ( _VERBOSITY >= 1 ) {
+          char buf[7];
+          _diagnostic_port->print ( " -- failed CRC -- got " );
+          formatHex ( ( unsigned char * ) &msg_CRC, buf );
+          _diagnostic_port->print ( buf );
+          _diagnostic_port->print ( "; expected " );
+          formatHex ( ( unsigned char * ) &recalculated_CRC, buf );
+          _diagnostic_port->print ( buf );
+          _diagnostic_port->print ( "\n" );
+        }
+      #endif
+      _receive_status = 2;
+    }
+    
+    if ( _VERBOSITY >= 8 ) {
       _diagnostic_port->print ("        Received: ");
       for ( int i = 0; i < _bufPtr; i++ ) {
         _diagnostic_port->print ( " 0x" ); _diagnostic_port->print ( _strBuf [ i ], HEX );
       }
-      
       _diagnostic_port->print ( "; status " );
       _diagnostic_port->println ( _receive_status );
     }
     
-    _bufPtr = 0;
-
   } else {
-    if ( _VERBOSITY > 5 ) {
+    // _bufptr <= 0
+    if ( _VERBOSITY >= 6 ) {
       _diagnostic_port->println ();
     }
   }

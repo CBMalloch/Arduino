@@ -1,5 +1,14 @@
 #include <stdio.h>
 
+
+// #define FFDEBUG 3
+#ifdef FFDEBUG
+  #include <Arduino.h>
+#endif
+
+
+
+
 void formatFloat(char buf[], int bufSize, double x, int precision) {
   /*
     puts into buf a left-justified string with 

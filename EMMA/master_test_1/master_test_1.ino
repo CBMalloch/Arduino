@@ -1,30 +1,43 @@
-#define VERSION "1.0.0"
-#define VERDATE "2013-04-10"
+#define VERSION "1.1.1"
+#define VERDATE "2013-04-19"
 #define PROGMONIKER "MT1"
 
 /*
 
   Serves as master on EMMA bus, communicating speed commands for each wheel to slave
 
+     
+  Arduino connections (digital pins):
+     0 RX - reserved for serial comm - left unconnected
+     1 TX - reserved for serial comm - left unconnected
+     4 ESTOP (yellow)
+     5 INTERRUPT (RFU) (blue)
+     6 RX - RS485 connected to MAX485 pin 1 (green)
+     7 TX - RS485 connected to MAX485 pin 4 (orange)
+     8 MAX485 driver enable (purple)
+     9 status LED
+ 
 */
 
 #define MOTOR_CONTROL_SLAVE_ADDRESS 0x01
 
-#define test_duration_ms 30000LU
+#define test_duration_ms 15000LU
 
-#define VERBOSE 2
+#define VERBOSE 1
 
 #define BAUDRATE 115200
 // it appears strongly that SoftwareSerial can't go 115200, but maybe will do 57600.
 #define BAUDRATE485 57600
 
-#define pdESTOP 4
-#define pdINTERRUPT 5
-#define pdRS485RX 10
-#define pdRS485TX 11
-#define pdRS485_TX_ENABLE 12
+// pin definitions
 
-#define pdLED 13
+#define pdESTOP           4
+#define pdINTERRUPT       5
+#define pdRS485RX         6
+#define pdRS485TX         7
+#define pdRS485_TX_ENABLE 8
+
+#define pdSTATUSLED       9
 
 #define LOOP_DELAY_ms 100
 // #define TIME_TO_WAIT_FOR_REPLY_us 20000LU
@@ -44,13 +57,22 @@ MODBUS_Master master ( MODBUS_port );
 byte nPinDefs;
 #define PINDEF_ITEMS 3
 // ( input/output mode ( 1 input ); digital pin; coil # )
+
+/* 
+  NOTE: pdESTOP and pdINTERRUPT are to be *open drain* on the bus
+  so than any processor can pull them down. Thus the specification of each
+  as INPUT. In this mode, setting the pin to HIGH or 1 makes it high-Z
+  and enables an internal 50K pullup resistor; setting the pin to LOW or 0
+  pulls it strongly to ground, thus asserting the active-low signals.
+*/
+
 short pinDefs [ ] [ PINDEF_ITEMS ] = {  
-                                       { 0,  4,  -1 },
-                                       { 0,  5,  -1 },
-                                   //    { 0, 10,  3 },    // handled by SoftwareSerial
-                                   //    { 0, 11,  4 },    // handled by SoftwareSerial
-                                        { 0, 12, -1 },
-                                        { 0, 13, -1 }
+                                       { 1,  pdESTOP         ,  -1 },
+                                       { 1,  pdINTERRUPT     ,  -1 },
+                                   //    { 0,  pdRS485RX  ,  3 },    // handled by SoftwareSerial
+                                   //    { 0,  pdRS485TX  ,  4 },    // handled by SoftwareSerial
+                                       { 0,  pdRS485_TX_ENABLE, -1 },
+                                       { 0,  pdSTATUSLED      , -1 }
                                       };
                                       
 #define bufLen 80
@@ -80,9 +102,8 @@ void setup () {
     }
   }
 
-  bufPtr = 0;
-  
-  snprintf ( strBuf, bufLen, "%s: Test MODBUS Master v%s (%s)\n", PROGMONIKER, VERSION, VERDATE );
+  bufPtr = 0;  
+  snprintf ( strBuf, bufLen, "%s: EMMA Master v%s (%s)\n", PROGMONIKER, VERSION, VERDATE );
   Serial.print ( strBuf );
     
   // deactivate lines that are ACTIVE LOW
@@ -93,17 +114,17 @@ void setup () {
   
   // reset motor control slave in case it was in timeout or estop
   master.Write_Regs ( MOTOR_CONTROL_SLAVE_ADDRESS, 0, 2, wheelSpeedCommands );
+  delay ( 5 );
   master.Write_Single_Coil ( MOTOR_CONTROL_SLAVE_ADDRESS, 0, 1 );
-
-  delay ( 20 );
+  delay ( 5 );
 
 }
 
 void loop () {
   
   static unsigned long loopBeganAt_ms;
-  float profiler;
-  int maxSpeedAboveMin = 600;
+  float testPct, profiler;
+  int maxSpeedAboveMin = 100;
   static unsigned long test_began_at_ms = millis();
   
   /*
@@ -121,10 +142,11 @@ void loop () {
   short send_command_interval_ms = 400;
   short print_interval_ms = 1000;
   static unsigned long lastLoopAt_us, lastPrintAt_ms = 0, lastSendAt_ms = 0, lastMsgReceivedAt_ms = 0;
+  short direction;
   
   // receive_status = 0;
   
-  #if VERBOSE > 1
+  #if VERBOSE >= 2
   if ( ( millis() - lastPrintAt_ms ) > print_interval_ms ) {
     Serial.print ( "Send interval (ms): " ); Serial.println ( send_command_interval_ms );
     if ( lastLoopAt_us != 0LU ) {
@@ -135,24 +157,51 @@ void loop () {
   lastLoopAt_us = micros();
   #endif
   
-  if ( ( millis() - test_began_at_ms ) <= test_duration_ms ) {
+  testPct = float ( millis() - test_began_at_ms ) / float ( test_duration_ms );
+  
+  if ( testPct <= 1.0 ) {
   
     // test is still running
     
     if ( ( millis() - lastSendAt_ms ) > send_command_interval_ms ) {
       // construct packet to send new values to the registers
       
+      // test scheduler - profiler should go from 0 to 1 and back
       
-      profiler = ( millis() - test_began_at_ms ) * 2.0 / test_duration_ms;
-      if ( profiler > 1 ) profiler = 2 - profiler;
-      
-      // now profiler goes from 0 to 1 and back to 0 over full duration of test
-      
-      wheelSpeedCommands [ 0 ] = short ( profiler * maxSpeedAboveMin ) + MINSPEED;
-      wheelSpeedCommands [ 1 ] = maxSpeedAboveMin - ( wheelSpeedCommands [ 0 ] - MINSPEED ) + MINSPEED;
+      if ( testPct < 0.5 ) {
+        // subtest 0 - forward
+        if ( testPct < 0.25 ) {
+          profiler = testPct * 4.0;
+        } else {
+          profiler = ( 0.5 - testPct ) * 4.0;
+        }
+        direction = 1;
+      } else {
+        // subtest 1 - reverse
+        if ( testPct < 0.75 ) {
+          profiler = ( testPct - 0.5 ) * 4.0;
+        } else {
+          profiler = ( 1.0 - testPct ) * 4.0;
+        }
+        direction = -1;
+      }
+     
+      wheelSpeedCommands [ 0 ] = direction * ( short ( profiler * maxSpeedAboveMin ) + MINSPEED );
+      // wheelSpeedCommands [ 1 ] = direction * ( maxSpeedAboveMin - ( wheelSpeedCommands [ 0 ] - MINSPEED ) + MINSPEED );
+      wheelSpeedCommands [ 1 ] = wheelSpeedCommands [ 0 ]; // to go straight
 
       master.Write_Regs ( MOTOR_CONTROL_SLAVE_ADDRESS, 0, 2, wheelSpeedCommands );
+      delay ( 5 );
       master.Write_Single_Coil ( MOTOR_CONTROL_SLAVE_ADDRESS, 0, 1 );
+      delay ( 5 );
+      digitalWrite ( pdSTATUSLED, ! digitalRead ( pdSTATUSLED ) );
+      
+      #if VERBOSE >= 1
+        Serial.print   ( "Speeds: " ); 
+        Serial.print   ( wheelSpeedCommands [ 0 ] );
+        Serial.print   ( ", " ); 
+        Serial.println ( wheelSpeedCommands [ 1 ] );
+      #endif
            
       lastSendAt_ms = millis();
       

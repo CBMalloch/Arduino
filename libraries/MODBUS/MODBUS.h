@@ -39,9 +39,12 @@
 // so timeout could be 1 ms
 #define MESSAGE_TIMEOUT_ms 5
 
-void formatHex ( unsigned short x, char * buf, unsigned char len = 4 );
+// len is in units of bytes -- 2 hex characters per byte
+// buf must be at least 2 * len + 3 to account for "0x" and "\0"
+void formatHex ( unsigned char * x, char * buf, unsigned char len = 2 );
 
 class MODBUS {
+
 	public:
     MODBUS ();
 		MODBUS (
@@ -67,8 +70,14 @@ class MODBUS {
                   unsigned int bufLen, 
                   long receive_timeout_ms = 2
                  );
+                 
     RS485 _RS485;
+    
+    // errorFlag: 0 -> OK; 1 -> buffer overrun on RS485 receive
+    short errorFlag;
+    
   private:
+  
 };
 
 #endif

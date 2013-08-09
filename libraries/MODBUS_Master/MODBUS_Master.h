@@ -20,7 +20,7 @@
 #ifndef MODBUS_Master_h
 #define MODBUS_Master_h
 
-#define MODBUS_Master_version 0.0.1
+#define MODBUS_Master_version 1.0.0
 
 #include <Stream.h>
 #include <RS485.h>
@@ -43,6 +43,8 @@ class MODBUS_Master {
                   
     void Write_Single_Coil ( unsigned char slave_address, short coilNo, short value );
     void Write_Regs ( unsigned char slave_address, short startReg, short nRegs, short values[] );
+    // lenValues is in units of MODBUS registers of 2 bytes each
+    int Read_Reg ( unsigned char slave_address, short theReg, short nRegs, short * value, short lenValues );
 
     void GetReply ( unsigned long timeToWaitForReply_us = MBM_TIME_TO_WAIT_FOR_REPLY_us );
     
@@ -60,6 +62,7 @@ class MODBUS_Master {
                  );
 
     void Set_Verbose ( Stream * diagnostic_port, int VERBOSITY );
+    // e.g. master.Set_Verbose ( ( Stream * ) &Serial, 10 );
 
     RS485 _RS485;
     
@@ -78,8 +81,8 @@ class MODBUS_Master {
     int _error;
     
     // the following *could* be made public for diagnostic purposes
-    #define BUF_LEN 80
-    unsigned char _strBuf [ BUF_LEN + 1 ];
+    #define MODBUS_MASTER_BUF_LEN 60
+    unsigned char _strBuf [ MODBUS_MASTER_BUF_LEN ];
     int _bufPtr;
 
 };

@@ -67,8 +67,12 @@ void RS485::Send ( unsigned char * buf, short nChars ) {
 
 int RS485::Receive ( unsigned char * buf, unsigned int bufLen, long receive_timeout_ms ) {
 
+  // returns the number of characters received
+
   static unsigned long lastCharReceivedAt_ms;
   unsigned int bufPtr = 0;
+  
+  errorFlag = 0;
   
   // capture characters from stream
   lastCharReceivedAt_ms = millis();
@@ -82,6 +86,7 @@ int RS485::Receive ( unsigned char * buf, unsigned int bufLen, long receive_time
         lastCharReceivedAt_ms = millis();
       } else {
         // error - buffer overrun
+        errorFlag = 1;
         return ( bufPtr );
       }
     }  // character available
