@@ -75,6 +75,7 @@ void MODBUS::Init (
 // Effect:  Sends Response over serial port
 
 void MODBUS::Send ( unsigned char * buf, short nChars ) {
+  // implicit requirement that buf be at least nChars + 2 bytes long
   CRC CheckSum;	// From Checksum Library, CRC16.h, CRC16.cpp
   if ( nChars > 0 )	{
     unsigned short CRC = CheckSum.CRC16 ( buf, nChars );
@@ -87,7 +88,12 @@ void MODBUS::Send ( unsigned char * buf, short nChars ) {
 
 int MODBUS::Receive ( unsigned char * buf, unsigned int bufLen, long receive_timeout_ms ) {
 
-  return ( _RS485.Receive ( buf, bufLen, receive_timeout_ms ) );
+  // passes on the returned number of characters received (including CRC)
+  // Receive tests for buffer overflow and sets its errorFlag if that happens
+  errorFlag = 0;
+  int n = _RS485.Receive ( buf, bufLen, receive_timeout_ms );
+  if ( _RS485.errorFlag ) { errorFlag = 1; }
+  return ( n );
   
 }
 
@@ -98,14 +104,18 @@ int MODBUS::Receive ( unsigned char * buf, unsigned int bufLen, long receive_tim
 
 // helper function
 
-void formatHex ( unsigned short x, char * buf, unsigned char len ) {
-  // expect buf to be of length at least 7
+void formatHex ( unsigned char * x, char * buf, unsigned char len ) {
+  // len is in bytes
+  // buf must be at least len * 2 + 3 characters long
   char h[] = {'0', '1', '2', '3', '4', '5', '6', '7',
               '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
   buf[0] = '0'; buf[1] = 'x';
   for ( int i = 0; i < len; i++ ) {
-    buf [ i + 2 ] = h [ ( x >> ( ( len - i - 1 ) * 4 ) ) & 0x000f ];
-    buf [ i + 3 ] = '\0';
+    unsigned short theByte, nybbleIdx;
+    memcpy ( &theByte, x + ( len - i - 1 ), 1 );
+    buf [ i * 2 + 2 ] = h [ ( theByte >> 4 ) & 0x000f ];
+    buf [ i * 2 + 3 ] = h [ ( theByte >> 0 ) & 0x000f ];
+    buf [ i * 2 + 4 ] = '\0';
   }
 }
 

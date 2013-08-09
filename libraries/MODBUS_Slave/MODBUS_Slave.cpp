@@ -48,6 +48,7 @@
 // at 9600 baud = 960 cps it's 1/.96 = 1 ms
 #define MODBUS_RECEIVE_TIMEOUT_ms 2
 
+char hexBuf [ 8 ];
 
 //################## MODBUS_Slave ###################
 // Takes:   Slave Address, Pointer to Registers and Number of Available Registers
@@ -183,10 +184,10 @@ int MODBUS_Slave::Check_Data_Frame ( unsigned char * msg_buffer, char msg_len ) 
       if ( _VERBOSITY >= 5 ) {
         char buf[7];
         _diagnostic_port->print ( " -- failed CRC -- got " );
-        formatHex ( msg_CRC, buf );
+        formatHex ( ( unsigned char * ) &msg_CRC, buf, 2 );
         _diagnostic_port->print ( buf );
         _diagnostic_port->print ( "; expected " );
-        formatHex ( recalculated_CRC, buf );
+        formatHex ( ( unsigned char * ) &recalculated_CRC, buf, 2 );
         _diagnostic_port->print ( buf );
         _diagnostic_port->print ( "\n" );
       }
@@ -260,15 +261,34 @@ void MODBUS_Slave::Process_Data ( unsigned char * msg_buffer, char msg_len ) {
 // ******************************************************************************
 
 //################## Send Response ###################
-// Takes:   In Data Buffer, Length
+// Takes:   In Data Buffer, Length of data (exclusive of CRC which MODBUS.Send supplies) in bytes
 // Returns: Nothing
 // Effect:  Sends Response over serial port
 
 void MODBUS_Slave::Send_Response ( unsigned char *buf, short nChars ) {
-	if ( buf[0] == 0 )
+
+	if ( buf[0] == 0 ) {
     // don't reply	to broadcast
 		return;
-  _MODBUS_port.Send ( buf, nChars ); 
+  }
+  
+  _MODBUS_port.Send ( buf, nChars );
+  
+  #if ! defined(ATtiny85)
+    if ( _VERBOSITY >= 10 ) {
+      
+      _diagnostic_port->print ( "Reply ( " );
+      _diagnostic_port->print ( nChars );
+      _diagnostic_port->println ( " payload bytes ): " );
+      for ( int i = 0; i < nChars + 2; i++ ) {
+        formatHex ( ( unsigned char * ) &buf [ i ], hexBuf, 1);
+        _diagnostic_port->print ( hexBuf );
+        _diagnostic_port->print ( " " );
+      }
+      _diagnostic_port->println ();
+    }
+  #endif
+  
 }
 
 //################## Read Exception ###################
@@ -458,36 +478,6 @@ void MODBUS_Slave::Write_Coils ( unsigned char *buf ) {
 // ******************************************************************************
 // ******************************************************************************
 
-//################## Read Reg ###################
-// Takes:   In Data Buffer: address into regArray, count of registers to read
-// Returns: Nothing
-// Effect:  Reads bytes at a time and composes 16 bit replies.  Sets Reply Data and sends Response
-
-void MODBUS_Slave::Read_Reg ( unsigned char *buf ) {
-
-  unsigned short Addr_Hi = buf[2];
-  unsigned short Addr_Lo = buf[3];
-  unsigned short Cnt_Hi = buf[4];
-  unsigned short Cnt_Lo = buf[5];
-  
-  short Count = Cnt_Lo + ( Cnt_Hi << 8 );  // number of registers ( 2 bytes each )
-  buf[2] = Count * 2;  // turn into bytes
-  
-  unsigned short Address = (Addr_Lo + ( Addr_Hi << 8 ) );
-  if ( ( Address + Count) > _nRegs ) {
-		_error = 2;
-		return;
-	}
-  short Item = 3;
-  for ( int i = 0; i < Count; i++ ) {
-    buf [ Item     ] = ( _regArray [ Address ] & 0xff00 ) >> 8;
-    buf [ Item + 1 ] =   _regArray [ Address ] & 0x00ff;
-    Address++;
-    Item += 2;
-  }
-  Send_Response ( buf, Item );
-}
-
 //################## Write_Single_Reg ###################
 // Takes:   In Data Buffer
 // Returns: Nothing
@@ -537,7 +527,7 @@ void MODBUS_Slave::Write_Regs ( unsigned char *buf ) {
     _regArray[ Address++ ] = ( buf [ Read_Byte ] << 8 ) + buf [ Read_Byte + 1 ];
     Read_Byte += 2;
   }
-  Send_Response ( buf, 6) ;
+  Send_Response ( buf, Read_Byte ) ;
 }
 
 
@@ -556,6 +546,41 @@ void MODBUS_Slave::Write_Regs ( unsigned char *buf ) {
 //       -81 - timeout
 // Effect:  Reads bytes at a time and composes 16 bit replies.  Sets Reply Data and sends Response
 
+void MODBUS_Slave::Read_Reg ( unsigned char *buf ) {
+
+  unsigned short Addr_Hi = buf[2];
+  unsigned short Addr_Lo = buf[3];
+  unsigned short Cnt_Hi = buf[4];
+  unsigned short Cnt_Lo = buf[5];
+  
+  short Count = Cnt_Lo + ( Cnt_Hi << 8 );  // number of registers ( 2 bytes each )
+  buf [ 2 ] = Count * 2;  // number of following bytes
+  
+  unsigned short Address = (Addr_Lo + ( Addr_Hi << 8 ) );
+  if ( ( Address + Count) > _nRegs ) {
+		_error = 2;
+		return;
+	}
+  short Item = 3;
+  for ( int i = 0; i < Count; i++ ) {
+    buf [ Item     ] = ( _regArray [ Address ] & 0xff00 ) >> 8;
+    buf [ Item + 1 ] =   _regArray [ Address ] & 0x00ff;
+    Address++;
+    Item += 2;
+  }
+  Send_Response ( buf, Item );
+}
+
+
+
+// ******************************************************************************
+// ******************************************************************************
+// ******************************************************************************
+// ******************************************************************************
+// ******************************************************************************
+// ******************************************************************************
+
+
 int MODBUS_Slave::Execute ( ) {
 
   unsigned long lastMsgReceivedAt_ms;
@@ -566,8 +591,6 @@ int MODBUS_Slave::Execute ( ) {
   static unsigned char strBuf [ bufLen + 1 ];
   static int bufPtr;
   
-  char hexBuf [ 8 ];
-
   bufPtr = _MODBUS_port.Receive ( strBuf, bufLen, MODBUS_RECEIVE_TIMEOUT_ms );
   
   if ( bufPtr ) {
@@ -577,7 +600,7 @@ int MODBUS_Slave::Execute ( ) {
         
         _diagnostic_port->println ( "Received: " );
         for ( int i = 0; i < bufPtr; i++ ) {
-          formatHex ( strBuf [ i ], hexBuf, 2);
+          formatHex ( ( unsigned char * ) &strBuf [ i ], hexBuf, 1);
           _diagnostic_port->print ( hexBuf );
           _diagnostic_port->print ( " " );
         }

@@ -1,5 +1,5 @@
-#define VERSION "1.0.0"
-#define VERDATE "2013-04-10"
+#define VERSION "1.1.0"
+#define VERDATE "2013-04-18"
 #define PROGMONIKER "MCW"
 
 /*
@@ -16,16 +16,15 @@
   Arduino connections (digital pins):
      0 RX - reserved for serial comm - left unconnected
      1 TX - reserved for serial comm - left unconnected
-     4 ESTOP
-     5 INTERRUPT (RFU)
-    10 RX - RS485 connected to MAX485 pin 1
-    11 TX - RS485 connected to MAX485 pin 4
-    12 MAX485 driver enable
-    13 status LED
+     4 ESTOP (yellow)
+     5 INTERRUPT (RFU) (blue)
+     6 RX - RS485 connected to MAX485 pin 1 (green)
+     7 TX - RS485 connected to MAX485 pin 4 (orange)
+     8 MAX485 driver enable (purple)
+     9 status LED
    
  
 Plans:
-  install flashing LED on pin 13 for status
  
 */
 
@@ -41,23 +40,34 @@ Plans:
 #define BAUDRATE485 57600
 
 // pin definitions
-#define pdESTOP 4
-#define pdINTERRUPT 5
-#define pdRS485RX 10
-#define pdRS485TX 11
-#define pdRS485_TX_ENABLE 12
-#define pdLED 13
+
+#define pdESTOP           4
+#define pdINTERRUPT       5
+#define pdRS485RX         6
+#define pdRS485TX         7
+#define pdRS485_TX_ENABLE 8
+
+#define pdSTATUSLED       9
 
 static byte nPinDefs;
 #define PINDEF_ITEMS 3
 // ( input/output mode ( 1 input ); digital pin; coil # )
+
+/* 
+  NOTE: pdESTOP and pdINTERRUPT are to be *open drain* on the bus
+  so than any processor can pull them down. Thus the specification of each
+  as INPUT. In this mode, setting the pin to HIGH or 1 makes it high-Z
+  and enables an internal 50K pullup resistor; setting the pin to LOW or 0
+  pulls it strongly to ground, thus asserting the active-low signals.
+*/
+
 short pinDefs [ ] [ PINDEF_ITEMS ] = {
-                                       { 1,  4,  -1 },
-                                       { 1,  5,  -1 },
-                                   //    { 0, 10,  3 },    // handled by SoftwareSerial
-                                   //    { 0, 11,  4 },    // handled by SoftwareSerial
-                                       { 0, 12, -1 },
-                                       { 0, 13, -1 }
+                                       { 1,  pdESTOP         ,  -1 },
+                                       { 1,  pdINTERRUPT     ,  -1 },
+                                   //    { 0,  pdRS485RX  ,  3 },    // handled by SoftwareSerial
+                                   //    { 0,  pdRS485TX  ,  4 },    // handled by SoftwareSerial
+                                       { 0,  pdRS485_TX_ENABLE, -1 },
+                                       { 0,  pdSTATUSLED      , -1 }
                                      };
 
 #define SLAVE_ADDRESS 0x01
@@ -105,10 +115,11 @@ void setup() {
 
   mb.Init ( SLAVE_ADDRESS, nCoils, coils, nRegs, regs, MODBUS_port );
   mb.Set_Verbose ( ( Stream * ) &Serial, -1 );
+  // mb.Set_Verbose ( ( Stream * ) &Serial, 10 );
 
   #if TESTMODE > 0
     Serial.print ( PROGMONIKER );
-    Serial.print ( ": Test MODBUS Slave v");
+    Serial.print ( ": Test EMMA Motor Control Watchdog Slave v");
     Serial.print ( VERSION );
     Serial.print ( " (" );
     Serial.print ( VERDATE );
@@ -135,7 +146,7 @@ void setup() {
       digitalWrite ( pinDefs [i] [1], 0 );
     }
   }
-  
+      
   // initialize the motor controller
   // set timeout value (ms)
   //   robot will stop automatically if no commands come for this interval
@@ -144,7 +155,6 @@ void setup() {
   Serial.println ( "^mxmd 0" );
   Serial.println ( "%eesav" );
 
-  
 }
 
 void loop () {
@@ -152,6 +162,7 @@ void loop () {
   int status;
   static unsigned long lastBlinkToggleAt_ms = 0;
   static bool halted = false;
+  static int LEDstatus = 0;
   
   status = mb.Execute ();
   
@@ -193,7 +204,9 @@ void loop () {
     }
     // note that we’ve processed this command
     setCoilValue ( coils, nCoils, 0, 0 );
-    digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
+    digitalWrite ( pdSTATUSLED, ! digitalRead ( pdSTATUSLED ) );
+    // Serial.print (" LED "); Serial.print (pdSTATUSLED); Serial.print (":  "); Serial.println (LEDstatus);
+    
   }
   
   // we’ve handled any pending update from the master
@@ -220,7 +233,7 @@ void loop () {
       
       halted = true;
       
-      digitalWrite ( pdLED, 1 );
+      digitalWrite ( pdSTATUSLED, 1 );
     }
 
   }

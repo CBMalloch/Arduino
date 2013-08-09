@@ -12,7 +12,13 @@ MODBUS_Master KEYWORD1
 # Methods and Functions (KEYWORD2)
 #######################################
 
+Init KEYWORD2
+Write_Single_Coil KEYWORD2
+Write_Regs KEYWORD2
+Read_Reg KEYWORD2
 GetReply KEYWORD2
+Receive KEYWORD2
+Set_Verbose KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)

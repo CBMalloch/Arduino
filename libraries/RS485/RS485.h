@@ -50,6 +50,9 @@ class RS485 {
                   unsigned int bufLen, 
                   long receive_timeout_ms = 2
                  );
+                 
+    // errorFlag: 0 -> OK; 1 -> buffer overrun on receive
+    short errorFlag;
 
 	private:
     Stream * _port;
