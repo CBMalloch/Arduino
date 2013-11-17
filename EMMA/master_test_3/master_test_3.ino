@@ -1,4 +1,4 @@
-#define VERSION "0.2.0"
+#define VERSION "0.2.1"
 #define VERDATE "2013-11-04"
 #define PROGMONIKER "MT3"
 
@@ -144,7 +144,7 @@ short pinDefs [ ] [ PINDEF_ITEMS ] = {
                                        { 0,  pdSELECT_BIT_3  ,  -1 }
                                       };
                                       
-#define bufLen 80
+#define bufLen 40
 char strBuf [ bufLen + 1 ];
 int bufPtr;
 
@@ -155,7 +155,6 @@ short testNumber = -1;
 short wheelSpeedCommands [ 2 ] = { 0, 0 };
 
 float MLXZero = 0.0;
-
 
 void setup () {
 
@@ -274,20 +273,25 @@ void setup () {
     Serial.print ("Bias difference: "); Serial.println ( MLXZero - 1008 );
     
     if ( abs ( MLXZero - 1008 ) > 50 ) {
-      Serial.println ("Halting from excessive bias difference"); for ( ;; ) { }
+      Serial.println ("Excessive bias difference"); for ( ;; ) { }
     }
     
     
     // MLXZero = 0.0;
   }
   
-  
+  // first commanded wheel speeds must be zero
+  for ( int i = 0; i < 2; i++ ) { wheelSpeedCommands [ i ] = 0; }
+  sendWheelSpeedCommandsToSlave ( wheelSpeedCommands );
+
   testNumber =  ( digitalRead ( pdSELECT_BIT_3 ) << 3 )
               | ( digitalRead ( pdSELECT_BIT_2 ) << 2 )
               | ( digitalRead ( pdSELECT_BIT_1 ) << 1 )
               | ( digitalRead ( pdSELECT_BIT_0 ) << 0 );
 
   testNumber = 2;
+
+  Serial.print ( "Test selected: " ); Serial.println ( testNumber );
 
 }
 
@@ -337,7 +341,6 @@ void loop () {
     // if ( lastLoopAt_us != 0LU ) {
       // Serial.print( "  Loop time (us): "); Serial.println ( micros() - lastLoopAt_us );
     // }
-    Serial.print ( "Test selected: " ); Serial.println ( testNumber );
     lastPrintAt_ms = millis();
   }
   lastLoopAt_us = micros();
@@ -375,7 +378,7 @@ void loop () {
     Serial.print ( "        Heading: " );
     Serial.print ( heading ); Serial.println ( " deg" );
     
-    Serial.print ( "Test state: " ); Serial.println ( testState );
+    Serial.print ( "TS " ); Serial.println ( testState );
     
     last_print_at_ms = millis();
   }
@@ -399,19 +402,8 @@ void loop () {
         default:
           break;
       }
-
-      master.Write_Regs ( MOTOR_CONTROL_SLAVE_ADDRESS, 0, 2, wheelSpeedCommands );
-      delay ( 5 );
-      master.Write_Single_Coil ( MOTOR_CONTROL_SLAVE_ADDRESS, 0, 1 );
-      delay ( 5 );
-      digitalWrite ( pdINDICATORLED, ! digitalRead ( pdINDICATORLED ) );
       
-      #if VERBOSE >= 1
-        Serial.print   ( "Speeds: " ); 
-        Serial.print   ( wheelSpeedCommands [ 0 ] );
-        Serial.print   ( ", " ); 
-        Serial.println ( wheelSpeedCommands [ 1 ] );
-      #endif
+      sendWheelSpeedCommandsToSlave ( wheelSpeedCommands );
            
       lastSendAt_ms = millis();
       
@@ -517,13 +509,28 @@ int transact ( byte command, int bytesToRead, byte * result ) {
   
 }
 
+void sendWheelSpeedCommandsToSlave ( short wheelSpeedCommands [ 2 ] ) {
+
+  master.Write_Regs ( MOTOR_CONTROL_SLAVE_ADDRESS, 0, 2, wheelSpeedCommands );
+  delay ( 5 );
+  master.Write_Single_Coil ( MOTOR_CONTROL_SLAVE_ADDRESS, 0, 1 );
+  delay ( 5 );
+  digitalWrite ( pdINDICATORLED, ! digitalRead ( pdINDICATORLED ) );
+  
+  #if VERBOSE >= 1
+    Serial.print   ( "Speeds: " ); 
+    Serial.print   ( wheelSpeedCommands [ 0 ] );
+    Serial.print   ( ", " ); 
+    Serial.println ( wheelSpeedCommands [ 1 ] );
+  #endif
+}
 
 void rotate90deg4x (short &testState, float heading, short wheelSpeedCommands [ 2 ] ) {
   switch ( testState ) {
     case -1: 
       // startup
       testState = 0;
-      Serial.print ( "Entering test state " ); Serial.println ( testState );
+      Serial.print ( "->TS " ); Serial.println ( testState );
       break;
     case 0:
       // turning L 90deg
@@ -535,7 +542,7 @@ void rotate90deg4x (short &testState, float heading, short wheelSpeedCommands [ 
         wheelSpeedCommands [ 1 ] = 0.0;
         // on to next test
         testState++;
-        Serial.print ( "Entering test state " ); Serial.println ( testState );
+        Serial.print ( "->TS " ); Serial.println ( testState );
       }
       break;
     case 1:
@@ -548,7 +555,7 @@ void rotate90deg4x (short &testState, float heading, short wheelSpeedCommands [ 
         wheelSpeedCommands [ 1 ] = 0.0;
         // on to next test
         testState++;
-        Serial.print ( "Entering test state " ); Serial.println ( testState );
+        Serial.print ( "->TS " ); Serial.println ( testState );
       }
       break;
     case 2:
@@ -561,7 +568,7 @@ void rotate90deg4x (short &testState, float heading, short wheelSpeedCommands [ 
         wheelSpeedCommands [ 1 ] = 0.0;
         // on to next test
         testState++;
-        Serial.print ( "Entering test state " ); Serial.println ( testState );
+        Serial.print ( "->TS " ); Serial.println ( testState );
       }
       break;
     case 3:
@@ -574,7 +581,7 @@ void rotate90deg4x (short &testState, float heading, short wheelSpeedCommands [ 
         wheelSpeedCommands [ 1 ] = 0.0;
         // on to next test
         testState++;
-        Serial.print ( "Entering test state " ); Serial.println ( testState );
+        Serial.print ( "->TS " ); Serial.println ( testState );
       }
       break;
     default:
@@ -583,10 +590,39 @@ void rotate90deg4x (short &testState, float heading, short wheelSpeedCommands [ 
 }
 
 void goToWall (short &testState, float heading, short wheelSpeedCommands [ 2 ] ) {
-  if ( testState < 0 ) {
-    testState = 0;
-    Serial.print ( "Entering test state " ); Serial.println ( testState );
-  }
+  // if ( testState < 0 ) {
+    // testState = 0;
+    // Serial.print ( "Entering test state " ); Serial.println ( testState );
+  // }
+  
+  // the presence of these two lines stops the program from running
+  
   wheelSpeedCommands [ 0 ] = pct2cmd ( 0.2 );
   wheelSpeedCommands [ 1 ] = pct2cmd ( 0.2 );
-}
+  
+  
+  
+/*   switch ( testState ) {
+      // startup
+    case -1: 
+      testState = 0;
+      Serial.print ( ">TS " ); Serial.println ( testState );
+      break;
+    case 0:
+      // turning L 90deg
+      if ( heading > -90.0 ) {
+        wheelSpeedCommands [ 0 ] = pct2cmd ( 0.2 );
+        wheelSpeedCommands [ 1 ] = pct2cmd ( 0.2 );
+      } else {
+        wheelSpeedCommands [ 0 ] = 0.0;
+        wheelSpeedCommands [ 1 ] = 0.0;
+        // on to next test
+        testState++;
+        Serial.print ( ">TS " ); Serial.println ( testState );
+      }
+      break;
+    default:
+      break;
+  }
+ */
+ }
