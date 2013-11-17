@@ -199,8 +199,8 @@ void loop () {
     // don't use else here, since we want to test again
     if ( ! halted ) {
       // send new speed commands to motors
-      Serial.print ( "!g 1 "); Serial.println( regs[0] );
-      Serial.print ( "!g 2 "); Serial.println( regs[1] );
+      Serial.print ( "!g 1 "); Serial.println( - regs[0] );
+      Serial.print ( "!g 2 "); Serial.println( - regs[1] );
     }
     // note that we’ve processed this command
     setCoilValue ( coils, nCoils, 0, 0 );

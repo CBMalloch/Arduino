@@ -1,0 +1,3 @@
+EMMA notes
+
+o Master must reset safety supervisor after its own reset
