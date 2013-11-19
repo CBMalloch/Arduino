@@ -1,5 +1,5 @@
-#define VERSION "1.0.0"
-#define VERDATE "2013-11-16"
+#define VERSION "1.1.1"
+#define VERDATE "2013-11-19"
 #define PROGMONIKER "MR"
 
 /*
@@ -61,12 +61,12 @@ short pinDefs [ ] [ PINDEF_ITEMS ] = {
 char strBuf [ bufLen + 1 ];
 int bufPtr;
 
-typedef struct { int speed, steering ; } Payload;
+typedef struct { int direction, speed, steering ; } Payload;
 Payload rxPacket;
 
 void setup () {
 
-  delay ( 10000LU );
+  delay ( 4000LU );
   
   Serial.begin ( BAUDRATE );
   Serial1.begin ( BAUDRATE );
@@ -108,7 +108,7 @@ void setup () {
   
 void loop () {
   
-  int RFSpeed, RFSteering;
+  int RFSpeed, RFSteering, RFDirection;
   static unsigned long lastFlashAt_ms = 0LU;
   
   if ( rf12_recvDone () ) {
@@ -118,10 +118,11 @@ void loop () {
         
         rxPacket = * ( Payload * ) rf12_data; // Extract the data from the payload
         
+        RFDirection = rxPacket.direction;
         RFSpeed = rxPacket.speed;
         RFSteering = rxPacket.steering;
         
-        snprintf ( strBuf, bufLen, "%4d %4d \x0a", RFSpeed, RFSteering );
+        snprintf ( strBuf, bufLen, "%4d %4d %4d \x0a", RFDirection, RFSpeed, RFSteering );
         if ( Serial ) Serial.print ( strBuf );  // echo for console
         Serial1.print ( strBuf );
         

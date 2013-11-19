@@ -1,3 +1,5 @@
 EMMA notes
 
 o Master must reset safety supervisor after its own reset
+o Master to send 16 distances to safety supervisor: stop, e-stop distance for each sensor
+o forward/reverse switch for Minion_sender
