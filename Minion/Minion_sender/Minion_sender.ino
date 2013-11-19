@@ -1,4 +1,4 @@
-#define VERSION "1.0.0"
+#define VERSION "1.0.1"
 #define VERDATE "2013-11-16"
 #define PROGMONIKER "MS"
 
@@ -28,6 +28,7 @@
 #define pdINDICATORLED    9
 #define paSPEED          A0
 #define paSTEERING       A1
+#define paDIRECTION      A2
 
 #define LOOP_DELAY_ms 100
 
@@ -65,12 +66,12 @@ short pinDefs [ ] [ PINDEF_ITEMS ] = {
 char strBuf [ bufLen + 1 ];
 int bufPtr;
 
-typedef struct { int speed, steering ; } Payload;
+typedef struct { int direction, speed, steering ; } Payload;
 Payload txPacket;
 
 void setup () {
 
-  delay ( 10000LU );
+  delay ( 4000LU );
   
   Serial.begin ( BAUDRATE );
 
@@ -111,10 +112,13 @@ void setup () {
   
 void loop () {
   
-  int speed, steering;
+  int speed, steering, direction;
   static unsigned long lastFlashAt_ms = 0LU,
                        lastSendAt_ms = 0LU;
+  #define EMMAFORWARDDIR  1
+  #define EMMAREVERSEDIR -1
   
+  direction = ( analogRead ( paDIRECTION ) > 512 ) ? EMMAREVERSEDIR : EMMAFORWARDDIR;
   speed = int ( float ( analogRead ( paSPEED ) ) / 1024.0 * 100.0 + 0.5 );
   steering = int ( float ( analogRead ( paSTEERING ) - 512 ) / 512.0 * 10.0 + 0.5 );
   
@@ -165,11 +169,13 @@ void loop () {
         i++;
       }
       
-      txPacket.speed = speed;
-      txPacket.steering = steering;
+      txPacket.direction = direction;
+      txPacket.speed     = speed;
+      txPacket.steering  = steering;
       
       if ( Serial ) {
-        Serial.print ( "Speed: " ); Serial.print ( speed );
+        Serial.print ( "Direction: " ); Serial.print ( direction );
+        Serial.print ( " Speed: " ); Serial.print ( speed );
         Serial.print ( "; Steering: " ); Serial.println ( steering );
       }
       

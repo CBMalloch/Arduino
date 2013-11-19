@@ -1,5 +1,5 @@
-#define VERSION "1.0.0"
-#define VERDATE "2013-11-16"
+#define VERSION "1.1.2"
+#define VERDATE "2013-11-19"
 #define PROGMONIKER "SSEM"
 
 /*
@@ -185,14 +185,17 @@ void loop () {
                         lastCharReceivedAt_ms = 0LU,
                         lastMsgReceivedAt_ms = 0LU,
                         lastFlashAt_ms = 0LU;
-  short direction;
+  #define EMMAFORWARDDIR  1
+  #define EMMAREVERSEDIR -1
   
+  static int commandedDirection = 1;
   static float commandedSpeed = 0.0;
   static float commandedSteering = 0.0;
+  static int waitForZeroSpeed = 1, oldCommandedDirection = 1;
   static unsigned long lastCommandAt_ms = 0LU;
   static short stopped = 0;
 
-  #define inBufLen 11
+  #define inBufLen 16
   static char inBuf [ inBufLen ];
   static short inBufPtr = 0;
 
@@ -229,16 +232,20 @@ void loop () {
     char theChar = Serial.read();
     
     if ( theChar == 0x0a ) {
-      if ( inBufPtr == 10 ) {
-        // newline; handle the buffer and clear it
+      // newline; handle the buffer and clear it
+      if ( inBufPtr == 15 ) {
         inBuf[4] = '\0';
         inBuf[9] = '\0';
-        commandedSpeed = float ( atoi ( & inBuf [ 0 ] ) );
-        commandedSteering = float ( atoi ( & inBuf [ 5 ] ) );
+        inBuf[14] = '\0';
+        commandedDirection = atoi ( & inBuf [ 0 ] );
+        commandedSpeed = float ( atoi ( & inBuf [ 5 ] ) );
+        commandedSteering = float ( atoi ( & inBuf [ 10 ] ) );
         lastCommandAt_ms = millis();
         #if VERBOSE >= 4
-          erial.print ( "!!! " );
+          Serial.print ( "!!! " );
         #endif
+      } else {
+        Serial.print ( "inBufptr: " ); Serial.println ( inBufPtr );
       }
       
       #if VERBOSE > 4
@@ -250,6 +257,16 @@ void loop () {
 
       dumping = 0;
       inBufPtr = 0;
+      
+      if ( commandedSpeed == 0 ) {
+        waitForZeroSpeed = 0;
+        oldCommandedDirection = commandedDirection;
+      }
+      
+      if ( commandedDirection != oldCommandedDirection ) {
+        // wait for speed command to go to zero before proceeding!
+        waitForZeroSpeed = 1;
+      }
       
     } else if (    ( ! (   ( theChar == ' ' )
                         || ( theChar == '-' ) 
@@ -278,15 +295,23 @@ void loop () {
   if ( ( millis() - lastCommandAt_ms ) < AGEOLDESTFRESHMESSAGE_ms ) {
     // calculate wheel speeds
 
-    wheelSpeedCommands [ 0 ] = pct2cmd ( commandedSpeed - STEERINGGAIN * commandedSteering );
-    wheelSpeedCommands [ 1 ] = pct2cmd ( commandedSpeed + STEERINGGAIN * commandedSteering );
+    if ( waitForZeroSpeed == 0 ) {
+      wheelSpeedCommands [ 0 ] = commandedDirection * pct2cmd ( commandedSpeed - STEERINGGAIN * commandedSteering );
+      wheelSpeedCommands [ 1 ] = commandedDirection * pct2cmd ( commandedSpeed + STEERINGGAIN * commandedSteering );
+    } else {
+      // direction was changed; full stop until zero speed is commanded
+      wheelSpeedCommands [ 0 ] = 0;
+      wheelSpeedCommands [ 1 ] = 0;
+    }
     if ( 1 && ( ( millis() - lastPrintAt_ms ) > PRINTINTERVAL_ms ) ) {
       #if VERBOSE >= 2
-        Serial.print ( "Speed: " ); Serial.print ( commandedSpeed );
+        Serial.print ( "Direction: " ); Serial.print ( commandedDirection );
+        Serial.print ( " Speed: " ); Serial.print ( commandedSpeed );
         Serial.print ( " Steering: " ); Serial.print ( commandedSteering );
         Serial.print ( "   " ); 
         Serial.print ( " : ( " ); Serial.print ( wheelSpeedCommands [ 0 ] );
         Serial.print ( ", " ); Serial.print ( wheelSpeedCommands [ 1 ] );
+        Serial.print ( "; waitForZeroSpeed: " ); Serial.print ( waitForZeroSpeed );
         Serial.println ( ") " ); 
       #endif
       
@@ -320,9 +345,9 @@ short pct2cmd ( float pct ) {
   if ( abs ( pct ) < 0.1 ) {
     return ( 0 );
   } else if ( pct > 0 ) {
-    return ( pct * maxSpeedAboveMin + MINSPEED );
+    return ( pct * 0.01 * maxSpeedAboveMin + MINSPEED );
   } else {
-    return ( pct * maxSpeedAboveMin - MINSPEED );
+    return ( pct * 0.01 * maxSpeedAboveMin - MINSPEED );
   }
 }
 
