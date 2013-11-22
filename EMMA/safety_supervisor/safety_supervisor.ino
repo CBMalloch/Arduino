@@ -1,5 +1,5 @@
-#define VERSION "1.1."
-#define VERDATE "2013-04-19"
+#define VERSION "1.1.0"
+#define VERDATE "2013-11-22"
 #define PROGMONIKER "SS"
 
 /* Read multiple ultrasonic rangefinders, multiplexed with one HCF4051 8-channel analog mux/demux
@@ -45,12 +45,24 @@
 
 #define BAUDRATE 115200
 
-#define ESTOP_DURATION_MS 30000LU
+#define ESTOP_DURATION_MS 2500LU
 #define LOOP_PERIOD_MS 250LU
 
 #define NSENSORS 8
 // sensor 1 basically disabled for resetability
-int min_distances_in [ NSENSORS ] = { 24, 6, 12, 12, 36, 36, 12, 12 };
+/*
+       front
+   5 ---------- 4
+  6              3
+  |              |
+  |              |
+  |              |
+  7              2
+  |0============1|
+  |    back      |
+
+*/
+int min_distances_in [ NSENSORS ] = { 12, 3,  9,  9, 18, 18,  9,  9 };
 
 #define paDistance 0
 
@@ -155,7 +167,7 @@ void loop() {
       Serial.println ( " tenths of an inch" );
     }
     
-    if ( ( millis () - last_ESTOP_at_ms ) > ESTOP_DURATION_MS ) {
+    if ( ( last_ESTOP_at_ms != 0L ) && ( millis () - last_ESTOP_at_ms ) > ESTOP_DURATION_MS ) {
       // ESTOP timed out; lift it
       digitalWrite ( pdESTOP, 1 );
       pinMode ( pdESTOP, INPUT );
@@ -164,7 +176,7 @@ void loop() {
       Serial.println ( "ESTOP de-asserted after timeout interval" );
       last_ESTOP_at_ms = 0L;
     } else if ( last_ESTOP_at_ms && ( i == ( NSENSORS - 1 ) ) ) {
-      Serial.println ( "ESTOP still asserted" );
+      Serial.print ( "ESTOP still asserted " ); Serial.println ( ( millis () - last_ESTOP_at_ms ) / 1000 );
     }
     
     

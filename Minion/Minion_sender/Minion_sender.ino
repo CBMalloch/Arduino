@@ -1,5 +1,5 @@
-#define VERSION "1.0.1"
-#define VERDATE "2013-11-16"
+#define VERSION "1.1.0"
+#define VERDATE "2013-11-22"
 #define PROGMONIKER "MS"
 
 /*
@@ -13,6 +13,7 @@
      9 status LED shows message sending
     A0 speed (will produce 0-100)
     A1 steering (will produce -10-10)
+    A2 forward / reverse ( 0 is forward, 1023 is reverse )
  
 */
 
@@ -120,7 +121,21 @@ void loop () {
   
   direction = ( analogRead ( paDIRECTION ) > 512 ) ? EMMAREVERSEDIR : EMMAFORWARDDIR;
   speed = int ( float ( analogRead ( paSPEED ) ) / 1024.0 * 100.0 + 0.5 );
-  steering = int ( float ( analogRead ( paSTEERING ) - 512 ) / 512.0 * 10.0 + 0.5 );
+  // steering = int ( float ( analogRead ( paSTEERING ) - 512 ) / 512.0 * 10.0 + 0.5 );
+  steering = analogRead ( paSTEERING );
+  if ( steering < 495 ) {
+    // 0 to 495 => -1 to -10
+    steering = -1 - ( steering / 55 );
+  } else if ( steering > 526 ) {
+    // 527 - 1023 => 1 to 10
+    steering = 1 + ( steering / 55 );
+  } else {
+    // dead band in middle
+    steering = 0;
+  }
+ 
+
+
   
   rf12_recvDone ();
   /*

@@ -1,5 +1,5 @@
-#define VERSION "1.1.2"
-#define VERDATE "2013-11-19"
+#define VERSION "1.2.0"
+#define VERDATE "2013-11-20"
 #define PROGMONIKER "SSEM"
 
 /*
@@ -296,8 +296,16 @@ void loop () {
     // calculate wheel speeds
 
     if ( waitForZeroSpeed == 0 ) {
-      wheelSpeedCommands [ 0 ] = commandedDirection * pct2cmd ( commandedSpeed - STEERINGGAIN * commandedSteering );
-      wheelSpeedCommands [ 1 ] = commandedDirection * pct2cmd ( commandedSpeed + STEERINGGAIN * commandedSteering );
+      if ( commandedSpeed == 0 ) {
+        // zero-turn mode
+        wheelSpeedCommands [ 0 ] = commandedDirection * pct2cmd (   commandedSteering );
+        wheelSpeedCommands [ 1 ] = commandedDirection * pct2cmd ( - commandedSteering );
+      } else {
+        // turn while moving
+        float steeringAmount = STEERINGGAIN * commandedSteering;
+        wheelSpeedCommands [ 0 ] = commandedDirection * pct2cmd ( max (  1, commandedSpeed - steeringAmount ) );
+        wheelSpeedCommands [ 1 ] = commandedDirection * pct2cmd ( max (  1, commandedSpeed + steeringAmount ) );
+      }
     } else {
       // direction was changed; full stop until zero speed is commanded
       wheelSpeedCommands [ 0 ] = 0;
