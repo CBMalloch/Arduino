@@ -1,5 +1,5 @@
-#define VERSION "1.1.0"
-#define VERDATE "2013-11-22"
+#define VERSION "1.1.1"
+#define VERDATE "2013-11-23"
 #define PROGMONIKER "MS"
 
 /*
@@ -119,9 +119,13 @@ void loop () {
   #define EMMAFORWARDDIR  1
   #define EMMAREVERSEDIR -1
   
-  direction = ( analogRead ( paDIRECTION ) > 512 ) ? EMMAREVERSEDIR : EMMAFORWARDDIR;
-  speed = int ( float ( analogRead ( paSPEED ) ) / 1024.0 * 100.0 + 0.5 );
+  // map(value, fromLow, fromHigh, toLow, toHigh); constrain (x, a, b)
+  // direction = ( analogRead ( paDIRECTION ) > 512 ) ? EMMAREVERSEDIR : EMMAFORWARDDIR;
+  direction = ( analogRead ( paDIRECTION ) < 2 ) ? EMMAREVERSEDIR : EMMAFORWARDDIR;
+  // speed = int ( float ( 1023 - analogRead ( paSPEED ) ) / 1023.0 * 100.0 + 0.5 );
+  speed = constrain ( map ( analogRead ( paSPEED ), 1023, 450, 0, 100 ), 0, 100 );
   // steering = int ( float ( analogRead ( paSTEERING ) - 512 ) / 512.0 * 10.0 + 0.5 );
+  /*
   steering = analogRead ( paSTEERING );
   if ( steering < 495 ) {
     // 0 to 495 => -1 to -10
@@ -133,7 +137,9 @@ void loop () {
     // dead band in middle
     steering = 0;
   }
- 
+  */
+  steering = constrain ( map ( analogRead ( paSTEERING ) - 50, 200, 700, -10, 10 ), -10, 10 );
+  if ( abs ( steering ) < 2 ) steering = 0;
 
 
   
