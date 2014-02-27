@@ -21,7 +21,7 @@ Stats::Stats()
 
 const char *Stats::version()
 {
-	return "0.000.000";
+	return "1.000.000";
 }
 
 void Stats::reset()
