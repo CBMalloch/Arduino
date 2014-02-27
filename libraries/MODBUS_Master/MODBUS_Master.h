@@ -42,6 +42,8 @@ class MODBUS_Master {
                   );
                   
     void Write_Single_Coil ( unsigned char slave_address, short coilNo, short value );
+    int Read_Coils ( unsigned char slave_address, short startCoil, short nCoils, short * values, short lenValues );
+
     void Write_Regs ( unsigned char slave_address, short startReg, short nRegs, short values[] );
     // lenValues is in units of MODBUS registers of 2 bytes each
     int Read_Reg ( unsigned char slave_address, short theReg, short nRegs, short * value, short lenValues );

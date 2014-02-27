@@ -12,3 +12,9 @@
  fc 3 and 4 are equivalent
  
  in reply, fc high-order bit set signals error
+ 
+ For MODBUS, the coil array is in words of 16 bits each, bitwise big-endian and wordwise little-endian,
+ so the first word has bits 15 - 0 in that order, and the next word has bits 31-16 in that order, etc.
+ 
+ When we send the bits between MODBUS devices, we group them in 8-bit bytes using the same scheme.
+ So the first byte has bits 7 - 0, the second 15 - 8, etc.
