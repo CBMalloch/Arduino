@@ -1,0 +1,46 @@
+Notes:
+  hot tub fill monitor to be modified to tie into RS-485 hub
+   
+  v separate board for display output - SPI
+    -- note my display cards up to v1.1 are mislabeled, swapping MOSI and MISO labels!
+  o 7833 to power XBee, or use an Adafruit adapter
+  o XBee to receive hot tub status - to digital inputs
+  v nearby ds75 for outdoor temperature - I2C
+  v on-board light sensor - analog input
+  o status LEDs
+    HT Ozone
+    HT pre-run
+    HT run
+    HT cover
+  v separate board for POE
+    2 RJ-45 ( in parallel )
+    1 terminal strip for 5V power, RS485
+    1 TO-220 7805
+    1 MAX423 RS485 adapter
+  
+Steps:
+
+  
+  v create 3 RS-485 / cbmBus hubs, using Eagle CAD and OSH Park 
+    submitted for build 2013-05-17 received 2013-05-29
+    o build models for the RJ-45 receptacles I have, both the one-port and the two-port ones
+    o modify to use the available RJ-45s for future builds (not the SparkFun ones I used before)
+    POE_RS-485_v1.1 / RS-485 and power over Ethernet
+  v create Eagle board for LED output device $15/3 = $5 => total per board of $18 + supplies + labor 
+    submitted for build 2013-05-17 received 2013-05-29
+    o test with 7219
+    o modify board for future builds
+      o move resistor out from under LED display
+      o add popcorn caps across power supply
+  v build XBee adapter
+  v prototype / build ambient-light measuring circuit for brightness control
+  o concoct hot-tub-open sensor - ultrasonic rangefinder?
+  v prototype / build XBee receiving
+  
+  v prototype / build slave hardware to combine all the pieces
+  v create slave program
+  
+  v create master program or add master functionality to heating panel Arduino
+    or make furnace Arduino master and broadcast all via XBee
+  x use EarthLCD.com arduinoLCD / arLCD for display etc. ?
+  
