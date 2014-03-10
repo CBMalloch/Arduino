@@ -5,6 +5,9 @@
 /* Read multiple ultrasonic rangefinders, multiplexed with one HCF4051 8-channel analog mux/demux
   Charles B. Malloch, PhD  2013-04-16
   
+  This code does *not* implement MODBUS-RTU Slave yet. It needs to, so that the bubble of protection
+  can be made to correspond with speed and direction of the EMMA robot. Real soon now...
+  
   Connections:
     Analog:
       0 to HCF4051 pin 3
