@@ -9,12 +9,13 @@
 	
 */
 
-extern "C" {
-  #include <string.h>
-}
+// extern "C" {
+  // #include <string.h>
+// }
 
 #include <math.h>
-#include <wiring.h>
+// #include <wiring.h>
+#include <Arduino.h>
 #include "Thermosensor.h"
 
 // Thermosensor::Thermosensor() {
