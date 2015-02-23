@@ -59,7 +59,7 @@ void setup () {
   Serial.begin ( BAUDRATE );
   while ( !Serial && millis() < 10000 ) {
     digitalWrite ( pdLED, ! digitalRead ( pdLED ) );
-    delay ( 200 );
+    delay ( 50 );
   }
 }
 
@@ -117,46 +117,54 @@ void loop () {
   
   temperature_degF = temperature_degC * 9.0 / 5.0 + 32.0;
   
-  // 1 = logic TRUE. So 1 will print the results every half-second, and 
-  // 0 will activate the else part which will do the bouncing ball thing.
+  // 'P' will print the results every half-second, and 
+  // 'B' will do the bouncing ball thing.
   
-  if ( 1 ) {
+  char myChoice = 'B';
   
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-    //    print results every half-second
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-    Serial.print ( "cts: " );
-    Serial.print ( counts );
-    Serial.print ( "; v: ");
-    Serial.print ( sensed_volts );
-    Serial.print ( "; r: " );
-    Serial.print ( thermistor_ohms );
-    Serial.print ( "; K: " );
-    Serial.print ( temperature_degK );
-    Serial.print ( "; C: " );
-    Serial.print ( temperature_degC );
-    Serial.print ( "; F: " );
-    Serial.print ( temperature_degF );
-    Serial.println ();
+  switch ( myChoice ) {
+  
+    case 'P':
     
-    delay ( 500 );
+      // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+      //    print results every half-second
+      // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+      Serial.print ( "cts: " );
+      Serial.print ( counts );
+      Serial.print ( "; v: ");
+      Serial.print ( sensed_volts );
+      Serial.print ( "; r: " );
+      Serial.print ( thermistor_ohms );
+      Serial.print ( "; K: " );
+      Serial.print ( temperature_degK );
+      Serial.print ( "; C: " );
+      Serial.print ( temperature_degC );
+      Serial.print ( "; F: " );
+      Serial.print ( temperature_degF );
+      Serial.println ();
+      
+      delay ( 500 );
+      break;
+      
+    case 'B':
   
-  } else {
-  
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-    //    display results as bouncing ball
-    // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+      // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+      //    display results as bouncing ball
+      // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-    const int line_length = 60;
-    int nSpaces;
-    nSpaces = round ( ( temperature_degF - 60.0 ) * 3.0 );
-    // create the space to the left of the asterisk
-    for ( int i = 0; i < nSpaces; i++ ) {
-      Serial.print ( " " );
-    }
-    Serial.println ( "*" );
-    delay ( 200 );
+      const int line_length = 60;
+      int nSpaces;
+      nSpaces = round ( ( temperature_degF - 60.0 ) * 3.0 );
+      // create the space to the left of the asterisk
+      for ( int i = 0; i < nSpaces; i++ ) {
+        Serial.print ( " " );
+      }
+      Serial.println ( "*" );
+      delay ( 200 );
+      break;
    
   }
+  
+  digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
   
 }
