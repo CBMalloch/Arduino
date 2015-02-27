@@ -24,8 +24,6 @@ int threshold;
   
 void setup () {
   Serial.begin ( BAUDRATE );
-  delay ( 500 ); // while ( !Serial ) {};
-  Serial.println ( F ( "LED_wave_w_touch v1.0.0 2014-02-24" ) );
   
   // figure out how many LEDs are defined
   nLEDs = sizeof ( pdLEDs ) / sizeof ( int );
@@ -57,6 +55,7 @@ void setup () {
     int v = touchRead ( pdTouch );
     sum += v;
     sum2 += v * v;
+    digitalWrite ( pdBlinkyLED, ! digitalRead ( pdBlinkyLED ) );
     delay ( 2 );
   }
   
@@ -74,6 +73,12 @@ void setup () {
   // Serial.println (); Serial.print ( F ("Free mem: ") ); Serial.println ( FreeRam() ); 
     // gives 12231, now 12528, now 12460
   
+  while ( !Serial && millis() < 10000 ) {
+    digitalWrite ( pdBlinkyLED, ! digitalRead ( pdBlinkyLED ) );
+    delay ( 50 );
+  }
+  Serial.println ( "LED_wave_w_touch v1.1.0 2015-02-27" );
+
   Serial.println (); Serial.println ( "Done with initialization" );
   delay ( 2000 );
   
@@ -155,7 +160,8 @@ void loop () {
 }
 
 int mySin (int n2pi_64) {
-  /* returns 255 * sin ( n2pi_64 * 2 * pi() / 64 )
+  /* 
+    returns (int) 255 * sin ( n2pi_64 * 2 * pi() / 64 )
   */
   
   const int quarterSin[] = {
