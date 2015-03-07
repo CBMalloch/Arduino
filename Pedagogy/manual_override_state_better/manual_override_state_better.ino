@@ -86,6 +86,12 @@ int state = 0b010;
 #define room_is_bright  ( ( state >> 1 ) & 0b001 )
 #define LED             ( ( state >> 0 ) & 0b001 )
 
+
+// <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+// ><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+// <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+
 void setup () {
   
   pinMode ( pdBlinkyLED, OUTPUT );
@@ -97,7 +103,7 @@ void setup () {
     delay ( 100 );
   }
   
-  Serial.println ( "manual_override_state v1.1.0 2015-03-06" );
+  Serial.println ( "manual_override_state v1.2.0 2015-03-06" );
 
   const int nLoops = 1000;
   unsigned long sum = 0, sum2 = 0;
@@ -129,12 +135,17 @@ void setup () {
 
 }
 
-unsigned int printInterval_ms =  500UL;
-unsigned int blinkInterval_ms = 1000UL;
+// <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+// ><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+// <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
+
+// <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 void loop () {
   int event_R, event_P, event_T, counts, n;
-  static unsigned long lastPrintAt_ms = 0L, lastBlinkAt_ms = 0L;
+  static unsigned long lastBlinkAt_ms = 0L;
+  static unsigned int blinkInterval_ms = 1000UL;
   
   event_R = 0;
   event_P = 0;
@@ -206,20 +217,16 @@ void loop () {
   int event = event_T * 4 + event_P * 2 + event_R;
   if ( event ) {
     state = nextState ( state, event_T * 4 + event_P * 2 + event_R );
-  }
-  
-  digitalWrite ( pdNightLight, LED );
-  
-  if ( ( millis() - lastPrintAt_ms ) > printInterval_ms ) {
     
+    Serial.print ( "New state: " );
     Serial.print ( manual_override ? " M " : "~M " );
     Serial.print ( room_is_bright  ? " B " : "~B " );
     Serial.print ( LED             ? " L " : "~L " );
     Serial.println ();
-  
-    lastPrintAt_ms = millis();
   }
-    
+  
+  digitalWrite ( pdNightLight, LED );
+      
   blinkInterval_ms = manual_override ? 200UL : 500UL;
   
   if ( ( millis() - lastBlinkAt_ms ) > blinkInterval_ms ) {
@@ -228,6 +235,10 @@ void loop () {
   }
   
 }
+
+// <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+// ><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><
+// <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 int nextState ( int currentState, int event ) {
   /*
