@@ -5,6 +5,8 @@
   Charles B. Malloch, PhD  2015-02-19
 */
 
+#include <ANSI.h>
+
 #define BAUDRATE 115200
 #define pdLED 13
 #define paThermistor 0
@@ -19,6 +21,8 @@ const float divider_Rfixed_ohms = 23156.0;  // nominally 22000
 const float rRef_ohms           = 10000.0;
 const float tRef_degC           =    25.0;
 const float tRef_degK           = tRef_degC + zeroC_degK;
+
+const int line_length = 60;
 
 /*
   If ( as is not quite true ) resistance is inversely proportional to absolute temperature,
@@ -61,10 +65,13 @@ void setup () {
     digitalWrite ( pdLED, ! digitalRead ( pdLED ) );
     delay ( 50 );
   }
+  
+  Serial.println ( "thermistor.ino 2.0" );
+  
 }
 
 void loop () {
-  int counts;
+  int counts, nSpaces;
   float sensed_volts, thermistor_ohms, temperature_degK, temperature_degC, temperature_degF;
   
   counts = analogRead ( paThermistor );
@@ -117,8 +124,9 @@ void loop () {
   
   temperature_degF = temperature_degC * 9.0 / 5.0 + 32.0;
   
-  // 'P' will print the results every half-second, and 
-  // 'B' will do the bouncing ball thing.
+  // 'P' will print the results every half-second,
+  // 'S' will print the strip chart,
+  // 'B' will do the bouncing ball thing on one line
   
   char myChoice = 'B';
   
@@ -146,14 +154,12 @@ void loop () {
       delay ( 500 );
       break;
       
-    case 'B':
+    case 'S':
   
       // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-      //    display results as bouncing ball
+      //    display results on moving strip chart
       // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
-      const int line_length = 60;
-      int nSpaces;
       nSpaces = round ( ( temperature_degF - 60.0 ) * 3.0 );
       // create the space to the left of the asterisk
       for ( int i = 0; i < nSpaces; i++ ) {
@@ -162,7 +168,21 @@ void loop () {
       Serial.println ( "*" );
       delay ( 200 );
       break;
-   
+
+    case 'B':
+  
+      // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+      //    display results as bouncing ball
+      // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+
+      nSpaces = round ( ( temperature_degF - 60.0 ) * 3.0 );
+      curpos ( 2, 1 );
+      clr2EOL ();
+      curpos ( 2, nSpaces + 1 );
+      Serial.println ( "*" );
+      delay ( 50 );
+      break;
+      
   }
   
   digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
