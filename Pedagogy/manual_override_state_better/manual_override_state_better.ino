@@ -74,14 +74,14 @@
 #define pdNightLight              6
 #define pdBlinkyLED              13
 #define paPhotocell              18
-#define light_threshold         120
-#define light_hysteresis         10
+#define light_threshold         150
+#define light_hysteresis         50
 #define full_touch_threshold   1500
 
 float mean, variance, stdev;
 int touch_threshold;
 
-int state = 0b010;
+int state;
 #define manual_override ( ( state >> 2 ) & 0b001 )
 #define room_is_bright  ( ( state >> 1 ) & 0b001 )
 #define LED             ( ( state >> 0 ) & 0b001 )
@@ -125,10 +125,8 @@ void setup () {
   Serial.print ( "std dev: " ); Serial.println ( stdev );
   Serial.print ( "touch threshold: " ); Serial.println ( touch_threshold );
   
-  if ( analogRead ( paPhotocell ) < light_threshold ) {
-    // set state to indicate room is dark
-    state &= 0b101;
-  }
+  // set initial state according to the light level in the room
+  state = ( analogRead ( paPhotocell ) < light_threshold ) ? 0b001 : 0b010;
     
   Serial.println (); Serial.println ( "Done with initialization" );
   delay ( 1000 );
@@ -143,13 +141,9 @@ void setup () {
 // <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 void loop () {
-  int event_R, event_P, event_T, counts, n;
+  static int event_R = 0, event_P = 0, event_T = 0, counts, n;
   static unsigned long lastBlinkAt_ms = 0L;
   static unsigned int blinkInterval_ms = 1000UL;
-  
-  event_R = 0;
-  event_P = 0;
-  event_T = 0;
   
   // begin by determining what event(s) have occurred
   
@@ -233,6 +227,10 @@ void loop () {
     digitalWrite ( pdBlinkyLED, ! digitalRead ( pdBlinkyLED ) );
     lastBlinkAt_ms = millis();
   }
+  
+  event_R = 0;
+  event_P = 0;
+  event_T = 0;
   
 }
 
