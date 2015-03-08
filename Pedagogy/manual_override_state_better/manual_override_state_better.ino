@@ -74,6 +74,8 @@
 #define pdNightLight              6
 #define pdBlinkyLED              13
 #define paPhotocell              18
+#define ppPiezo                   3
+
 #define light_threshold         150
 #define light_hysteresis         50
 #define full_touch_threshold   1500
@@ -147,6 +149,10 @@ void loop () {
   
   // begin by determining what event(s) have occurred
   
+  event_R = 0;
+  event_P = 0;
+  event_T = 0;
+  
   // room lighting
   counts = analogRead ( paPhotocell );
   // Serial.print ( "photocell: " ); Serial.println ( counts ); delay ( 10 );
@@ -212,6 +218,7 @@ void loop () {
   if ( event ) {
     state = nextState ( state, event_T * 4 + event_P * 2 + event_R );
     
+    tone ( ppPiezo, 440, 200 );
     Serial.print ( "New state: " );
     Serial.print ( manual_override ? " M " : "~M " );
     Serial.print ( room_is_bright  ? " B " : "~B " );
@@ -227,10 +234,6 @@ void loop () {
     digitalWrite ( pdBlinkyLED, ! digitalRead ( pdBlinkyLED ) );
     lastBlinkAt_ms = millis();
   }
-  
-  event_R = 0;
-  event_P = 0;
-  event_T = 0;
   
 }
 
