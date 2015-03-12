@@ -10,10 +10,10 @@
 enum { BAUDRATE = 115200 };
 enum { pdLED = 13 };
 enum { pdOneWire = 10 };
-enum { paBC2301 = 0 };      // the BC2301 NTC 10K thermistor, gold-orange-black-brown from tip
+enum { paBC2301 = 14 };      // the BC2301 NTC 10K thermistor, gold-orange-black-brown from tip
 
 const float powerRail_v         =     3.3;
-const float divider_Rfixed_ohms =   996.15;
+const float divider_Rfixed_ohms = 20064.0; // 23156.0; // 996.15;
 const float zeroC_degK          =   273.15; 
 const float rRef_ohms           = 10000.0;  
 const float tRef_degK           = 25.0 + zeroC_degK;
