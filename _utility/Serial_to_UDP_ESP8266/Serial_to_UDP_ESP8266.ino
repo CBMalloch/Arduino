@@ -41,8 +41,11 @@
 // ***************************************
 
 #define BAUDRATE    115200
+#define VERBOSE          2
+// need to use CBMDDWRT3 for my own network access
+// can use CBMM5 or CBMDDWRT3GUEST for Sparkfun etc.
 #define WIFI_LOCALE CBMDDWRT3
-const unsigned int port_UDP = 9216;
+const unsigned int port_UDP = 9240;
 // either define ( to enable ) or undef
 #define DO_BROADCAST
 #define DO_CONVERSATION
@@ -50,7 +53,6 @@ const unsigned int port_UDP = 9216;
 // ***************************************
 // ***************************************
 
-#define VERBOSE          1
 #define pdThrobber      13
 
 cbmNetworkInfo Network;
@@ -107,7 +109,7 @@ void setup () {
   Serial.print ( "; will use USB port " ); Serial.println ( port_UDP );
   yield ();
    
-  Serial.println ( F ( "[Serial_to_UDP_ESP8266 v2.1.0 2016-02-18]" ) );
+  Serial.println ( F ( "[Serial_to_UDP_ESP8266 v2.2.0 2016-03-09]" ) );
   
   yield ();
   
@@ -192,12 +194,16 @@ void loop() {
       bcast [ i ] |= ~m;
     }
       
-    Serial.print ( "About to send '" ); Serial.print ( strBuffer ); Serial.println ( "'" );
+    Serial.print ( "About to broadcast '" ); 
+    Serial.print ( strBuffer ); Serial.print ( "' to " );
+    Serial.print ( bcast ); Serial.print ( ":" ); Serial.println ( port_UDP );
     // conn_UDP.beginPacket ( Network.ip, port_UDP );
     conn_UDP.beginPacket ( bcast, port_UDP );
     conn_UDP.println ( strBuffer );
     // conn_UDP.print ( '\r' );
     conn_UDP.endPacket ();
+    conn_UDP.flush ();
+    
     yield ();
   }
 #endif
@@ -224,7 +230,7 @@ void loop() {
           Serial.print ( millis() / 1000 );
           Serial.print ( ": Packet (" );
           Serial.print ( nChars );
-          Serial.print ( "chars) received from " );
+          Serial.print ( " chars) received from " );
           Serial.print ( conn_UDP.remoteIP() );
           Serial.print ( ":");
           Serial.println ( conn_UDP.remotePort() );
@@ -238,14 +244,37 @@ void loop() {
             else Serial.print ( ' ' );
           }
           Serial.println();
+          
+          // for ( int i = 0; i < 4; i++ ) {
+            // Serial.print ( i ); Serial.print (": " ); 
+            // Serial.print ( conn_UDP.remoteIP() [ i ] ); Serial.print ( " :: " );
+            // Serial.println ( Network.ip [ i ] );
+          // }
+          
+
         }
         yield ();
         
-        // Reply
+        // we don't want to catch broadcasts that we just sent
+        // originator IP seems to be our IP - 1 -- don't know if this is a standard!
         
-        reply_to_message ( conn_UDP, packetBuf );
-      
-        Serial.println ( packetBuf );
+        if (    ( conn_UDP.remoteIP() [ 0 ] ==  Network.ip [ 0 ] )
+             && ( conn_UDP.remoteIP() [ 1 ] ==  Network.ip [ 1 ] )
+             && ( conn_UDP.remoteIP() [ 2 ] ==  Network.ip [ 2 ] )
+             && ( conn_UDP.remoteIP() [ 3 ] ==  Network.ip [ 3 ] - 1 )   // !!!!!!!!!!! ????????????
+             && ( conn_UDP.remotePort() == port_UDP ) 
+           ) {
+          // it was from ourself
+          if ( VERBOSE > 2 ) Serial.println ( "Packet from self: dropped" );
+        } else {
+
+          // Reply
+          
+          reply_to_message ( conn_UDP, packetBuf );
+        
+          Serial.println ( packetBuf );
+        }
+        
         Serial.println ();
         
       } else {
@@ -281,6 +310,8 @@ void loop() {
     conn_UDP.print   ( conn_UDP.remotePort() );
     conn_UDP.print   ( "\r\n\n" );
     conn_UDP.endPacket();
+    
+    conn_UDP.flush();
     
   }
   
