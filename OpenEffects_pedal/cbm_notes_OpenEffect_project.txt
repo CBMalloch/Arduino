@@ -1,0 +1,52 @@
+Observations testing the OnkartGromt Open Effects Project
+
+SDA is A4/SDA0
+SCL is A5/SCL0
+
+pots at top of board, numbered 0 (L) to 3 (R)
+  CW rotation decreases all
+pot 0 is A6 (!) 
+pot 1 is A3
+pot 2 is A2
+pot 3 is A1, also labeled VOL
+
+pin 8 controls all 10 LEDs, which are WS2812
+    example from Adafruit/NeoPixel/strand test
+  0 is the singleton
+  1 is R dome
+  2 is L dome
+  3-9 are next
+  
+OLED screen at I2C address 0x3c 128x64
+    o remove library from Teensy location 
+      ~/Applications/Arduino.app/Contents/Java/hardware/teensy/
+        avr/libraries/Adafruit_SSD1306
+    o modify Adafruit_SSD1306.h to use 128x64
+      #define SSD1306_128_64
+      // #define SSD1306_128_32
+    example from Adafruit_SSD1306/ssd1306_128x64_i2c.ino
+      can ignore stuff about OLED_RESET
+  **** NOTE ****
+    The display method takes about 100ms !!!
+    So use the OLED for status / setup only, not for realtime display
+      
+SW1 and SW2 are the 3-position toggle switches, which will be at GND, 1.15, or 3.3V
+  SW1 is A12
+  SW2 is A13
+  
+Are stomp switches OnOff and Boost?
+  OnOff is Tap1 is Int1 is pin 2 (CS)
+  Boost is Tap2 is Int2 is pin 3 (TX/PWM)
+
+CV1 and CV2 are on the other bank of 1/4" sockets;
+CV1 is associated with "Sine modulation CV pedal input"
+CV2 is associated with "Freq expression pedal"
+int CV1 = A10;
+int CV2 = A11;
+
+Leaving the relays alone (normal) connects InputL to OutputL etc.
+Pulling them in connects InputL to EffectInL to LINEIN_L on the SGTL5000
+  and LINEOUT_L on the SGTL5000 to EffectOutL to OutputL etc.
+The SGTL5000 is the DAC on the audio shield and built into the box
+int relayL = 4;      // select the pin for the RelayL
+int relayR = 5;      // select the pin for the RelayR
