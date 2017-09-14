@@ -1,11 +1,23 @@
 #define PROGNAME  "testAudioBoardDelay"
-#define VERSION   "0.2.1"
-#define VERDATE   "2017-09-13"
+#define VERSION   "0.2.2"
+#define VERDATE   "2017-09-14"
 
 /*
   Please remember that the standard Serial and the standard LED on pin 13
   both interfere with audio board pin mappings. Don't use either of them!
   They will work, but their use will disable the audio board's workings.
+*/
+
+/*
+
+  What IO remains available while using the Teensy Audio Shield?
+    See https://www.pjrc.com/store/teensy3_audio.html
+    
+    Looks like pins 0, 1, 2, 3, 4, 5, 8, 16, 17, 20, 21 should be available.
+    Pins 18 and 19 are sharable with other I2C devices
+    Pins 7, 12, and 14 are sharable with other SPI devices
+    Using the standard Serial object stops the audio.
+    Pin 21 is A7; pin 20 is A6; pin 16 is A2; pin 15 is A1
 */
 
 const int paPot = 15;
@@ -42,7 +54,7 @@ AudioConnection          patchCord12 ( waveform1,    0, multiply1,   1 );
 AudioConnection          patchCord13 ( mixer1,       0, mixer9,      0 );
 AudioConnection          patchCord14 ( bitcrusher1,  0, mixer9,      1 );
 AudioConnection          patchCord15 ( multiply1,    0, mixer9,      2 );
-// AudioConnection          patchCord16 ( mixer2,       0, mixer9,      3 );
+AudioConnection          patchCord16 ( mixer2,       0, mixer9,      3 );
 AudioConnection          patchCord17 ( mixer9,       0, i2s2,        0 );
 AudioConnection          patchCord18 ( mixer9,       0, i2s2,        1 );
 AudioControlSGTL5000     sgtl5000_1;     //xy=647.0000610351562,273
@@ -66,11 +78,13 @@ void setup () {
 
   sgtl5000_1.enable();  // Enable the audio shield
 
-  // sgtl5000_1.inputSelect ( AUDIO_INPUT_LINEIN );
-  // sgtl5000_1.lineInLevel ( 14 );     // default 5 is 1.33Vp-p; 0 is 3.12Vp-p
-
-  sgtl5000_1.inputSelect ( AUDIO_INPUT_MIC );
-  sgtl5000_1.micGain ( 31 );        // 0-63 dB
+  if ( 1 ) {
+    sgtl5000_1.inputSelect ( AUDIO_INPUT_LINEIN );
+    sgtl5000_1.lineInLevel ( 24 );     // default 5 is 1.33Vp-p; 0 is 3.12Vp-p
+  } else {
+    sgtl5000_1.inputSelect ( AUDIO_INPUT_MIC );
+    sgtl5000_1.micGain ( 31 );        // 0-63 dB
+  }
   
   sgtl5000_1.volume ( 0.5 );
   sgtl5000_1.lineOutLevel ( 29 );   // default 29 is 1.29Vp-p; 13 is 3.16Vp-p
@@ -116,10 +130,10 @@ void setup () {
 void loop() {
 
   static int state = 0;
-  const int nStates = 4;
+  // const int nStates = 4;
 
-  static unsigned long lastChangeAt_ms = 0UL;
-  const unsigned long changeRate_ms = 10000UL;
+  // static unsigned long lastChangeAt_ms = 0UL;
+  // const unsigned long changeRate_ms = 10000UL;
   
   static unsigned long lastBlinkAt_ms = 0UL;
   const unsigned long blinkRate_ms = 1000UL;
@@ -130,11 +144,20 @@ void loop() {
   int newPotValue = analogRead ( paPot );
   if ( abs ( newPotValue - potValue ) > potHysteresis ) {
     potValue = newPotValue;
-    mixer1.gain ( 3, ( (float) potValue ) * 1.1 / 1024.0 );
+    // mixer1.gain ( 3, ( (float) potValue ) * 1.1 / 1024.0 );
+    if ( potValue < 256 ) {
+      state = 0;
+    } else if ( potValue < 512 ) {
+      state = 1;
+    } else if ( potValue < 768 ) {
+      state = 2;
+    } else {
+      state = 3;
+    }
   }
   
-  if ( ( millis() - lastChangeAt_ms ) > changeRate_ms ) {
-    state++;
+  // if ( ( millis() - lastChangeAt_ms ) > changeRate_ms ) {
+    // state++;
     switch ( state ) {
       case 0:
         // straight through
@@ -169,9 +192,9 @@ void loop() {
         mixer9.gain ( 3, 1.0 );
         break;
     }
-    if ( state >= nStates ) state = 0;
-    lastChangeAt_ms = millis();
-  }
+    // if ( state >= nStates ) state = 0;
+    // lastChangeAt_ms = millis();
+  // }
       
   if ( ( millis() - lastBlinkAt_ms ) > blinkRate_ms ) {
     // digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
