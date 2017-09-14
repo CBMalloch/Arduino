@@ -50,3 +50,24 @@ Pulling them in connects InputL to EffectInL to LINEIN_L on the SGTL5000
 The SGTL5000 is the DAC on the audio shield and built into the box
 int relayL = 4;      // select the pin for the RelayL
 int relayR = 5;      // select the pin for the RelayR
+
+
+LED management:
+  The WS2812 pixel strip updates are unreliable at 800MHz. I changed the 
+  configuration to NEO_KHZ400 and it is much smoother.
+
+
+Observations:
+  WS2812 communications is glitchy with the Teensy 3.6
+    demonstrated in status 2 with 3 calls to strip.show()
+    yielding (occasionally) different displays
+  I can't seem to see input using purple wire, input L or R,
+    sgtl5000_1.inputSelect ( AUDIO_INPUT_LINEIN );
+    sgtl5000_1.lineInLevel ( 0 );   // default 0 is 3.12Vp-p
+    through VU meter or 1/8" output jack, regardless of 
+    relay settings. Note running under USB power... Looks like
+    5V_D runs the WS2812s, while 5V_A runs the op-amps.
+  Archer adapter powers Teensy 3.2 from OnkartGromt, but the
+    Teensy 3.6 doesn't boot properly. Spectrum power supply,
+    same thing. Appears to non-boot because my program was waiting forever
+    for Serial to come up...
