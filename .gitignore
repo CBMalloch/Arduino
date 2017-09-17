@@ -7,3 +7,5 @@
 /libraries/**
 !libraries/cbm*
 .svn/**
+**/*.bbprojectdata
+**/*.bbprojectsettings
