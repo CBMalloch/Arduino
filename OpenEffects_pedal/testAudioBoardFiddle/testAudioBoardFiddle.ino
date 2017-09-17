@@ -1,6 +1,6 @@
-#define PROGNAME  "testAudioBoardDelay"
-#define VERSION   "0.2.2"
-#define VERDATE   "2017-09-14"
+#define PROGNAME  "testAudioBoardFiddle"
+#define VERSION   "0.0.1"
+#define VERDATE   "2017-09-16"
 
 /*
   Please remember that the standard Serial and the standard LED on pin 13
@@ -198,7 +198,7 @@ void loop() {
       
   if ( ( millis() - lastBlinkAt_ms ) > blinkRate_ms ) {
     // digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
-    if ( potValue > 32 ) string1.noteOn ( 440, 0.25 );
+    // if ( potValue > 32 ) string1.noteOn ( 440, 0.25 );
     lastBlinkAt_ms = millis();
   }
       
