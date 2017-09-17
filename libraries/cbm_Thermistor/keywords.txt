@@ -1,0 +1,28 @@
+#######################################
+# Syntax Coloring Map For XBee
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+version KEYWORD2
+init	KEYWORD2
+degKfromR	KEYWORD2
+degCfromK	KEYWORD2
+degFfromC	KEYWORD2
+degFfromCounts KEYWORD2
+degFfromR	KEYWORD2
+degKfromR_corr	KEYWORD2
+diss_mW	KEYWORD2
+deltaT_diss	KEYWORD2
+degFfromR_corr KEYWORD2
+#######################################
+# Instances (KEYWORD2)
+#######################################
+cbmThermistor KEYWORD2
+#######################################
+# Constants (LITERAL1)
+#######################################

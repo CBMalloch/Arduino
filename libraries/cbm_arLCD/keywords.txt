@@ -1,0 +1,80 @@
+#######################################
+# Syntax Coloring Map For ezLCD
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+EzLCD3		KEYWORD1
+EzLCD3_SW	KEYWORD1
+EzLCD3_HW	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+begin	KEYWORD2
+cls	KEYWORD2
+xy	KEYWORD2
+write	KEYWORD2
+string	KEYWORD2 
+print	KEYWORD2
+color	KEYWORD2
+colorId	KEYWORD2
+light	KEYWORD2
+font	KEYWORD2
+fontw	KEYWORD2
+point	KEYWORD2
+line	KEYWORD2
+rect	KEYWORD2
+circle	KEYWORD2
+ellipse	KEYWORD2
+pie	KEYWORD2
+fill	KEYWORD2
+arc	KEYWORD2
+lineWidth	KEYWORD2
+lineType	KEYWORD2
+image	KEYWORD2
+theme	KEYWORD2
+widgetState	KEYWORD2
+widgetValue	KEYWORD2
+button	KEYWORD2
+checkbox	KEYWORD2
+radioButton	KEYWORD2
+slider	KEYWORD2
+progressBar	KEYWORD2
+groupBox	KEYWORD2
+analogMeter	KEYWORD2
+analogMeterValue	KEYWORD2
+analogMeterColor	KEYWORD2
+digitalMeterValue	KEYWORD2
+dial	KEYWORD2
+choice	KEYWORD2
+touchX	KEYWORD2
+touchy	KEYWORD2
+touchS	KEYWORD2
+waitTouch	KEYWORD2
+waitNoTouch	KEYWORD2
+calibrate	KEYWORD2
+wvalue	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+EZM_BAUD_RATE	LITERAL1
+BLACK	LITERAL1
+GRAY	LITERAL1
+SILVER	LITERAL1
+WHITE	LITERAL1
+RED	LITERAL1
+MAROON	LITERAL1
+YELLO	LITERAL1
+OLIVE	LITERAL1
+LIME	LITERAL1
+GREEN	LITERAL1
+AQUA	LITERAL1
+TEAL	LITERAL1
+BLUE	LITERAL1
+NAVY	LITERAL1
+FUCHSIA	LITERAL1
+PURPLE	LITERAL1

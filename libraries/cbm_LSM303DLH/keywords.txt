@@ -1,0 +1,35 @@
+#######################################
+# Syntax Coloring Map For LSM303DLH
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+LSM303DLH KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+LSM303DLH_VERSION	KEYWORD2
+init	              KEYWORD2
+getAccel	          KEYWORD2
+getMag	            KEYWORD2
+getTemp	            KEYWORD2
+getHeading          KEYWORD2
+getTiltHeading      KEYWORD2
+read	              KEYWORD2
+write	              KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+LSM303DLHC	KEYWORD2
+#######################################
+# Constants (LITERAL1)
+LSM303DLH_VERSION LITERAL1
+X_COORD            LITERAL1
+Y_COORD            LITERAL1
+Z_COORD            LITERAL1
+#######################################

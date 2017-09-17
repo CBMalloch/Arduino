@@ -1,0 +1,34 @@
+#######################################
+# Syntax Coloring Map For Log_pot
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+Log_pot KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+reset	KEYWORD2
+load	KEYWORD2
+record KEYWORD2
+value	KEYWORD2
+results	KEYWORD2
+init	KEYWORD2
+periods	KEYWORD2
+alpha KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+EWMA_VERSION LITERAL1
+
+
