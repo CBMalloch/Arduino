@@ -1,0 +1,9 @@
+/_contrib/
+/_libraries
+/_libraries_in_package
+/_local_include/**
+/_sequestered/**
+/_utility/**
+/libraries/**
+!libraries/cbm*
+.svn/**
