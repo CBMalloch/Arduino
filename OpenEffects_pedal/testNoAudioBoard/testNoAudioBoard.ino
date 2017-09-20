@@ -11,14 +11,21 @@
       AudioMemory ( 20 );
   in the setup routine...
   
+  The program works perfectly now, using the standard Serial object, 
+  the LED on pin D13. I have a 1/8" stereo jack wired thus:
+    tip to pin A21 = DAC0 = left channel
+    ring to pin A22 = DAC1 = right channel
+    sleeve to pin AGND = analog ground via a 10uF 25V electrolytic capacitor,
+      which will block the DC
+  
 */
 
 /*
   
-  Generally the DAC pins are able to drive the 10K to 100K input impedance 
+  "Generally the DAC pins are able to drive the 10K to 100K input impedance 
   of typical line-level inputs on amplifiers & computer speakers.
   They aren't able to drive headphones or speakers, or inputs 
-  which emulate the 33 ohm load of a headphone jack.
+  which emulate the 33 ohm load of a headphone jack." - Paul Stoffregen
   
 */
 
