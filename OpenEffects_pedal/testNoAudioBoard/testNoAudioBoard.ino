@@ -101,7 +101,7 @@ void setup ()  {
 void loop ()  {
   
   static unsigned long lastSoundAt_ms = 0UL;
-  const unsigned long soundInterval_ms = 1000UL;
+  static unsigned long soundInterval_ms = 1000UL;
   
   static unsigned long lastBlinkAt_ms = 0UL;
   const unsigned long blinkInterval_ms = 200UL;
@@ -112,7 +112,15 @@ void loop ()  {
   
   #ifndef USE_SINE
     if ( ( millis() - lastSoundAt_ms ) > soundInterval_ms ) {
-      string1.noteOn ( 440, 0.75 );  
+      if ( 0 ) {
+        string1.noteOn ( 440, 0.5 );
+      } else {
+        float f;
+        f = ( float ) rand () / ( float ) RAND_MAX;
+        string1.noteOn ( ( int )  ( 440 * f ) , 0.5 );
+        f = ( float ) rand () / ( float ) RAND_MAX;
+        soundInterval_ms = ( unsigned long ) ( 1000.0 * f );
+      }
       lastSoundAt_ms = millis();
     }
   #endif
