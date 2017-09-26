@@ -106,10 +106,6 @@ void setup () {
   waveform1.amplitude ( 1.0 );
   waveform1.begin ( WAVEFORM_TRIANGLE );
   
-  delayExt1.delay ( 0,  300 );
-  delayExt1.delay ( 1, 2400 );
-  delayExt1.delay ( 2, 3600 );
-  delayExt1.delay ( 3, 8750 );
   delayExt1.disable ( 4 );
   delayExt1.disable ( 5 );
   delayExt1.disable ( 6 );
@@ -130,13 +126,15 @@ void setup () {
 void loop() {
 
   static int state = 0;
-  // const int nStates = 4;
+  const int nStates = 5;
+  static unsigned long lastStateChangeAt_ms = 0UL;
 
-  // static unsigned long lastChangeAt_ms = 0UL;
-  // const unsigned long changeRate_ms = 10000UL;
+  static unsigned long lastDinkAt_ms = 0UL;
+  const unsigned long dinkRate_ms = 1000UL;
   
   static unsigned long lastBlinkAt_ms = 0UL;
   const unsigned long blinkRate_ms = 1000UL;
+  
   
   static int potValue = -1;
   const int potHysteresis = 4;
@@ -145,17 +143,12 @@ void loop() {
   if ( abs ( newPotValue - potValue ) > potHysteresis ) {
     potValue = newPotValue;
     // mixer1.gain ( 3, ( (float) potValue ) * 1.1 / 1024.0 );
-    if ( potValue < 256 ) {
-      state = 0;
-    } else if ( potValue < 512 ) {
-      state = 1;
-    } else if ( potValue < 768 ) {
-      state = 2;
-    } else {
-      state = 3;
-    }
+    state = potValue * nStates / 1024;
+    lastDinkAt_ms = 0UL;
+    lastStateChangeAt_ms = millis();
   }
   
+    
   // if ( ( millis() - lastChangeAt_ms ) > changeRate_ms ) {
     // state++;
     switch ( state ) {
@@ -185,20 +178,53 @@ void loop() {
         break;
       case 3:
         // delay up to 8 sec
+        delayExt1.delay ( 0,  300 );
+        delayExt1.delay ( 1, 2400 );
+        delayExt1.delay ( 2, 3600 );
+        delayExt1.delay ( 3, 8750 );
+
         mixer1.gain ( 3, 0.25 );
         mixer9.gain ( 0, 0.0 );           // gain from 0.0 to 32767.0  1.0=straight through
         mixer9.gain ( 1, 0.0 );
         mixer9.gain ( 2, 0.0 );
         mixer9.gain ( 3, 1.0 );
         break;
-    }
-    // if ( state >= nStates ) state = 0;
-    // lastChangeAt_ms = millis();
-  // }
+      case 4:
+        // test delay
+        delayExt1.delay ( 0, 8000 );
+        delayExt1.disable ( 1 );
+        delayExt1.disable ( 2 );
+        delayExt1.disable ( 3 );
+        if ( ( millis() - lastStateChangeAt_ms ) < 8000UL ) {
+          mixer1.gain ( 2, 1.0 );           // from string1
+          mixer1.gain ( 3, 0.0 );           // from mixer2
+          mixer9.gain ( 0, 1.0 );           // gain from 0.0 to 32767.0  1.0=straight through
+          mixer9.gain ( 1, 0.0 );
+          mixer9.gain ( 2, 0.0 );
+          mixer9.gain ( 3, 0.0 );
+          if ( ( millis() - lastDinkAt_ms ) > dinkRate_ms ) {
+            // string1.noteOn ( 512.0, 0.8 );
+            float pitch = 440.0;
+            for ( int i = 0; i < ( millis() - lastStateChangeAt_ms ) / 1000; i++ ) {
+              pitch *= 1.18920712;  // 1.05946309436 ^ 3;
+            }
+            string1.noteOn ( pitch, 0.8 );
+            lastDinkAt_ms = millis();
+          }
+        } else {
+          mixer1.gain ( 2, 0.0 );           // from string1; disable more dinks
+          mixer1.gain ( 3, 0.25 );          // from mixer2
+          mixer9.gain ( 0, 0.0 );           // gain from 0.0 to 32767.0  1.0=straight through
+          mixer9.gain ( 1, 0.0 );
+          mixer9.gain ( 2, 0.0 );
+          mixer9.gain ( 3, 1.0 );           // from mixer2
+        }
+        break;
+      }
       
   if ( ( millis() - lastBlinkAt_ms ) > blinkRate_ms ) {
     // digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
-    if ( potValue > 32 ) string1.noteOn ( 440, 0.25 );
+    if ( state < 4 && potValue > 32 ) string1.noteOn ( 440, 0.25 );
     lastBlinkAt_ms = millis();
   }
       
