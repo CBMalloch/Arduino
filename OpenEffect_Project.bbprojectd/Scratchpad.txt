@@ -1,0 +1,97 @@
+on the SD card:
+  LOOP0.RAW
+  LOOP1.RAW
+  LOOP2.RAW
+  LOOP3.RAW
+  RECORD.RAW
+  SDTEST1.WAV
+  SDTEST2.WAV
+  SDTEST3.WAV
+  SDTEST4.WAV
+  Star Trek sounds/
+    alarm1_Klingon_sensor_alert.wav
+    alarm1.wav
+    alarm4_warp_core_breach.wav
+    beamenergize1.wav
+    commclose.wav
+    commopen.wav
+    holoon.wav
+    intercom1.wav         
+  
+#include <Audio.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include <SerialFlash.h>
+
+// GUItool: begin automatically generated code
+AudioInputI2S            i2s1;           //xy=177,237
+AudioEffectDelayExternal delayExt1_( AUDIO_MEMORY_MEMORYBOARD ); //xy=347,628
+AudioMixer4              mixer1;         //xy=396,255
+AudioMixer4              mixer2;         //xy=624,606
+AudioEffectFlange        flange1;        //xy=663,332
+AudioEffectChorus        chorus1;        //xy=667,390
+AudioEffectBitcrusher    bitcrusher1;    //xy=696,288
+AudioMixer4              mixer9;         //xy=993,270
+AudioOutputI2S           i2s2;           //xy=1159,253
+AudioConnection          patchCord1(i2s1, 0, mixer1, 0);
+AudioConnection          patchCord2(i2s1, 1, mixer1, 1);
+AudioConnection          patchCord3(delayExt1_( AUDIO_MEMORY_MEMORYBOARD ), 0, mixer2, 0);
+AudioConnection          patchCord4(delayExt1_( AUDIO_MEMORY_MEMORYBOARD ), 1, mixer2, 1);
+AudioConnection          patchCord5(delayExt1_( AUDIO_MEMORY_MEMORYBOARD ), 2, mixer2, 2);
+AudioConnection          patchCord6(delayExt1_( AUDIO_MEMORY_MEMORYBOARD ), 3, mixer2, 3);
+AudioConnection          patchCord7(mixer1, bitcrusher1);
+AudioConnection          patchCord8(mixer1, 0, mixer9, 0);
+AudioConnection          patchCord9(mixer1, flange1);
+AudioConnection          patchCord10(mixer1, delayExt1 ( AUDIO_MEMORY_MEMORYBOARD ));
+AudioConnection          patchCord11(mixer1, chorus1);
+AudioConnection          patchCord12(mixer2, 0, mixer1, 3);
+AudioConnection          patchCord13(flange1, 0, mixer9, 2);
+AudioConnection          patchCord14(chorus1, 0, mixer9, 3);
+AudioConnection          patchCord15(bitcrusher1, 0, mixer9, 1);
+AudioConnection          patchCord16(mixer9, 0, i2s2, 0);
+AudioConnection          patchCord17(mixer9, 0, i2s2, 1);
+AudioControlSGTL5000     sgtl5000_1;     //xy=613,200
+// GUItool: end automatically generated code
+
+
+
+  
+// set up for something or other
+#include <Audio.h>
+#include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include <SerialFlash.h>
+
+// GUItool: begin automatically generated code
+AudioSynthKarplusStrong  string1;        //xy=277,425
+AudioInputI2S            i2s1;           //xy=289,354
+AudioEffectDelayExternal delayExt1;      //xy=365,615
+AudioMixer4              mixer1;         //xy=458,383
+AudioPlaySdWav           playSdWav1;     //xy=528,750
+AudioSynthWaveform       waveform1;      //xy=562,859
+AudioMixer4              mixer2;         //xy=640,613
+AudioEffectBitcrusher    bitcrusher1;    //xy=693,441
+AudioEffectMultiply      multiply1;      //xy=778,680
+AudioMixer4              mixer9;         //xy=881,441
+AudioOutputI2S           i2s2;           //xy=1011,466
+AudioConnection          patchCord1(string1, 0, mixer1, 2);
+AudioConnection          patchCord2(i2s1, 0, mixer1, 0);
+AudioConnection          patchCord3(i2s1, 1, mixer1, 1);
+AudioConnection          patchCord4(delayExt1, 0, mixer2, 0);
+AudioConnection          patchCord5(delayExt1, 1, mixer2, 1);
+AudioConnection          patchCord6(delayExt1, 2, mixer2, 2);
+AudioConnection          patchCord7(delayExt1, 3, mixer2, 3);
+AudioConnection          patchCord8(mixer1, delayExt1);
+AudioConnection          patchCord9(mixer1, bitcrusher1);
+AudioConnection          patchCord10(mixer1, 0, mixer9, 0);
+AudioConnection          patchCord11(playSdWav1, 0, multiply1, 0);
+AudioConnection          patchCord12(waveform1, 0, multiply1, 1);
+AudioConnection          patchCord13(mixer2, 0, mixer1, 3);
+AudioConnection          patchCord14(bitcrusher1, 0, mixer9, 1);
+AudioConnection          patchCord15(multiply1, 0, mixer9, 2);
+AudioConnection          patchCord16(mixer9, 0, i2s2, 0);
+AudioConnection          patchCord17(mixer9, 0, i2s2, 1);
+AudioControlSGTL5000     sgtl5000_1;     //xy=580,280
+// GUItool: end automatically generated code

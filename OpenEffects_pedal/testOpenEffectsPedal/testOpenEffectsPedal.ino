@@ -1,6 +1,6 @@
 #define PROGNAME  "testOpenEffectsPedal"
-#define VERSION   "0.3.2"
-#define VERDATE   "2017-08-01"
+#define VERSION   "0.3.4"
+#define VERDATE   "2017-09-26"
 
 #include <SPI.h>
 #include <Wire.h>
@@ -9,6 +9,9 @@
 // get Paul Stoffregen's NeoPixel library if using Teensy 3.5 or 3.6
 #include <Adafruit_NeoPixel.h>
 #include <Bounce2.h>
+
+// NOTE - cannot use Serial with OpenEffects or Audio boards
+#undef BAUDRATE
 
 #define VERBOSE 5
 #if VERBOSE >= 10
@@ -25,6 +28,28 @@
   They will work, but their use will disable the audio board's workings.
 */
 
+/*
+  I burned out my original OpenEffects board. It is now replaced, but I 
+  installed *momentary* switches to the bat switch locations. So now I can
+  digitally change states, but I need to have a debounced read of these
+  switches and maintain the resulting states.
+  Difficulty: the bat switches return analog values
+        left     right    (switch)
+    L    GND      Vcc
+    C    Vcc/2    Vcc/2
+    R    Vcc      GND
+    
+  
+  I also installed the other bank of input/output jacks; the input is on the 
+  R and is 1/4" stereo; the output is on the L and is 1/4" stereo; the two
+  center positions are for expression pedals. 
+  The expression pedals are expected to use Vcc and GND and to return a value
+  somewhere between these. The pinout of the 1/4" stereo jacks for these is
+    T
+    R
+    S
+*/
+
 //Pinout board rev1
 // pa = pin, analog; pd = pin, digital
 const int pa_pots [] = { A6, A3, A2, A1 };
@@ -32,17 +57,20 @@ const int pa_pots [] = { A6, A3, A2, A1 };
 // pb are the stomp switches "pushbutton"
 const int pd_pb1 = 2;
 const int pd_pb2 = 3;
-const int pd_LED = 13;
+// const int pd_LED = 13;
 
 const int pd_relayL = 4;
 const int pd_relayR = 5;
 
 // int CV1 = A10;
 // int CV2 = A11;
-// 
 
 const int pa_batSwitches [] = { A12, A13 };
-const char batSwitchStatusIndicator [] = { 'L', 'C', 'R' };
+const unsigned long batSwitchNoticePeriod_ms =  50UL;
+const unsigned long batSwitchRepeatPeriod_ms = 500UL;
+unsigned long batSwitchLastCenteredAt_ms [] = { 0UL, 0UL };
+unsigned long batSwitchLastRepeatAt_ms [] = { 0UL, 0UL };
+int batSwitchStatus [] = { 0, 0 };
 
 
 //const int nPixels    = 60;
@@ -57,7 +85,7 @@ const int pdWS2812 = 8;
 //   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
-Adafruit_NeoPixel strip = Adafruit_NeoPixel( nPixels, pdWS2812, NEO_GRB + NEO_KHZ400 );
+Adafruit_NeoPixel strip = Adafruit_NeoPixel( nPixels, pdWS2812, NEO_GRB + NEO_KHZ800 );
 //  0 is the singleton
 //  1 is R dome
 //  2 is L dome
@@ -98,7 +126,6 @@ Bounce pb2 = Bounce();
 
 unsigned long stripWheelDelay_ms;
 int potReadings [ 4 ];
-int batSwitchReadings [ 2 ];
 
 const int nStates = 4;
 // volatile int state = 0;
@@ -147,7 +174,7 @@ void setup() {
 
   pinMode ( pd_pb1, INPUT );
   pinMode ( pd_pb2, INPUT );
-  pinMode ( pd_LED, OUTPUT );
+  // pinMode ( pd_LED, OUTPUT );
   pinMode ( pd_relayL, OUTPUT );
   pinMode ( pd_relayR, OUTPUT );
   
@@ -161,23 +188,23 @@ void setup() {
   pb2.attach(pd_pb2);
   pb2.interval(5); // interval in ms
   
-  for ( int i = 0; i < 2; i++ ) {
-    digitalWrite ( pd_LED, 1 );
-    delay ( 200 );
-    digitalWrite ( pd_LED, 0 );
-    delay ( 200 );
-  }
+  // for ( int i = 0; i < 2; i++ ) {
+  //   digitalWrite ( pd_LED, 1 );
+  //   delay ( 200 );
+  //   digitalWrite ( pd_LED, 0 );
+  //   delay ( 200 );
+  // }
     
 
-  Serial.begin ( 115200 );
-  while ( !Serial && millis() < 4000 ) { delay ( 100 ); }
+  // Serial.begin ( BAUDRATE );
+  // while ( !Serial && millis() < 4000 ) { delay ( 100 ); }
   
-  for ( int i = 0; i < 4; i++ ) {
-    digitalWrite ( pd_LED, 1 );
-    delay ( 200 );
-    digitalWrite ( pd_LED, 0 );
-    delay ( 200 );
-  }
+  // for ( int i = 0; i < 4; i++ ) {
+  //   digitalWrite ( pd_LED, 1 );
+  //   delay ( 200 );
+  //   digitalWrite ( pd_LED, 0 );
+  //   delay ( 200 );
+  // }
     
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
@@ -223,7 +250,7 @@ void setup() {
   mixer2.gain ( 2, 0.0 );
   mixer2.gain ( 3, 0.0 );
   
-  Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
+  // Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
   delay ( 500 );
 
 }
@@ -269,38 +296,40 @@ void loop() {
     potReadings [ i ] = 1024 - analogRead ( pa_pots [ i ] );
     if ( abs ( potReadings [ i ] - oldReading ) > potHysteresis ) {
       displayIsStale = true;
-      if ( VERBOSE >= 5 ) {
-        Serial.print ( "pot" ); 
-        Serial.print ( i );
-        Serial.print ( ": " );
-        Serial.print ( oldReading );
-        Serial.print ( " -> " );
-        Serial.println ( potReadings [ i ] );
-      }
-    }
-  }
-
-  bool batSwitchChanged = false;
-  for ( int i = 0; i < 2; i++ ) {
-    int oldReading = batSwitchReadings [ i ];
-    int val = analogRead ( pa_batSwitches [ i ] );
-    if ( val < 340 ) batSwitchReadings [ i ] = i ? 2 : 0;
-    else if ( val < 680 ) batSwitchReadings [ i ] = 1;
-    else batSwitchReadings [ i ] = i ? 0 : 2;
-    if ( batSwitchReadings [ i ] != oldReading ) {
-      batSwitchChanged = true;
-      displayIsStale = true;
-      if ( VERBOSE >= 5 ) {
-        Serial.print ( "bat switch" ); 
-        Serial.print ( i );
-        Serial.print ( ": " );
-        Serial.print ( val );
-        Serial.print ( " = " );
-        Serial.println ( batSwitchStatusIndicator [ batSwitchReadings [ i ] ] );
-      }
+      // if ( VERBOSE >= 5 ) {
+      //   Serial.print ( "pot" ); 
+      //   Serial.print ( i );
+      //   Serial.print ( ": " );
+      //   Serial.print ( oldReading );
+      //   Serial.print ( " -> " );
+      //   Serial.println ( potReadings [ i ] );
+      // }
     }
   }
   
+  // NASTY read the state of the bat switches and update their status
+  
+  for ( int i = 0; i < 2; i++ ) {
+    int val = analogRead ( pa_batSwitches [ i ] );
+    if ( i == 1 ) val = 1023 - val;
+    if ( val > ( 1024 / 3 ) && val < ( 1024 * 2 / 3 ) ) {
+      // centered; no change
+      batSwitchLastCenteredAt_ms [ i ] = millis();
+      batSwitchLastRepeatAt_ms [ i ] = 0UL;
+    } else {
+      // have detected actuation
+      // notice only if it's been here a while
+      if ( ( millis() - batSwitchLastCenteredAt_ms [ i ] ) > batSwitchNoticePeriod_ms ) {
+        // it's firmly actuated; hit it and then ignore until it's time to repeat
+        if ( ( millis() - batSwitchLastRepeatAt_ms [ i ] ) > batSwitchRepeatPeriod_ms ) {
+          // do something
+          batSwitchStatus [ i ] += ( val > ( 1024 / 2 ) ) ? 1 : -1;
+          batSwitchLastRepeatAt_ms [ i ] = millis();
+        }
+      }
+    }
+  }
+      
   pb1.update();
   pb2.update();
 
@@ -310,10 +339,10 @@ void loop() {
   
   if ( pb1.fell() ) {
     state = ( state + 1 ) % nStates;
-    if ( VERBOSE >= 5 ) {
-      Serial.print ( "State: " );
-      Serial.println ( state );
-    }
+    // if ( VERBOSE >= 5 ) {
+    //   Serial.print ( "State: " );
+    //   Serial.println ( state );
+    // }
     displayIsStale = true;
   } else if ( pb1.rose() ) {
     displayIsStale = true;
@@ -323,10 +352,10 @@ void loop() {
   
   if ( pb2.fell() ) {
     boost = !boost;
-    if ( VERBOSE >= 5 ) {
-      Serial.print ( "Boost: " );
-      Serial.println ( boost );
-    }
+    // if ( VERBOSE >= 5 ) {
+    //   Serial.print ( "Boost: " );
+    //   Serial.println ( boost );
+    // }
     displayIsStale = true;
   } else if ( pb2.rose() ) {
     displayIsStale = true;
@@ -368,57 +397,56 @@ void loop() {
   }
 
   
-  if ( batSwitchChanged ) {
-    switch ( batSwitchStatusIndicator [ batSwitchReadings [ 0 ] ] ) {
-      case 'L':  // inputs
-        mixer1.gain ( 0, 2.0 );
-        mixer1.gain ( 1, 2.0 );
-        mixer1.gain ( 2, 0.0 );
-        mixer1.gain ( 3, 0.0 );
-        if ( VERBOSE >= 5 ) Serial.println ( "mixer1.gain 0/1 2.0: inputs" );
-        break;
-      case 'C':  // sine
-        mixer1.gain ( 0, 0.0 );
-        mixer1.gain ( 1, 0.0 );
-        mixer1.gain ( 2, 1.0 );
-        mixer1.gain ( 3, 0.0 );
-        if ( VERBOSE >= 5 ) Serial.println ( "mixer1.gain 2 1.0: sine" );
-        break;
-      case 'R':  // drum
-        mixer1.gain ( 0, 0.0 );
-        mixer1.gain ( 1, 0.0 );
-        mixer1.gain ( 2, 0.0 );
-        mixer1.gain ( 3, 1.0 );
-        if ( VERBOSE >= 5 ) Serial.println ( "mixer1.gain 3 1.0: drum" );
-        break;
-    }
-
-    switch ( batSwitchStatusIndicator [ batSwitchReadings [ 1 ] ] ) {
-      case 'L':  // straight
-        mixer2.gain ( 0, 1.0 );
-        mixer2.gain ( 1, 0.0 );
-        mixer2.gain ( 2, 0.0 );
-        mixer2.gain ( 3, 0.0 );
-        if ( VERBOSE >= 5 ) Serial.println ( "mixer2.gain 0 1.0: straight" );
-        break;
-      case 'C':  // reverb
-        mixer2.gain ( 0, 0.0 );
-        mixer2.gain ( 1, 1.0 );
-        mixer2.gain ( 2, 0.0 );
-        mixer2.gain ( 3, 0.0 );
-        if ( VERBOSE >= 5 ) Serial.println ( "mixer2.gain 1 1.0: reverb" );
-        break;
-      case 'R':  // delay
-        mixer2.gain ( 0, 0.0 );
-        mixer2.gain ( 1, 0.0 );
-        mixer2.gain ( 2, 1.0 );
-        mixer2.gain ( 3, 0.5 );
-        if ( VERBOSE >= 5 ) Serial.println ( "mixer2.gain 2/3 1.0/0.5: delay" );
-        break;
-    }
-
+  switch ( batSwitchStatus [ 0 ] ) {
+    case 0:  // inputs
+      mixer1.gain ( 0, 2.0 );
+      mixer1.gain ( 1, 2.0 );
+      mixer1.gain ( 2, 0.0 );
+      mixer1.gain ( 3, 0.0 );
+      // if ( VERBOSE >= 5 ) Serial.println ( "mixer1.gain 0/1 2.0: inputs" );
+      break;
+    case 1:  // sine
+      mixer1.gain ( 0, 0.0 );
+      mixer1.gain ( 1, 0.0 );
+      mixer1.gain ( 2, 1.0 );
+      mixer1.gain ( 3, 0.0 );
+      // if ( VERBOSE >= 5 ) Serial.println ( "mixer1.gain 2 1.0: sine" );
+      break;
+    case 2:  // drum
+      mixer1.gain ( 0, 0.0 );
+      mixer1.gain ( 1, 0.0 );
+      mixer1.gain ( 2, 0.0 );
+      mixer1.gain ( 3, 1.0 );
+      // if ( VERBOSE >= 5 ) Serial.println ( "mixer1.gain 3 1.0: drum" );
+      break;
+    default:
+      break;
   }
-      
+
+  switch ( batSwitchStatus [ 1 ] ) {
+    case 0:  // straight
+      mixer2.gain ( 0, 1.0 );
+      mixer2.gain ( 1, 0.0 );
+      mixer2.gain ( 2, 0.0 );
+      mixer2.gain ( 3, 0.0 );
+      // if ( VERBOSE >= 5 ) Serial.println ( "mixer2.gain 0 1.0: straight" );
+      break;
+    case 1:  // reverb
+      mixer2.gain ( 0, 0.0 );
+      mixer2.gain ( 1, 1.0 );
+      mixer2.gain ( 2, 0.0 );
+      mixer2.gain ( 3, 0.0 );
+      // if ( VERBOSE >= 5 ) Serial.println ( "mixer2.gain 1 1.0: reverb" );
+      break;
+    case 2:  // delay
+      mixer2.gain ( 0, 0.0 );
+      mixer2.gain ( 1, 0.0 );
+      mixer2.gain ( 2, 1.0 );
+      mixer2.gain ( 3, 0.5 );
+      // if ( VERBOSE >= 5 ) Serial.println ( "mixer2.gain 2/3 1.0/0.5: delay" );
+      break;
+  }
+
   switch ( state ) {
   
     case 0:
@@ -489,7 +517,7 @@ void loop() {
   
     case 3:
       // VU meter
-      Serial.print ( "Amplitude: " ); Serial.println ( amp );
+      // Serial.print ( "Amplitude: " ); Serial.println ( amp );
       setVU ( round ( amp * 7.0 ) );
       break;
   
@@ -586,10 +614,10 @@ void setVU ( int n ) {
   const int VUfirstPixel = 3;
   const int nVUpixels = 7;
   
-  if ( n < 0 || n > nVUpixels ) {
-    Serial.println ( "setVU: invalid bargraph value ( 0 - 7 ): " );
-    Serial.println ( n );
-  }
+  // if ( n < 0 || n > nVUpixels ) {
+  //   Serial.println ( "setVU: invalid bargraph value ( 0 - 7 ): " );
+  //   Serial.println ( n );
+  // }
   for ( int i = 0; i < nVUpixels; i++ ) {
     strip.setPixelColor ( VUfirstPixel + i, ( i < n ) ? onColor : offColor );
   }
@@ -624,7 +652,7 @@ void init_oled_display () {
 void displayOLED_0 () {
 
   if ( ! ( displayIsStale || ( millis() - lastOledUpdateAt_ms ) > displayUpdateRate_ms ) ) {
-    if ( VERBOSE >= 9 ) Serial.println ( "oled update skipped" );
+    // if ( VERBOSE >= 9 ) Serial.println ( "oled update skipped" );
     return;
   }
 
@@ -657,12 +685,12 @@ void displayOLED_0 () {
 
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 45 );
-  oled.print ( batSwitchStatusIndicator [ batSwitchReadings [ 0 ] ] );
+  oled.print ( batSwitchStatus [ 0 ] );
   // oled.print ( batSwitchReadings [ 0 ] );
   oled.setCursor ( 40, 45 );
-  oled.print ( batSwitchStatusIndicator [ batSwitchReadings [ 1 ] ] );
+  oled.print ( batSwitchStatus [ 1 ] );
   // oled.print ( batSwitchReadings [ 1 ] );
-
+  
   // blocks to indicate state of the push buttons
   
   // oled.setTextColor ( BLACK, WHITE ); // 'inverted' text
@@ -709,14 +737,14 @@ void displayOLED_0 () {
   displayIsStale = false;
   lastOledUpdateAt_ms = millis();
   
-  if ( VERBOSE >= 9 ) Serial.println ( "oled update done" );
+  // if ( VERBOSE >= 9 ) Serial.println ( "oled update done" );
 
 }
 
 void displayOLED_1 () {
 
   if ( ! ( displayIsStale || ( millis() - lastOledUpdateAt_ms ) > displayUpdateRate_ms ) ) {
-    if ( VERBOSE >= 9 ) Serial.println ( "oled update skipped" );
+    // if ( VERBOSE >= 9 ) Serial.println ( "oled update skipped" );
     return;
   }
 
@@ -751,10 +779,10 @@ void displayOLED_1 () {
 
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 45 );
-  oled.print ( batSwitchStatusIndicator [ batSwitchReadings [ 0 ] ] );
+  oled.print ( batSwitchStatus [ 0 ] );
   // oled.print ( batSwitchReadings [ 0 ] );
   oled.setCursor ( 40, 45 );
-  oled.print ( batSwitchStatusIndicator [ batSwitchReadings [ 1 ] ] );
+  oled.print ( batSwitchStatus [ 1 ] );
   // oled.print ( batSwitchReadings [ 1 ] );
 
   // blocks to indicate state of the push buttons
@@ -799,7 +827,7 @@ void displayOLED_1 () {
   displayIsStale = false;
   lastOledUpdateAt_ms = millis();
     
-  if ( VERBOSE >= 9 ) Serial.println ( "oled update done" );
+  // if ( VERBOSE >= 9 ) Serial.println ( "oled update done" );
 
 }
 

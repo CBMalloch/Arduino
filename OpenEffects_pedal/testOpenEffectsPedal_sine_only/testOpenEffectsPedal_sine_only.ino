@@ -1,6 +1,6 @@
 #define PROGNAME  "testOpenEffectsPedal_sine_only"
-#define VERSION   "0.0.6"
-#define VERDATE   "2017-09-06"
+#define VERSION   "0.0.7"
+#define VERDATE   "2017-09-26"
 
 
 // currently set up to test the OpenEffects box
@@ -10,6 +10,10 @@
   both interfere with audio board pin mappings. Don't use either of them!
   They will work, but their use will disable the audio board's workings.
 */
+
+// Works perfectly with the replaced OpenEffects card
+
+#undef VERBOSE
 
 const int pd_relayL = 4;
 const int pd_relayR = 5;
@@ -68,8 +72,8 @@ void setup () {
   pinMode ( pd_relayL, OUTPUT );
   pinMode ( pd_relayR, OUTPUT );
   
-  Serial.begin ( 115200 );
-  while ( !Serial && millis() < 4000 ) { delay ( 100 ); }
+  // Serial.begin ( BAUDRATE );
+  // while ( !Serial && millis() < 4000 ) { delay ( 100 ); }
     
   sgtl5000_1.enable();  // Enable the audio shield
   
@@ -99,12 +103,12 @@ void setup () {
     }
     strip.setBrightness ( 0x40 );
     strip.show();
-    Serial.print ( "\nUsing pixels...\n" );
+    // Serial.print ( "\nUsing pixels...\n" );
   #endif
   
-  Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
-  Serial.println ( "Sine wave middle c in left channel" );
-  Serial.println ( "Drum in right channel" );
+  // Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
+  // Serial.println ( "Sine wave middle c in left channel" );
+  // Serial.println ( "Drum in right channel" );
   delay ( 500 );
 
 }
@@ -128,13 +132,13 @@ void loop() {
     
     int stateR = ( ( state >> 1 ) ^ state ) & 0x01;
     digitalWrite ( pd_relayR, stateR );
-    Serial.print ( "  R: " ); Serial.print ( stateR );
+    // Serial.print ( "  R: " ); Serial.print ( stateR );
     
     int stateL = ( state >> 1 ) & 0x01;
     digitalWrite ( pd_relayL, stateL );
-    Serial.print ( "  L: " ); Serial.print ( stateL );
+    // Serial.print ( "  L: " ); Serial.print ( stateL );
     
-    Serial.println ( );
+    // Serial.println ( );
     
     #if USE_PIXELS == 1
       // for ( int i = 0; i < nPixels; i++ ) {
