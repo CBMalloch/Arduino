@@ -7,20 +7,21 @@
   straight into the AUDIO_INPUT_LINEIN *left* channel
     tip to L, sleeve to GND
   
-  I play a note; the notefreq block provides me the frequency of that note;
+  I play a noteFreq; the notefreq block provides me the frequency of that noteFreq;
   I calculate a new frequency a major third (4 semitones) above this and 
   play a sine wave at that frequency.
   
   I'm using a once-per-second A440 string pluck as a verification that the 
   program is still running.
   
-  Note to the uninitiated: the stuff marked out by // GUItool can be 
+  noteFreq to the uninitiated: the stuff marked out by // GUItool can be 
   copied and pasted into Paul Stoffregen's Audio System Design Tool 
   at <https://www.pjrc.com/teensy/gui/> to see a graphical representation
   of the patch
 */
 
 // const int pdLED = 13;
+const double halfStep = exp ( log ( 2.0 ) / 12.0 );
 float halfSteps [ 13 ];
 
 #include <Audio.h>
@@ -46,15 +47,35 @@ AudioConnection          patchCord6(mixer1, 0, i2s1, 1);
 AudioControlSGTL5000     sgtl5000_1;     //xy=320,81
 // GUItool: end automatically generated code
 
+const int bufLen = 3 + 1;
+char strBuf [ bufLen ];
+// void noteName ( char * strName, int cents, float f );
+
 //---------------------------------------------------------------------------------------
 
 void setup() {
-  // Serial.begin ( 115200 ); while ( !Serial && millis() < 4000 );
+  Serial.begin ( 115200 ); while ( !Serial && millis() < 4000 );
   
   halfSteps [ 0 ] = 1.0;
-  const double halfStep = exp ( log ( 2.0 ) / 12.0 );
   for ( int i = 1; i < 13; i++ ) {
     halfSteps [ i ] = halfSteps [ i - 1 ] * halfStep;
+  }
+  
+  if ( 0 ) {
+    int cents;
+    noteName ( strBuf, &cents, 440.0 );  // A4
+    Serial.printf ( "A4: %s + %d cents\n", strBuf, cents );
+    noteName ( strBuf, &cents, 220.0 );  // A3
+    Serial.printf ( "A3: %s + %d cents\n", strBuf, cents );
+    noteName ( strBuf, &cents, 110.0 * halfSteps [ 2 ] );  // B2
+    Serial.printf ( "B2: %s + %d cents\n", strBuf, cents );
+    noteName ( strBuf, &cents, 880.0 * halfSteps [ 11 ] );  // G#6
+    Serial.printf ( "Ab6: %s + %d cents\n", strBuf, cents );
+    noteName ( strBuf, &cents, 890.25 );  // ??
+    Serial.printf ( "A5, a little sharp: %s + %d cents\n", strBuf, cents );
+    noteName ( strBuf, &cents, 860.0 );  // ??
+    Serial.printf ( "A5, a little flat: %s + %d cents\n", strBuf, cents );
+    while ( 1 );
   }
   
   AudioMemory ( 100 );
@@ -90,19 +111,23 @@ void loop () {
    static unsigned long lastNoteAt_ms = 0UL;
    const unsigned long noteDelay_ms = 200UL;
    
-   static float note = -1.0;
-   static float prob;
+   static float noteFreq = -1.0;
+   static float noteProb;
 
   // read back fundamental frequency
   if ( notefreq.available() ) {
-    note = notefreq.read ();
-    prob = notefreq.probability ();
-    if ( prob > 0.98 ) {
-      sine1.frequency ( note * halfSteps [ 4 ] );
+    noteFreq = notefreq.read ();
+    noteProb = notefreq.probability ();
+    if ( noteProb > 0.98 ) {
+      sine1.frequency ( noteFreq * halfSteps [ 4 ] );
       sine1.amplitude ( 1.0 );
       lastNoteAt_ms = millis ();
     }
-    // Serial.printf("Note: %3.2f | Probability: %.2f\n", note, prob);
+    if ( 1 ) {
+      int cents;
+      noteName ( strBuf, &cents, noteFreq );
+      Serial.printf("noteFreq: %3s + %d cents ( %3.2fHz ) p=%.2f\n", strBuf, cents, noteFreq, noteProb);
+    }
   } else {
     if ( ( millis() - lastNoteAt_ms ) > noteDelay_ms ) sine1.amplitude ( 0.0 );
   }
@@ -120,3 +145,36 @@ void loop () {
   }
 
 }
+
+void noteName ( char *strName, int *cents, float f ) {
+  const int VERBOSE = 0;
+  const double halfStep = exp ( log ( 2.0 ) / 12.0 );
+  const char noteNames [ 12 ] [ 3 ] = { "A", "Bb", "B", "C", "C#", "D", 
+                                  "Eb", "E", "F", "F#", "G", "Ab" };
+  const int octaveNumbers [] = { 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 5, 5 };
+  
+  // the distance from A440 in half-steps
+  float fromA440 = log ( f / 440.0 ) / log ( halfStep );
+  float remainder = fromA440;
+  
+  int baseOctave, halfSteps;
+  float fcents;
+  baseOctave = round ( ( remainder + 600 ) / 12.0 ) - 50.0;
+  remainder -= 12 * baseOctave;
+  halfSteps = round ( remainder );
+  fcents = ( remainder - ( float ) halfSteps ) * 100.0;
+  *cents = round ( fcents );
+  
+  snprintf ( *strName, 4, "%s%d", 
+              noteNames [ halfSteps ], baseOctave + octaveNumbers [ halfSteps ] );
+  
+  if ( VERBOSE >= 4 ) {
+    Serial.printf ( "f: %2.1f\nfromA440: %2.2f\nbaseOctave: %2d\nhalf-steps: %2d\n",
+                  f, fromA440, baseOctave, halfSteps );
+    Serial.printf ( "fcents: %2.1f\n", fcents );
+    Serial.printf ( "Note name: %s\n", strName );
+  }
+  
+  return;
+}
+
