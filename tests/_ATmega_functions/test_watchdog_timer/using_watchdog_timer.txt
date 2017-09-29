@@ -1,0 +1,70 @@
+  // set up the watchdog timer to automatically reboot 
+  //   if a loop takes more than 8 sec (2^(x-6) sec so x = 9)
+  cli();  // disable interrupts by clearing the global interrupt mask
+  wdt_reset();
+  
+  // indicate to the MCU that no watchdog system reset has been requested
+  MCUSR &= ~(1<<WDRF);
+  // set WDCE (watchdog change enable) and WDE (watchdog system reset enable)
+  //   to enable writing of bits within 4 cycles  
+  // Keep old prescaler setting to prevent unintentional time-out
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+  // Set new prescaler(time-out) value = 9 = 2^(n-6)sec
+  // setting WDE (watchdog system reset enable)
+  //   and not WDIE (watchdog interrupt enable)
+  //   should produce no interrupt first, just a system reset
+  WDTCSR = (0<<WDE) | (1<<WDIE) | (1<<WDP3) | (1<<WDP0);
+  // WDIE executes interrupt routine
+  // WDE alone just stops the system dead
+  // WDIE and WDE both and it executes interrupt routine ONCE,
+  //    because system then resets WDIE,
+  //    then stops the system dead
+  // both reset and no interrupts appear
+  
+  // WDIE / WDE
+  //   1     0 -- interrupt mode
+  //   1     1 -- interrupt and system reset
+  //   0     1 -- system reset mode
+
+  // wdt_enable(WDTO_8S);  --> system stops dead
+  
+  // so the secret is to do the interrupt-routine thing,
+  //   and within the interrupt routine, do an asm("jmp 0")
+  //   (three guesses what that does!)
+
+  sei();  // enable interrupts by setting the global interrupt mask
+
+NONONONONO
+
+1) system, on asm("jmp 0"), does a *software* reset which does *not* clear registers
+2) see test_watchdog_timer.ino, which does *not* use wdt_enable
+3) if no ISR is specified, a *hardware* reset takes place, which reportedly *does* clear regs
+
+int boop;
+/* */
+ISR(WDT_vect) { 
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+  WDTCSR = (WDTCSR | (1<<WDIE)) & ~(1<<WDE);
+  boop++; 
+};
+
+void loop() {
+
+
+
+if (millis() < 4000) {
+
+
+
+  wdt_reset();  // pat the doggie
+  
+  
+}
+
+if (boop) {
+  wdt_reset();  // pat the doggie
+  Serial.print("BOOP\n");
+  boop = 0;
+  asm("jmp 0");
+}
+

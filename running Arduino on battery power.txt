@@ -1,0 +1,71 @@
+BOD - enabled by fuses - 
+	see  ”Brown-out Detection” on page 49 and Table 27-7 on page 298
+
+Enable pull-ups on unused I/O pins and disable modules not used
+	save the digital pin registers (mode, value, pullup) for each of the three ports A, B, and C
+		Data Register – PORTx
+		Data Direction Register – DDRx
+		Port Input Pins – PINx
+		note: writing a logic one to a bit in the PINx Register (otherwise read-only)
+			toggles the corresponding bit in the Data Register
+			Also: the SBI instruction can be used to toggle one single bit in a port.
+	make all digital pins input with pullups enabled
+  see ”PRR – Power Reduction Register” on page 45
+
+Pre-scale clock from 8MHz to 2MHz
+	power.h
+	clock_prescale_set(clock_div_4); // This divides the clock by 4
+
+Use power-save sleep mode while waiting for next transmit
+	power down mode disables timer/counter2; power save doesn't, but is otherwise the same
+	sleep.h has functions for setting sleep mode, disabling BOD, and putting the device into sleep. 
+		set_sleep_mode() – selects which sleep mode to use when the sleep instruction is executed
+		sleep_enable() – enables sleep modes
+		sleep_bod_disable() – disables BOD while sleeping
+		sleep_cpu() – executes the sleep instruction
+
+******************************************************************************
+******************************************************************************
+******************************************************************************
+
+test_sleep_lowpower
+
+uses the software library Sensor from MIT, particularly sleep.h and sleep.cpp
+uses timer/counter2
+uses extended-standby sleep mode
+does not work on ATmega168 / DC Boarduino
+  I suspect that the external crystal/resonator clock option is not selected there
+says it uses power-save sleep mode
+
+uses mode Timer2.NORMAL
+timer2 is an 8-bit register; it overflows every 256 clock cycles
+  so for 8MHz clock, that's 32us per overflow; 16MHz clock -> 16us
+overflows specifies how many times it would overflow (without prescaling)
+  to provide the desired sleep
+val is how many overflows *with* prescaling should be requested
+there are *two* prescalers in operation here:
+  cdiv divides the system clock
+  ps scales timer/counter2 iteself
+
+******************************************************************************
+
+test_sleep_nightingale
+
+uses watchdog timer
+uses power-down sleep mode
+turns off A2D converter for sleep (ADEN bit in ADCSRA)
+the oscillator is always 128kHz; counted in blocks of 2048 cycles (16ms)
+	the timeout will occur after 2^(ii) of these blocks (or 2^(4+ii) ms)
+	so, for example, ii of 6 is 2^6 * 16ms = 64 * 16 = 1024ms
+ii 0 - 9
+bb
+	0   0 ii4   0        0  ii5 ii6 ii7         is watchdog prescaler value
+  set WDCE (watchdog change enable)                     prepare to set WDE andprescaler with WDCE clear
+
+MCUSR = MCU status register
+  clear WDRF (watchdog system reset flag)
+WDTCSR = watchdog timer control register
+  set WDCE (watchdog change enable) and WDE (watchdog system reset enable)
+    to enable writing of bits within 4 cycles
+  set to bb -- new values
+  set WDIE (watchdog interrupt enable)
