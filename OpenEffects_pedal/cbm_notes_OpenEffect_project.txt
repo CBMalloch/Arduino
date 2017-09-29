@@ -30,7 +30,7 @@ OLED screen at I2C address 0x3c 128x64
     The display method takes about 100ms !!!
     So use the OLED for status / setup only, not for realtime display
       
-SW1 and SW2 are the 3-position toggle switches, which will be at GND, 1.15, or 3.3V
+SW1 and SW2 are the 3-position toggle switches, which will be at GND, 1.15, or 3.3V. On the new box, these are momentary switches.
   SW1 is A12
   SW2 is A13
   
@@ -54,7 +54,8 @@ int relayR = 5;      // select the pin for the RelayR
 
 LED management:
   The WS2812 pixel strip updates are unreliable at 800MHz. I changed the 
-  configuration to NEO_KHZ400 and it is much smoother.
+  configuration to NEO_KHZ400 and it is much smoother. 
+  (later) But it doesn't work. Have gone back to 800MHz.
 
 
 Observations:
@@ -71,3 +72,17 @@ Observations:
     Teensy 3.6 doesn't boot properly. Spectrum power supply,
     same thing. Appears to non-boot because my program was waiting forever
     for Serial to come up...
+
+===============================================================================
+
+Additional observations:
+
+  Please remember that the standard Serial and the standard LED on pin 13
+  both interfere with audio board pin mappings. Don't use either of them!
+  They will work, but their use will disable the audio board's workings.
+
+  The notefreq block is incompatible with the use of analogRead. 
+  
+  This presents no problem when the expression pedals are being used, since 
+  they can use digitalRead. Let's make a zizzy harmony frequency offset 
+  controlled by an effects pedal! Or a ring modulated effect...
