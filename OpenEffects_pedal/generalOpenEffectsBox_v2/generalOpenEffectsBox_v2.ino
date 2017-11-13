@@ -1,7 +1,6 @@
 #define PROGNAME  "generalOpenEffectsBox_v2"
-#define VERSION   "2.1.3"
-#define VERDATE   "#DATETIME yyyy-MM-dd#"
-  // "2017-10-23"
+#define VERSION   "2.1.11"
+#define VERDATE   "2017-11-12"
 
 #include <SPI.h>
 #include <Wire.h>
@@ -41,26 +40,54 @@
         knob 0 - output volume
         knob 1 - bits
         knob 2 - sample rate
-      no submodes
         
     3 - waveshaper
         knob 0 - output volume
-        knob 1 - menu
-      no submodes
+        knob 1 - wave shape choice number
 
     4 - multiply
-        knob 0 - output volume
-        knob 1 - dc gain
-        knob 2 - sine gain
-        
+      knob 0 - output volume
       submodes
-        0 - dc amplitude
-        1 - sine frequency
-        2 - tonesweep
+        0 - gains
+          knob 1 - dc gain
+          knob 2 - sine gain
+          knob 3 - tonesweep gain
+        1 - dc amplitude control
+          knob 1 - dc amplitude
+        2 - sine frequency control
+          knob 1 - sine frequency
+        3 - tonesweep control
+          knob 1 - tonesweep lower frequency
+          knob 2 - tonesweep upper frequency
+          knob 3 - tonesweep time
       
-    44 - A440 sine wave
+    5 - chorus
         knob 0 - output volume
-      no submodes
+        knob 1 - number of voices
+
+    6 - flanger
+        knob 0 - output volume
+        knob 1 - offset - fixed distance behind current
+        knob 2 - depth - the size of the variation of offset
+        knob 3 - rate - the frequency of the variation of offset
+
+    7 - reverb
+        knob 0 - output volume
+        knob 1 - reverb time
+        
+    8 - delays
+      knob 0 - output volume
+      delay 0 is always straight through with no delay
+      submodes
+        0 - delay times
+          knob 1 - delay 1 time (ms)
+          knob 2 - delay 2 time (ms)
+          knob 3 - delay 3 time (ms)
+        1 - gains
+          knob 1 - delay 1 gain
+          knob 2 - delay 2 gain
+          knob 3 - delay 3 gain
+
       
 */
 
@@ -204,7 +231,7 @@ int flange_offset = 0;
 int flange_depth = 0;
 int flange_rate = 0;
 
-float reverb_time = 0.0;
+float reverbTime_sec = 0.0;
 
 int delay_times_ms [ 4 ] = { 0, 0, 0, 0 };
 
@@ -286,6 +313,8 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=120,48
 float ws1_passthru [] = { -1.0, 1.0 };
 float ws1_shape1 [] = { -1.0, -0.3,  -0.2,  -0.1, 0.0, 0.1, 0.2,  0.3,  1.0 };
 float ws1_shape2 [] = { -1.0, -0.98, -0.95, -0.1, 0.0, 0.1, 0.95, 0.98, 1.0 };
+float ws1_shape3 [] = {  1.0,  0.3,   0.2,   0.1, 0.0, 0.1, 0.2,  0.3,  1.0 };
+float ws1_shape4 [] = {  1.0,  0.98,  0.5,   0.1, 0.0, 0.1, 0.5,  0.98, 1.0 };
 
 #if 1
 #define FLANGE_DELAY_LENGTH ( 2 * AUDIO_BLOCK_SAMPLES )
@@ -304,8 +333,7 @@ short chorusDelayLine [ CHORUS_DELAY_LENGTH ];
 #define mixer3_DC          0
 #define mixer3_sine2       1
 #define mixer3_tonesweep2  2
-int chorusVoices = 1;
-int reverbTime_ms = 0;
+
 float outputVolume = 1.0;
 
 /* *****************************************************
@@ -380,7 +408,7 @@ void loop() {
     }
   }
   
-  outputVolume = expmap ( potReadings [ 0 ], 0, 1023, 0.1, 2.0 );
+  outputVolume = expmap ( potReadings [ 0 ], 0, 1023, 0.01, 2.0 );
       
   switch ( mode ) {
     case 0:  // standard operating mode
@@ -388,7 +416,7 @@ void loop() {
       nSubModes = 1;
       
       mixer2.gain ( 0, outputVolume );
-      if ( 1 || VERBOSE >= 10 ) setVU ( outputVolume );   // debug
+      if ( 1 || VERBOSE >= 10 ) setVU ( outputVolume * 3.5 );   // 0.1<=oV<=2.0
       
       updateOLEDdisplay = &displayOLED_0;
       
@@ -462,20 +490,27 @@ void loop() {
     
       nSubModes = 1;
       
-      waveshaper_menu = map ( potReadings [ 1 ], 0, 1023, 0, 2 );
-      
-      switch ( waveshaper_menu ) {
-        case 0:
-          waveshape1.shape ( ws1_passthru, 2 );
-          break;
-        case 1:
-          waveshape1.shape ( ws1_shape1, 9 );
-          break;
-        case 2:
-          waveshape1.shape ( ws1_shape2, 9 );
-          break;
-        default:
-          break;
+      if ( abs ( potReadings [ 1 ] - oldPotReadings [ 1 ] ) > potHysteresis ) {
+        waveshaper_menu = map ( potReadings [ 1 ], 0, 1023, 0, 4 );
+        switch ( waveshaper_menu ) {
+          case 0:
+            waveshape1.shape ( ws1_passthru, 2 );
+            break;
+          case 1:
+            waveshape1.shape ( ws1_shape1, 9 );
+            break;
+          case 2:
+            waveshape1.shape ( ws1_shape2, 9 );
+            break;
+          case 3:
+            waveshape1.shape ( ws1_shape3, 9 );
+            break;
+          case 4:
+            waveshape1.shape ( ws1_shape4, 9 );
+            break;
+          default:
+            break;
+        }
       }
 
       mixer2.gain ( 0, outputVolume );
@@ -514,35 +549,20 @@ void loop() {
           updateOLEDdisplay = &displayOLED_multiply;
           break;
         case 1:  // dc amplitude
-          for ( int i = 1; i <= 1; i++ ) {
-            if ( abs ( potReadings [ i ] - oldPotReadings [ i ] ) > potHysteresis ) {
-              switch ( i ) {
-                case 1:  // dc gain
-                  mpy_dc_amp = fmap ( potReadings [ 1 ], 0, 1023, -1.0, 1.0 );
-                  dc1.amplitude ( 0, mpy_dc_amp );
-                  break;
-                default:
-                  break;
-              }
-              if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
-            }
+          if ( abs ( potReadings [ 1 ] - oldPotReadings [ 1 ] ) > potHysteresis ) {
+            mpy_dc_amp = fmap ( potReadings [ 1 ], 0, 1023, -1.0, 1.0 );
+            dc1.amplitude ( 0, mpy_dc_amp );
+            if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ 1 ], 0, 1023, 0, 7 ) );   // debug
           }
           updateOLEDdisplay = &displayOLED_mpy_dc_gain;
           break;
         case 2:  // sine2 frequency
-          for ( int i = 1; i <= 1; i++ ) {
-            if ( abs ( potReadings [ i ] - oldPotReadings [ i ] ) > potHysteresis ) {
-              switch ( i ) {
-                case 1:  // sine frequency
-                  mpy_sine_freq = expmap ( potReadings [ 1 ], 0, 1023, 0.01, 1.0 );
-                  sine2.frequency ( mpy_sine_freq );
-                  break;
-                default:
-                  break;
-              }
-              if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
+          if ( abs ( potReadings [ 1 ] - oldPotReadings [ 1 ] ) > potHysteresis ) {
+            // sine frequency
+            mpy_sine_freq = expmap ( potReadings [ 1 ], 0, 1023, 0.01, 10.0 );
+            sine2.frequency ( mpy_sine_freq );
+            if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ 1 ], 0, 1023, 0, 7 ) );   // debug
             }
-          }
           updateOLEDdisplay = &displayOLED_mpy_sine2_frequency;
           break;
         case 3:  // tone sweep
@@ -584,11 +604,13 @@ void loop() {
     
       nSubModes = 1;
       
-      chorus_n = map ( potReadings [ 1 ], 0, 1023, 0, 4 );
-      // chorus1.modify ( map ( potReadings [ 0 ], 0, 1023, 1, 5 ) );
-      //   Arduino claims chorus1 has no member "modify"
-      chorus1.voices ( chorus_n );
-
+      if ( abs ( potReadings [ 1 ] - oldPotReadings [ 1 ] ) > potHysteresis ) {
+        chorus_n = map ( potReadings [ 1 ], 0, 1023, 1, 5 );
+        // chorus1.modify ( map ( potReadings [ 0 ], 0, 1023, 1, 5 ) );
+        //   Arduino claims chorus1 has no member "modify"
+        chorus1.voices ( chorus_n );
+      }
+      
       mixer2.gain ( 0, outputVolume );
       // setVU ( outputVolume );   // debug
       
@@ -623,7 +645,7 @@ void loop() {
       mixer2.gain ( 0, outputVolume );
       // setVU ( outputVolume );   // debug
       
-      updateOLEDdisplay = &displayOLED_bitcrusher;
+      updateOLEDdisplay = &displayOLED_flange;
 
       break;
     
@@ -631,8 +653,10 @@ void loop() {
     
       nSubModes = 1;
       
-      reverb_time = fmap ( potReadings [ 1 ], 0, 1023, 0.0, 5.0 );
-      reverb1.reverbTime ( reverb_time );
+      if ( abs ( potReadings [ 1 ] - oldPotReadings [ 1 ] ) > potHysteresis ) {
+        reverbTime_sec = fmap ( potReadings [ 1 ], 0, 1023, 0.0, 5.0 );
+        reverb1.reverbTime ( reverbTime_sec );
+      }
 
       mixer2.gain ( 0, outputVolume );
       // setVU ( outputVolume );   // debug
@@ -649,7 +673,7 @@ void loop() {
         case 0:  // delay times beyond delay 0
           for ( int i = 1; i <= 3; i++ ) {
             if ( abs ( potReadings [ i ] - oldPotReadings [ i ] ) > potHysteresis ) {
-              delay_times_ms [ i ] = expmap ( potReadings [ i ], 0, 1023, 1.0, 1485.0 );
+              delay_times_ms [ i ] = expmap ( potReadings [ i ], 0, 1023, 0.1, 1485.0 );
               delayExt1.delay ( i, delay_times_ms [ i ] );
               if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
             }
@@ -799,28 +823,29 @@ void displayOLED_0 () {
   displayOLED_common ();
   
   #if 1
-    // upper left 4 small numbers are the pot readings  
+    // top 4 small numbers are the pot readings  
     oled.setTextSize ( 1 );
     oled.setTextColor ( WHITE );
     for ( int i = 0; i < nPots; i++ ) {
-      oled.setCursor ( ( i / 2 ) * 40, 20 + ( i % 2 ) * 15 );
+      oled.setCursor ( i * 32, 0 );
       oled.println ( potReadings [ i ] );
     }
   #endif
   
+  // version bottom
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 56 );
   oled.print ( VERSION );
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 80, 40 );
+  oled.setCursor ( 0, 20 );
   oled.print ( outputVolume );
 
-  oled.setTextSize ( 2 );
-  oled.setCursor ( 80, 0 );
-  oled.print ( chorusVoices );
-  oled.setCursor ( 80, 20 );
-  oled.print ( reverbTime_ms );
+  oled.setCursor ( 64, 20 );
+  oled.print ( chorus_n );
+  
+  oled.setCursor ( 96, 20 );
+  oled.print ( reverbTime_sec );
 
   oled.display();  // note takes about 100ms!!!
   
@@ -850,28 +875,28 @@ void displayOLED_mixer1 () {
   // 3 gains, pots 1-3
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " inp mix" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "input mix" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
+  oled.setCursor ( 30, 16 );
   oled.print ( mix1gain_inp );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "inp" );
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 40, 30 );
+  oled.setCursor ( 30, 32 );
   oled.print ( mix1gain_sin440 );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 40, 45 );
+  oled.setCursor ( 0, 36 );
   oled.print ( "sin" );
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 80, 30 );
+  oled.setCursor ( 30, 48 );
   oled.print ( mix1gain_tonesweep );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 80, 45 );
+  oled.setCursor ( 0, 52 );
   oled.print ( "swp" );
   
   lastOledUpdateAt_ms = millis();
@@ -899,24 +924,22 @@ void displayOLED_bitcrusher () {
   //   0 for bits ( 0 is 16 bits => pass-through )
   //   1 for sampling rate ( 0 is 44100 => pass-through )
   
-  // 3 gains, pots 1-3
+  oled.setTextSize ( 2 );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "bitcrush" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " bitcrsh" );
-  
-  oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
+  oled.setCursor ( 30, 16 );
   oled.print ( bitcrush_bits );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "bits" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 20, 30 );
+  oled.setCursor ( 30, 32 );
   oled.print ( bitcrush_sampleRate );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 20, 45 );
+  oled.setCursor ( 0, 36 );
   oled.print ( "samp" );
   
   lastOledUpdateAt_ms = millis();
@@ -940,21 +963,15 @@ void displayOLED_waveshaper () {
   
   displayOLED_common ();  // displays mode
 
-  // bitcrusher
-  //   0 for bits ( 0 is 16 bits => pass-through )
-  //   1 for sampling rate ( 0 is 44100 => pass-through )
-  
-  // 3 gains, pots 1-3
+  oled.setTextSize ( 2 );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "waveshape" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " wavesh" );
-  
-  oled.setTextSize ( 2 );
-  oled.setCursor ( 20, 30 );
+  oled.setCursor ( 30, 16 );
   oled.print ( waveshaper_menu );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 20, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "menu" );
   
   lastOledUpdateAt_ms = millis();
@@ -985,28 +1002,28 @@ void displayOLED_multiply () {
   // 3 gains, pots 1-3
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " multiply" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "multiply" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
+  oled.setCursor ( 30, 16 );
   oled.print ( multiply_dc_gain );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "dc" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 45, 30 );
+  oled.setCursor ( 30, 32 );
   oled.print ( multiply_sine_gain );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 45, 45 );
+  oled.setCursor ( 0, 36 );
   oled.print ( "sin" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 45, 30 );
+  oled.setCursor ( 30, 48 );
   oled.print ( multiply_tonesweep_gain );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 45, 45 );
+  oled.setCursor ( 0, 52 );
   oled.print ( "swp" );
   
   lastOledUpdateAt_ms = millis();
@@ -1031,14 +1048,14 @@ void displayOLED_mpy_dc_gain () {
   displayOLED_common ();  // displays mode
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " dc amp" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "dc amp" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
+  oled.setCursor ( 30, 16 );
   oled.print ( mpy_dc_amp );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "val" );
   
   lastOledUpdateAt_ms = millis();
@@ -1063,14 +1080,14 @@ void displayOLED_mpy_sine2_frequency () {
   displayOLED_common ();  // displays mode
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " sine freq" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "sine freq" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
+  oled.setCursor ( 30, 16 );
   oled.print ( mpy_sine_freq );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "freq" );
   
   lastOledUpdateAt_ms = millis();
@@ -1095,28 +1112,28 @@ void displayOLED_mpy_tone_sweep () {
   displayOLED_common ();  // displays mode
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " tone swp" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "tone sweep" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
+  oled.setCursor ( 30, 16 );
   oled.print ( mpy_tonesweep_lf );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "lo f" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 50, 30 );
+  oled.setCursor ( 30, 32 );
   oled.print ( mpy_tonesweep_lf );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 50, 45 );
+  oled.setCursor ( 0, 36 );
   oled.print ( "hi f" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 100, 30 );
+  oled.setCursor ( 30, 48 );
   oled.print ( mpy_tonesweep_time );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 100, 45 );
+  oled.setCursor ( 0, 52 );
   oled.print ( "ms" );
   
   lastOledUpdateAt_ms = millis();
@@ -1138,14 +1155,14 @@ void displayOLED_chorus () {
   displayOLED_common ();  // displays mode
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " chorus" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "chorus" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
+  oled.setCursor ( 64, 16 );
   oled.print ( chorus_n );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "voices" );
   
   lastOledUpdateAt_ms = millis();
@@ -1170,28 +1187,28 @@ void displayOLED_flange () {
   displayOLED_common ();  // displays mode
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " flange" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "flange" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
+  oled.setCursor ( 30, 16 );
   oled.print ( flange_offset );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "ofst" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 40, 30 );
+  oled.setCursor ( 30, 32 );
   oled.print ( flange_depth );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 40, 45 );
+  oled.setCursor ( 0, 36 );
   oled.print ( "dpth" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 80, 30 );
+  oled.setCursor ( 30, 48 );
   oled.print ( flange_rate );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 80, 45 );
+  oled.setCursor ( 0, 52 );
   oled.print ( "rate" );
   
   lastOledUpdateAt_ms = millis();
@@ -1216,14 +1233,14 @@ void displayOLED_reverb () {
   displayOLED_common ();  // displays mode
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " reverb" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "reverb" );
   
   oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 30 );
-  oled.print ( reverb_time );
+  oled.setCursor ( 30, 16 );
+  oled.print ( reverbTime_sec );
   oled.setTextSize ( 1 );
-  oled.setCursor ( 0, 45 );
+  oled.setCursor ( 0, 20 );
   oled.print ( "sec" );
     
   lastOledUpdateAt_ms = millis();
@@ -1248,16 +1265,16 @@ void displayOLED_delay_times () {
   displayOLED_common ();  // displays mode
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " delays" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "delays" );
   
   for ( int i = 1; i < 4; i++ ) {
-    int x = ( i - 1 ) * 40;
-    oled.setTextSize ( 2 );
-    oled.setCursor ( x, 30 );
+    int y = ( i - 1 ) * 16 + 16;
+    oled.setTextSize ( 1 );
+    oled.setCursor ( 30, y );
     oled.print ( delay_times_ms [ i ] );
     oled.setTextSize ( 1 );
-    oled.setCursor ( x, 45 );
+    oled.setCursor ( 0, y );
     oled.print ( "ms" );
   }
     
@@ -1283,16 +1300,16 @@ void displayOLED_mixer2 () {
   displayOLED_common ();  // displays mode
 
   oled.setTextSize ( 2 );
-  oled.setCursor ( 32, 0 );
-  oled.print ( " dly amp" );
+  oled.setCursor ( 0, 0 );
+  oled.print ( "delay gain" );
   
   for ( int i = 1; i < 4; i++ ) {
-    int x = ( i - 1 ) * 40;
-    oled.setTextSize ( 2 );
-    oled.setCursor ( x, 30 );
+    int y = ( i - 1 ) * 16 + 16;
+    oled.setTextSize ( 1 );
+    oled.setCursor ( 30, y );
     oled.print ( mixer2_gains [ i ] );
     // oled.setTextSize ( 1 );
-    // oled.setCursor ( x, 45 );
+    // oled.setCursor ( 0, y );
     // oled.print ( "" );
   }
     
@@ -1313,8 +1330,8 @@ void displayOLED_common () {
     
   // large numbers are the bat switch positions
 
-  oled.setTextSize ( 2 );
-  oled.setCursor ( 0, 0 );
+  oled.setTextSize ( 1 );
+  oled.setCursor ( 96, 56 );
   oled.print ( mode );
   oled.print ( "." );
   oled.print ( subMode );
@@ -1435,8 +1452,8 @@ void mixer3_init () {
   
   mixer3.gain ( 0, multiply_dc_gain );
   mixer3.gain ( 1, multiply_sine_gain );
-  mixer3.gain ( 0, multiply_tonesweep_gain );
-  
+  mixer3.gain ( 2, multiply_tonesweep_gain );
+    
 }
 
 void multiply1_init () {
@@ -1459,19 +1476,16 @@ void chorus1_init () {
 }
 
 void flange1_init () {
-  static bool flange1Running = false;
-  if ( ! flange1Running ) {
-    // delay line, delay line size, offset, depth, delay rate = modulation frequency
-    flange1.begin ( flangeDelayLine, FLANGE_DELAY_LENGTH, 0, 0, 0 );
-    flange1Running = true;
-  } else {
-    flange1.voices ( 0, 0, 0 );
-  }
+  flange_offset = 0;
+  flange_depth = 0;
+  flange_rate = 0.0;
+  flange1.begin ( flangeDelayLine, FLANGE_DELAY_LENGTH, 
+    flange_offset, flange_depth, flange_rate );
 }
 
 void reverb1_init () {
-  reverb_time = 0.0;
-  reverb1.reverbTime ( reverb_time );
+  reverbTime_sec = 0.0;
+  reverb1.reverbTime ( reverbTime_sec );
 }
 
 void delayExt1_init () {

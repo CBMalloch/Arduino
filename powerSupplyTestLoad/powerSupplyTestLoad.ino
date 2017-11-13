@@ -1,6 +1,6 @@
 #define PROGNAME "powerSupplyTestLoad.ino"
-#define VERSION "0.2.2"
-#define VERDATE "2017-11-02"
+#define VERSION "1.0.0"
+#define VERDATE "2017-11-12"
 
 /*
   Connect to a power supply and record its voltage output at a range of currents
@@ -46,13 +46,22 @@
     to assure no load on the power supply.
     Run the program with the Mode pin grounded and adjust pot until counts is right
   
+  To test the program, I set TESTING to 1 and loaded it.
+  Start it with wire from pdMode ( pin 2 ) to GND, calibrated 5VDC source to adjust pot.
+  Then remove the wire and it will set the first power level. Make meter measurements,
+  cycle wire, and read program output. Repeat.
+  
+  To use the program, start it with wire from pdMode ( pin 2 ) to GND, 
+  calibrated 5VDC source to adjust pot.
+  Then remove the wire and it will run through its cycle.
 */
 
 #include <Stats.h>
 #include <FormatFloat.h>
 
 #define VERBOSE 4
-#define TESTING 1
+#define TESTING 0
+
 
 const unsigned long BAUDRATE = 115200;
 const unsigned short paVoltageInput = A0;
@@ -139,7 +148,7 @@ void loop () {
 
   float control_v;
   float loadCurrent_a;
-  float providedVoltage_v, voltageVariability_v;
+  float measuredVoltage_v, voltageVariability_v;
   
   const int finalCurrentCommand_counts = round ( nStepsPWM * finalCurrent_a / 5.0 );
   
@@ -149,7 +158,7 @@ void loop () {
     const unsigned long voltageChangeSettlingTime_ms = 50UL;
     const int nSteps = nStepsPWM;
   #else
-    const unsigned long voltageChangeSettlingTime_ms = 10000UL;
+    const unsigned long voltageChangeSettlingTime_ms = 0UL; // 10000UL;
     const int nSteps = 8;
   #endif
   
@@ -163,13 +172,27 @@ void loop () {
       
   while ( command_counts <= finalCurrentCommand_counts ) {
     
-    if ( ( millis() - lastVoltageChangeAt_ms ) > voltageChangeSettlingTime_ms ) {
+    // in testing and calibration, we might set voltageChangeSettlingTime_ms to zero and 
+    // wait for a button press before proceeding to the next commanded current
+    // otherwise, we proceed after voltageChangeSettlingTime_ms
     
-      // sample. Take 100 readings over 4 ms
-      int nReadingsDesired = 10;
+    if ( voltageChangeSettlingTime_ms
+           ? ( ( millis() - lastVoltageChangeAt_ms ) > voltageChangeSettlingTime_ms ) 
+           : ! digitalRead ( pdMode ) ) {
+      
+      // if we're using the button, wait here for button release & debounce
+      if ( ! voltageChangeSettlingTime_ms ) {
+        unsigned long lastButtonAt_ms = millis();
+        while ( ( millis() - lastButtonAt_ms ) < 50UL ) { 
+          if ( ! digitalRead ( pdMode ) ) lastButtonAt_ms = millis();
+        }
+      }
+    
+      // Sample. Take a many readings to smooth the results
       int samplingPeriod_us = 4000UL;
-      unsigned long lastSampleAt_us = 0UL;
-      const unsigned long sampleInterval_us = samplingPeriod_us / nReadingsDesired;
+      // int nReadingsDesired = 10;
+      // unsigned long lastSampleAt_us = 0UL;
+      // const unsigned long sampleInterval_us = samplingPeriod_us / nReadingsDesired;
       static Stats samples = Stats();
       samples.reset();
       unsigned long firstSampleAt_us = micros();
@@ -185,17 +208,19 @@ void loop () {
       // Serial.print ( actualSamplingPeriod_us ); Serial.print ( "\t" );
       // Serial.print ( actualSamplingPeriod_us ); Serial.print ( "\t" );      // 100 samples take 30200us, despite intent for it to take 4000us.
       // take 10 samples instead; that takes 5220us
-      Serial.print ( samples.num() ); Serial.print ( "\t" );
-    
-      providedVoltage_v = samples.mean() * fCountsToVolts;
+      // we actually get 28 samples when going by time instead of number of samples
+      // 28's pretty good, spread over 4ms or 2 cycles
+      // Serial.print ( samples.num() ); Serial.print ( "\t" );
+   
+      measuredVoltage_v = samples.mean() * fCountsToVolts;
       voltageVariability_v = samples.stDev() * fCountsToVolts;
       
       // strncpy ( strBuf, "", bufLen );
       snprintf ( strBuf, bufLen, "%d\t", command_counts );
-      formatFloat(strFBuf, fbufLen, command_a, 3);  // command amps
+      formatFloat(strFBuf, fbufLen, command_a, 3);             // command amps
       strncat ( strBuf, strFBuf, bufLen );
       strncat ( strBuf, "\t", bufLen );
-      formatFloat(strFBuf, fbufLen, providedVoltage_v, 3);  // provided voltage
+      formatFloat(strFBuf, fbufLen, measuredVoltage_v, 3);     // measured voltage
       strncat ( strBuf, strFBuf, bufLen );
       strncat ( strBuf, "\t", bufLen );
       formatFloat(strFBuf, fbufLen, voltageVariability_v, 6);  // stDev voltage
