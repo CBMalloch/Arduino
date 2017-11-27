@@ -41,8 +41,25 @@ Are stomp switches OnOff and Boost?
 CV1 and CV2 are on the other bank of 1/4" sockets;
 CV1 is associated with "Sine modulation CV pedal input"
 CV2 is associated with "Freq expression pedal"
-int CV1 = A10;
-int CV2 = A11;
+const int CV1 = A10;
+const int CV2 = A11;
+The expression pedal I have, a Moog, in "standard" configuration, has
+             ts    tr       sr
+      0      0    110K     110K
+      full   52K    0       52K
+and in "other" configuration
+             ts    tr       sr
+      0     110K  110K       0
+      full   52K    0       52K
+so it switches tip and ring.
+From the box, we have no volts tip, shaft, or ring
+
+The GND pins of the connector connect to shafts for all jacks
+CVInput1 ( pin 7 ) of the connector connects to tip of jack Exp2
+CVInput2 ( pin 8 ) of the connector connects to tip of jack Exp1
+No pins of the connector connect to ring of either Exp1 or Exp2,
+although pin 9 (3V3) should apparently do so...
+
 
 Leaving the relays alone (normal) connects InputL to OutputL etc.
 Pulling them in connects InputL to EffectInL to LINEIN_L on the SGTL5000
@@ -83,6 +100,10 @@ Additional observations:
 
   The notefreq block is incompatible with the use of analogRead. 
   
-  This presents no problem when the expression pedals are being used, since 
-  they can use digitalRead. Let's make a zizzy harmony frequency offset 
+  This presents a problem when the expression pedals are being used, since 
+  they must use analogRead. So much for making a zizzy harmony frequency offset 
   controlled by an effects pedal! Or a ring modulated effect...
+  The fallback would be to have an external ADC connected via SPI or I2C.
+  
+  chorus - its method is not .modify() but is in fact .voices()
+  reverb - its argument is not integer milliseconds, but is float seconds.
