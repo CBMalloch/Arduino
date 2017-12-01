@@ -15,6 +15,8 @@
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 
+#define LINGER_AWAKE_FOR_32u4 true
+
 #define pdAwake 13
 
 #ifndef cbi
@@ -28,7 +30,7 @@ volatile boolean f_wdt = 1;
 
 void setup(){
 
-  Serial.begin ( 115200 );
+  Serial.begin ( 115200 ); while ( ! Serial && millis() < 2000 );
   
   pinMode ( pdAwake, OUTPUT ); digitalWrite ( pdAwake, 1 );
   
@@ -53,7 +55,7 @@ void setup(){
   sbi ( SMCR, SM1 );     // power down mode
   cbi ( SMCR, SM0 );     // power down mode
 
-  setup_watchdog ( 7 );  // arg sets the watchdog timeout interval
+  setup_watchdog ( 7 );  // arg sets the watchdog timeout interval 7->2sec
   
 }
 
@@ -100,7 +102,12 @@ void loop(){
     
     // ***************** now we're awake again
     
-
+    if ( LINGER_AWAKE_FOR_32u4 ) {
+      delay ( 100 );
+      Serial.println ( "Awake" );
+      delay ( 10 );
+    }
+    
   }
 
 }
@@ -154,7 +161,7 @@ void setup_watchdog ( int intervalIndex ) {
   // WDTCSR is the watchdog timer control register
   // WDCE is the bit number (4) of the watchdog clock enable in WDTCSR
   bb |= ( 1 << WDCE );
-  Serial.println ( int ( bb ) );
+  Serial.print ( "bb: " ); Serial.println ( int ( bb ) );
 
   // MCUSR is the MCU (main control unit?) status register
   // WDRF is the bit number (3) of the watchdog system reset flag in the MCUSR
