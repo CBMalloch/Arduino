@@ -16,14 +16,17 @@ double EWMA::periods (int nPeriodsOfHalfLife) {
   return (alpha (nPeriodsOfHalfLife));
 }
 
-double EWMA::alpha (unsigned long nPeriodsOfHalfLife) {
-  // in which we specify the number of periods of the half-life of a new reading
-  // and the function returns the requisite value for alpha
-	// WRONG -> return (-log(0.5)/nPeriodsOfHalfLife);  // note log is ln, log10 is other
-  return (1 - exp(log(0.5) / nPeriodsOfHalfLife));
+double EWMA::alpha ( unsigned long nPeriodsOfHalfLife ) {
+  /*
+    in which we specify the number of periods of the half-life of a new 
+    reading and the function returns the requisite value for alpha
+	  WRONG -> return ( -log ( 0.5 ) / nPeriodsOfHalfLife );  
+	  note log is ln, log10 is other
+	*/
+  return ( 1 - exp ( log ( 0.5 ) / nPeriodsOfHalfLife ) );
 }
 
-double EWMA::alpha (int nPeriodsOfHalfLife) {
+double EWMA::alpha ( int nPeriodsOfHalfLife ) {
   // in which we specify the number of periods of the half-life of a new reading
   // and the function returns the requisite value for alpha
 	// WRONG -> return (-log(0.5)/nPeriodsOfHalfLife);  // note log is ln, log10 is other
@@ -34,18 +37,18 @@ EWMA::EWMA () {
 	reset();
 }
 
-EWMA::EWMA ( double factor ) {
-	init ( factor );
+EWMA::EWMA ( double alpha ) {
+	init ( alpha );
 }
 
-void EWMA::init ( double factor ) {
-	this->factor = factor;
+void EWMA::init ( double alpha ) {
+	this->_alpha = alpha;
 	reset();
 }
 
-double EWMA::setAlpha ( double factor ) {
-  if ( factor > 0.0 && factor < 1.0 ) this->factor = factor;
-  return ( this->factor );
+double EWMA::setAlpha ( double alpha ) {
+  if ( alpha > 0.0 && alpha < 1.0 ) this->_alpha = alpha;
+  return ( this->_alpha );
 }
 
 void EWMA::reset() {
@@ -53,41 +56,42 @@ void EWMA::reset() {
 }
 
 void EWMA::load(int n, double loadValue) {
-	this->n             = n;
-	this->currentValue  = loadValue;
+	this->_n             = n;
+	this->_currentValue  = loadValue;
 }
 
 double EWMA::record(double x) {
-  if (this->n == 0) {
-  	this->n++;
-  	this->currentValue = x;
+  if (this->_n == 0) {
+  	this->_n++;
+  	this->_currentValue = x;
   } else {
-		this->currentValue  = this->currentValue * (1.0 - this->factor) + x * this->factor;
+		this->_currentValue  = this->_currentValue * (1.0 - this->_alpha) 
+		    + x * this->_alpha;
 	}
-	return (this->currentValue);
+	return (this->_currentValue);
 }
 
 double *EWMA::_internals() {
 	static double ret[2];
-	ret[0] = this->n;
-	ret[1] = this->currentValue;
+	ret[0] = this->_n;
+	ret[1] = this->_currentValue;
 	return ret;
 }
 
 double EWMA::value() {
-  return this->currentValue;
+  return this->_currentValue;
 }
 
 void EWMA::results(double *ret) {
-	ret[0] = this->n;
-	ret[1] = this->currentValue;
+	ret[0] = this->_n;
+	ret[1] = this->_currentValue;
 }
 
 /*
 char *EWMA::resultString() {
 	static char res[60];
 	this->_calculate();
-	sprintf(res, "[%2.4f, %2.4f]", this->m, this->stDev);
+	sprintf(res, "[%2.4f, %2.4f]", this->_m, this->_stDev);
 	return res;
 }
 

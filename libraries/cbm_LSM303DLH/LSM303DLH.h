@@ -25,17 +25,18 @@
 class LSM303DLH {
 
 	public:
-		// LSM303DLH         ();
-		LSM303DLH         ();
-    void init          ( int acc_scale, int SA0_bridge_value = 1  );
+		LSM303DLH ( Print &print = Serial );
+    void init ( int acc_scale = 2, int SA0_bridge_value = 0  );
     
     // void setAccelScale ( int scale );
         
-    void getAccel(int * rawValues);
-    void getMag ( int * rawValues );
+    void getAccel ( float * _acceleration_vector_components_g );
+    void getMag ( float * _magnetic_field_components_gauss );
 
     float getHeading(float * magValue);
     float getTiltHeading(float * magValue, float * accelValue);
+    
+    void debug ( Stream& out );
     
 	protected:
 		// anything that needs to be available only to:
@@ -49,8 +50,12 @@ class LSM303DLH {
     void write ( byte data, byte device_address, byte register_address );
     
 	private:
-		
-		
+	
+		Print* _printer;
+		byte _acc_scale_bits;
+	  const float _acc_scales [ 4 ] = { 1.0, 2.0, 0.0, 3.9 };
+		float _acceleration_vector_components_g [ 3 ];
+		float _magnetic_field_components_gauss [ 3 ];
 };
 
 #endif

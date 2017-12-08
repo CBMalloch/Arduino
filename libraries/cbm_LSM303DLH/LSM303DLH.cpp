@@ -14,7 +14,7 @@
 
 #include <LSM303DLH.h>
 
-#undef LSM303DHLC_VERBOSE
+#define LSM303DLH_VERBOSE 20
 
 // specific to LSM303DLH - private
 
@@ -74,7 +74,8 @@
 #define SA0_BRIDGE_VALUE 0
 #define REG_BASE_ADDR_ACC  ( 0x18 + SA0_bridge_value )
 
-LSM303DLH::LSM303DLH () {
+LSM303DLH::LSM303DLH ( Print &print ) {
+  _printer = &print;
 }
 
 // LSM303DLH::LSM303DLH ( int scale = ACC_SCALER ) {
@@ -87,30 +88,33 @@ LSM303DLH::LSM303DLH () {
 
 void LSM303DLH::init ( int acc_scale, int SA0_bridge_value_in ) {
 
+  // _printer->println ( "init -2" );
   SA0_bridge_value = SA0_bridge_value_in;
+  // _printer->println ( "init -1" );
   Wire.begin ();  // Start up I2C, required for LSM303 communication
 
-  // Serial.println ( "init 0" );
-  // change to 0x47 fro low-power mode output data rate 0.5 Hz
-  write(0b00100111, REG_BASE_ADDR_ACC, CTRL_REG1_A);  // 0x27 = normal power mode, all accel axes on
-  // Serial.println ( "init 1" );
-  byte acc_scale_bits = 0x00;
+  // _printer->println ( "init 0" );
+  // change to 0x47 for low-power mode output data rate 0.5 Hz
+  write ( 0b00100111, REG_BASE_ADDR_ACC, CTRL_REG1_A );  // 0x27 = normal power mode, all accel axes on
+  // _printer->println ( "init 1" );
+  _acc_scale_bits = 0x00;
   switch ( acc_scale ) {
     case 8:  // 8G full scale
-      acc_scale_bits = 0x03;
+      _acc_scale_bits = 0x03;
       break;
     case 4:  // 4G full scale
-      acc_scale_bits = 0x01;
+      _acc_scale_bits = 0x01;
       break;
     default: // 2G full scale
-      acc_scale_bits = 0x00;
+      _acc_scale_bits = 0x00;
       break;
   }
     
   write ( 0x00, REG_BASE_ADDR_MAG, CRA_REG_M );  // 0x1c = D02-D00; 0x03 = MS1-MS0
-  write ( 0x20, REG_BASE_ADDR_MAG, CRB_REG_M );  // 0xe0 = GN2-GN0 -> highest gain
-  write ( 0x00, REG_BASE_ADDR_MAG, MR_REG_M );  // 0x00 = continouous conversion mode
-  // Serial.println ( "init 9" );
+  write ( 0x20, REG_BASE_ADDR_MAG, CRB_REG_M );  // 0x20 = GN2-GN0 -> highest gain
+  write ( 0x00, REG_BASE_ADDR_MAG, MR_REG_M );   // 0x00 = continouous conversion mode
+  // _printer->println ( "init 9" );
+  
 }
 
 
@@ -120,103 +124,117 @@ void LSM303DLH::init ( int acc_scale, int SA0_bridge_value_in ) {
 //************************************************************************************************
 
 
-
-
-void LSM303DLH::getAccel ( int * rawValues ) {
+void LSM303DLH::getAccel ( float * _acceleration_vector_components_g ) {
   int16_t regs [ 3 ];
   regs [ 0 ] = ( ( int16_t ) read ( REG_BASE_ADDR_ACC, OUT_X_H_A ) << 8 ) | (read ( REG_BASE_ADDR_ACC, OUT_X_L_A ) );
   regs [ 1 ] = ( ( int16_t ) read ( REG_BASE_ADDR_ACC, OUT_Y_H_A ) << 8 ) | (read ( REG_BASE_ADDR_ACC, OUT_Y_L_A ) );
   regs [ 2 ] = ( ( int16_t ) read ( REG_BASE_ADDR_ACC, OUT_Z_H_A ) << 8 ) | (read ( REG_BASE_ADDR_ACC, OUT_Z_L_A ) );
   
-  #ifdef LSM303DHLC_VERBOSE
-    Serial.print ( "\nAccelerometer vector unmapped: ( " );
+  #if LSM303DLH_VERBOSE >= 30
+    _printer->print ( "\nAccelerometer vector unmapped: ( " );
     for (int i = 0; i < 3; i++) {
-      if ( i > 0 ) Serial.print ( ", " );
-      Serial.print ( regs [ i ] );
-      Serial.print ( " ( " );
+      if ( i > 0 ) _printer->print ( ", " );
+      _printer->print ( regs [ i ] );
+      _printer->print ( " ( " );
       printHex ( regs [ i ], 4 );
-      Serial.print ( " ) " );
+      _printer->print ( " ) " );
     }
-    Serial.println ( " )" );
+    _printer->println ( " )" );
   #endif
   
   // no need to remap those to match the values to the picture in the tech note
+  int rawValues [ 3 ];
   rawValues [ X_COORD ] = ( int ) regs [ 0 ];
   rawValues [ Y_COORD ] = ( int ) regs [ 1 ];
-  rawValues [ Z_COORD ] = ( int ) regs [ 2 ];  
+  rawValues [ Z_COORD ] = ( int ) regs [ 2 ];
+  
+  // 2^15 = 1024 * 32
+  float scaler = _acc_scales [ _acc_scale_bits ] / 32768.0;
+  _acceleration_vector_components_g [ X_COORD ] = rawValues [ X_COORD ] * scaler;
+  _acceleration_vector_components_g [ Y_COORD ] = rawValues [ Y_COORD ] * scaler;
+  _acceleration_vector_components_g [ Z_COORD ] = rawValues [ Z_COORD ] * scaler;
+  
+  #if LSM303DLH_VERBOSE >= 20
+    _printer->print ( "\nAccelerometer vector unmapped: ( " );
+    for (int i = 0; i < 3; i++) {
+      if ( i > 0 ) _printer->print ( ", " );
+      _printer->print ( _acceleration_vector_components_g [ i ] );
+    }
+    _printer->println ( " )" );
+  #endif
+  
 }
 
-
-void LSM303DLH::getMag ( int * rawValues ) {
+void LSM303DLH::getMag ( float * _magnetic_field_components_gauss ) {
 
   while ( ! ( read ( REG_BASE_ADDR_MAG, SR_REG_M ) & 0x01 ) )
       ;  // wait for the magnetometer readings to be ready
       
   #if 0
   
-  Serial.print ("\nMagnetometer registers (byte) 0x00 - 0x09: ( ");
-  Wire.beginTransmission ( REG_BASE_ADDR_MAG );
-  Wire.write ( 0 );
-  Wire.endTransmission ();
-  Wire.requestFrom ( REG_BASE_ADDR_MAG, 10 );
-  for ( int i = 0; i < 10; i++ ) {
-    if ( i > 0 ) Serial.print ( ", " );
-    printHex ( Wire.read(), 2 );
-  }
-  Serial.println ( " )" );
+    _printer->print ("\nMagnetometer registers (byte) 0x00 - 0x09: ( ");
+    Wire.beginTransmission ( REG_BASE_ADDR_MAG );
+    Wire.write ( 0 );
+    Wire.endTransmission ();
+    Wire.requestFrom ( REG_BASE_ADDR_MAG, 10 );
+    for ( int i = 0; i < 10; i++ ) {
+      if ( i > 0 ) _printer->print ( ", " );
+      printHex ( Wire.read(), 2 );
+    }
+    _printer->println ( " )" );
   
-  delay ( 10 );
+    delay ( 10 );
   
   #endif
   
   #if FALSE
   
-  Serial.print ("\nMagnetometer registers (byte) 0x03 - 0x08: ( ");
-  Wire.beginTransmission ( REG_BASE_ADDR_MAG );
-  Wire.write ( OUT_X_H_M );
-  Wire.endTransmission ();
-  Wire.requestFrom ( REG_BASE_ADDR_MAG, 6 );
-  for (int i = 0; i < 6; i++) {
-    if ( i > 0 ) Serial.print ( ", " );
-    printHex ( Wire.read(), 2 );
-  }
-  Serial.println ( " )" );
+    _printer->print ("\nMagnetometer registers (byte) 0x03 - 0x08: ( ");
+    Wire.beginTransmission ( REG_BASE_ADDR_MAG );
+    Wire.write ( OUT_X_H_M );
+    Wire.endTransmission ();
+    Wire.requestFrom ( REG_BASE_ADDR_MAG, 6 );
+    for (int i = 0; i < 6; i++) {
+      if ( i > 0 ) _printer->print ( ", " );
+      printHex ( Wire.read(), 2 );
+    }
+    _printer->println ( " )" );
   
   #endif
 
   #if FALSE
 
-  Serial.print ("\nMagnetometer individual register names: ( ");
-  Serial.print ( OUT_X_H_M );
-  Serial.print ( ", " );
-  Serial.print ( OUT_X_L_M );
-  Serial.print ( ", " );
-  Serial.print ( OUT_Y_H_M );
-  Serial.print ( ", " );
-  Serial.print ( OUT_Y_L_M );
-  Serial.print ( ", " );
-  Serial.print ( OUT_Z_H_M );
-  Serial.print ( ", " );
-  Serial.print ( OUT_Z_L_M );
-  Serial.println ( " )" );
+    _printer->print ("\nMagnetometer individual register names: ( ");
+    _printer->print ( OUT_X_H_M );
+    _printer->print ( ", " );
+    _printer->print ( OUT_X_L_M );
+    _printer->print ( ", " );
+    _printer->print ( OUT_Y_H_M );
+    _printer->print ( ", " );
+    _printer->print ( OUT_Y_L_M );
+    _printer->print ( ", " );
+    _printer->print ( OUT_Z_H_M );
+    _printer->print ( ", " );
+    _printer->print ( OUT_Z_L_M );
+    _printer->println ( " )" );
 
   #endif
 
   #if FALSE
 
-  Serial.print ("\nMagnetometer individually-named registers ( H first, then L ): ( ");
-  printHex ( read ( REG_BASE_ADDR_MAG, OUT_X_H_M ), 2 );
-  Serial.print ( ", " );
-  printHex ( read ( REG_BASE_ADDR_MAG, OUT_X_L_M ), 2 );
-  Serial.print ( ", " );
-  printHex ( read ( REG_BASE_ADDR_MAG, OUT_Y_H_M ), 2 );
-  Serial.print ( ", " );
-  printHex ( read ( REG_BASE_ADDR_MAG, OUT_Y_L_M ), 2 );
-  Serial.print ( ", " );
-  printHex ( read ( REG_BASE_ADDR_MAG, OUT_Z_H_M ), 2 );
-  Serial.print ( ", " );
-  printHex ( read ( REG_BASE_ADDR_MAG, OUT_Z_L_M ), 2 );
-  Serial.println ( " )" );
+    _printer->print ("\nMagnetometer individually-named registers ( H first, then L ): ( ");
+    printHex ( read ( REG_BASE_ADDR_MAG, OUT_X_H_M ), 2 );
+    _printer->print ( ", " );
+    printHex ( read ( REG_BASE_ADDR_MAG, OUT_X_L_M ), 2 );
+    _printer->print ( ", " );
+    printHex ( read ( REG_BASE_ADDR_MAG, OUT_Y_H_M ), 2 );
+    _printer->print ( ", " );
+    printHex ( read ( REG_BASE_ADDR_MAG, OUT_Y_L_M ), 2 );
+    _printer->print ( ", " );
+    printHex ( read ( REG_BASE_ADDR_MAG, OUT_Z_H_M ), 2 );
+    _printer->print ( ", " );
+    printHex ( read ( REG_BASE_ADDR_MAG, OUT_Z_L_M ), 2 );
+    _printer->println ( " )" );
 
   delay ( 10 );
  
@@ -230,52 +248,73 @@ void LSM303DLH::getMag ( int * rawValues ) {
   regs [ 2 ] = ( ( int16_t ) read ( REG_BASE_ADDR_MAG, OUT_Z_H_M ) << 8 ) 
                          | ( read ( REG_BASE_ADDR_MAG, OUT_Z_L_M ) );
   
-  #ifdef LSM303DHLC_VERBOSE
-    Serial.print ( "\nMagnetometer vector unmapped: ( " );
+  #if LSM303DLH_VERBOSE >= 30
+    _printer->print ( "\n                                      Magnetometer vector unmapped: " );
     for (int i = 0; i < 3; i++) {
-      if ( i > 0 ) Serial.print ( ", " );
-      Serial.print ( regs [ i ] );
-      Serial.print ( " ( " );
+      if ( i > 0 ) _printer->print ( ", " );
+      _printer->print ( regs [ i ] );
+      _printer->print ( " ( " );
       printHex ( regs [ i ], 4 );
-      Serial.print ( " ) " );
+      _printer->print ( " ) " );
     }
-    Serial.println ( " )" );
+    _printer->println ( " )" );
   #endif
   
   // // remap those to match the values to the picture in the tech note
   // // NOTE not a right-handed coordinate system
+  int rawValues [ 3 ];
   rawValues [ X_COORD ] = ( int ) regs [ 0 ];
   rawValues [ Y_COORD ] = ( int ) regs [ 1 ];
   rawValues [ Z_COORD ] = ( int ) regs [ 2 ];  
+  
+  // 1100 LSB/gauss X,Y; 980 LSB/gauss Z
+  _magnetic_field_components_gauss [ X_COORD ] = rawValues [ X_COORD ] / 1100.0;
+  _magnetic_field_components_gauss [ Y_COORD ] = rawValues [ Y_COORD ] / 1100.0;
+  _magnetic_field_components_gauss [ Z_COORD ] = rawValues [ Z_COORD ] / 980.0;
 
+  #if LSM303DLH_VERBOSE >= 20
+    _printer->print ( "\n                                      Magnetometer vector unmapped: " );
+    for (int i = 0; i < 3; i++) {
+      if ( i > 0 ) _printer->print ( ", " );
+      _printer->print ( _magnetic_field_components_gauss [ i ] );
+    }
+    _printer->println ( " )" );
+  #endif
+  
 }
 
 float LSM303DLH::getHeading ( float * magValue ) {
   // see section 1.2 in app note AN3192
-  float heading = 180.0 * atan2 ( float ( magValue [ Y_COORD ] ), float ( magValue [ X_COORD ] ) ) / PI;  // assume pitch, roll are 0
+  float heading = 180.0 * atan2 ( magValue [ Y_COORD ], magValue [ X_COORD ] ) / PI;  // assume pitch, roll are 0
   
   if ( heading < 0 )
     heading += 360;
   
-  // Serial.print ( "Uncorrected heading: " ); Serial.println ( heading, 3 );
+  #if LSM303DLH_VERBOSE >= 10
+    _printer->print ( "Uncorrected heading: " ); _printer->println ( heading, 3 );
+  #endif
+  
   return heading;
 }
 
-float LSM303DLH::getTiltHeading(float * magValue, float * accelValue) {
+float LSM303DLH::getTiltHeading ( float * magValue, float * accelValue ) {
 
   // see appendix A in app note AN3192 
   float pitch =   asin ( accelValue [ X_COORD ] );
   float roll  = - asin ( accelValue [ Y_COORD ] / cos ( pitch ) );
-  // Serial.print ( "Pitch, roll (deg): " ); Serial.print ( pitch * 180.0 / PI );
-  // Serial.print ( ", " ); Serial.println ( roll * 180.0 / PI );
+  
+  #if LSM303DLH_VERBOSE >= 15
+    _printer->print ( "Pitch, roll (deg): " ); _printer->print ( pitch * 180.0 / PI );
+    _printer->print ( ", " ); _printer->println ( roll * 180.0 / PI );
+  #endif
   
   // to correct these, we rotate our coordinate system which rolls and pitches the mag vector the same way
   float theta = + roll;
   float phi   = + pitch;
   
-  float x = magValue[X_COORD];
-  float y = magValue[Y_COORD];
-  float z = magValue[Z_COORD];
+  float x = magValue [ X_COORD ];
+  float y = magValue [ Y_COORD ];
+  float z = magValue [ Z_COORD ];
   
   float sinPhi = sin ( phi );
   float cosPhi = cos ( phi );
@@ -292,34 +331,33 @@ float LSM303DLH::getTiltHeading(float * magValue, float * accelValue) {
             - y * sinTheta * cosPhi
             + z * cosTheta * cosPhi;
 
-  #if 0
-  
-  Serial.print ("\nMag vector corrected for pitch and roll: ( ");
-  Serial.print ( xh, 1 );
-  Serial.print ( ", " );
-  Serial.print ( yh, 1 );
-  Serial.print ( ", " );
-  Serial.print ( zh, 1 );
-  Serial.println ( " )" );
-  
-  #endif
+  float heading_deg = atan2 ( yh, xh ) * 180.0 / PI;
+  if ( heading_deg < 0.0 ) heading_deg += 360.0;
 
-  #if 0
+  #if LSM303DLH_VERBOSE >= 15
+  
+  _printer->print ("\nMag vector corrected for pitch and roll: ( ");
+  _printer->print ( xh, 1 );
+  _printer->print ( ", " );
+  _printer->print ( yh, 1 );
+  _printer->print ( ", " );
+  _printer->print ( zh, 1 );
+  _printer->println ( " )" );
   
   float magnitude = sqrt ( xh * xh + yh * yh + zh * zh );
-  Serial.print ("Mag vector corrected and normalized: ( ");
-  Serial.print ( xh / magnitude, 3);
-  Serial.print ( ", " );
-  Serial.print ( yh / magnitude, 3 );
-  Serial.print ( ", " );
-  Serial.print ( zh / magnitude, 3 );
-  Serial.println ( " )" );
+  _printer->print ("Mag vector corrected and normalized: ( ");
+  _printer->print ( xh / magnitude, 3);
+  _printer->print ( ", " );
+  _printer->print ( yh / magnitude, 3 );
+  _printer->print ( ", " );
+  _printer->print ( zh / magnitude, 3 );
+  _printer->println ( " )" );
   
   #endif
 
-  float heading_deg = atan2 ( yh, xh ) * 180.0 / PI;
-
-  // Serial.print ( "Corrected heading: " ); Serial.println ( heading_deg, 3 );
+  #if LSM303DLH_VERBOSE >= 10
+   _printer->print ( "Corrected heading: " ); _printer->println ( heading_deg, 3 );
+  #endif
 
   if ( yh >= 0 )
     return heading_deg;
@@ -340,19 +378,19 @@ float LSM303DLH::getTiltHeading(float * magValue, float * accelValue) {
     magnitude_accel += accelValue [ i ] * accelValue [ i ];
   }
   magnitude_accel = sqrt ( magnitude_accel );
-  Serial.print ( "Magnitude of acceleration: " ); Serial.println ( magnitude_accel, 3 );
+  _printer->print ( "Magnitude of acceleration: " ); _printer->println ( magnitude_accel, 3 );
   for ( i = 0; i < 3; i++ ) {
     dot [ i ] /= magnitude_accel;
   }
   
   #if 1
   
-  Serial.print ("\nDot product: ( ");
+  _printer->print ("\nDot product: ( ");
   for (i = 0; i < 3; i++) {
-    if ( i > 0 ) Serial.print ( ", " );
-    Serial.print ( dot [ i ], 2 );
+    if ( i > 0 ) _printer->print ( ", " );
+    _printer->print ( dot [ i ], 2 );
   }
-  Serial.println ( " )" );
+  _printer->println ( " )" );
    
   #endif
   
@@ -363,12 +401,12 @@ float LSM303DLH::getTiltHeading(float * magValue, float * accelValue) {
   
   #if 1
   
-  Serial.print ("\nProjected magnetic vector: ( ");
+  _printer->print ("\nProjected magnetic vector: ( ");
   for (i = 0; i < 3; i++) {
-    if ( i > 0 ) Serial.print ( ", " );
-    Serial.print ( projectedMag [ i ], 2 );
+    if ( i > 0 ) _printer->print ( ", " );
+    _printer->print ( projectedMag [ i ], 2 );
   }
-  Serial.println ( " )" );
+  _printer->println ( " )" );
    
   #endif
   
@@ -381,10 +419,6 @@ float LSM303DLH::getTiltHeading(float * magValue, float * accelValue) {
   
 }
 
-
-
-
-
 //************************************************************************************************
 // 						                             basic subroutines
 //************************************************************************************************
@@ -395,10 +429,10 @@ byte LSM303DLH::read ( int device_address, byte register_address ) {
 
   byte data;
   
-  #ifdef LSM303DHLC_VERBOSE
-    Serial.print ( "R: d " );
+  #if LSM303DLH_VERBOSE >= 30
+    _printer->print ( "R: d " );
     printHex ( device_address, 2 );
-    Serial.print ( "; r " );
+    _printer->print ( "; r " );
     printHex ( register_address, 2 );
   #endif
 
@@ -406,31 +440,31 @@ byte LSM303DLH::read ( int device_address, byte register_address ) {
   Wire.write ( register_address );
   Wire.endTransmission ();
   
-  #ifdef LSM303DHLC_VERBOSE
-    Serial.print ( " <== " );
+  #if LSM303DLH_VERBOSE >= 30
+    _printer->print ( " <== " );
   #endif
 
   Wire.requestFrom ( device_address, 1 );
   while ( ! Wire.available() ) ;
   data = Wire.read ();
   
-  #ifdef LSM303DHLC_VERBOSE
+  #if LSM303DLH_VERBOSE >= 30
     printHex ( data, 2 );
-    Serial.println ();
+    _printer->println ();
   #endif
 
   return data;
 }
 
 void LSM303DLH::write ( byte data, byte device_address, byte register_address ) {
-  #ifdef LSM303DHLC_VERBOSE
-    Serial.print ( "W: d " );
+  #if LSM303DLH_VERBOSE >= 30
+    _printer->print ( "W: d " );
     printHex ( device_address, 2 );
-    Serial.print ( "; r " );
+    _printer->print ( "; r " );
     printHex ( register_address, 2 );
-    Serial.print ( " <== " );
+    _printer->print ( " <== " );
     printHex ( data, 2 );
-    Serial.println ();
+    _printer->println ();
   #endif
   
   Wire.beginTransmission ( device_address );

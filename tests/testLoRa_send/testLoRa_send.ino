@@ -1,6 +1,6 @@
 #define PROGNAME  "testLoRa_send"
-#define VERSION   "0.1.3"
-#define VERDATE   "2017-11-26"
+#define VERSION   "0.1.6"
+#define VERDATE   "2017-12-07"
 
 /*
   <https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/using-with-arduino-ide>
@@ -8,6 +8,9 @@
   
   With 5-second-ly wake-ups, runs about 10 hours on full 500mAh battery,
   without disabling the LCD panel.
+  
+  Next step: wake on pin, for mailbox application
+  Use another one for solar panel; do planning; expect 9dof module 14Dec
 */
 
 #define HAS_OLED
@@ -17,6 +20,7 @@
 #ifdef HAS_OLED
   #include <U8x8lib.h>
 #endif
+#include <cbmNetworkInfo.h>
 
 #define BAUDRATE 115200
 #define VERBOSE 12
@@ -36,10 +40,12 @@ const int pdLoRa_DI0 = 26;    // IRQ interrupt request
   const int U8X8_RST = 16;      // I2C reset
 #endif
 
-const int pdBlink = 25;       // LED - not 13!
-const int pdSleep = 17;
-const int paBat   = 13;       // reads half the battery voltage?
-  // in centivolts / count, perhaps
+const int pdBlink  = 25;       // LED - not 13!
+const int pdSleep  = 17;
+// const int pdWakeUp = 12;       // which is also RTC_GPIO15 and TOUCH5
+const int paBat    = 13;       // reads half the battery voltage
+  // relative to 3V3; e.g. 512 counts = 1V15 implies vBat = 3V3
+  // but doesn't seem to be hooked up on the Heltec_WiFi-LoRa-32u4
 
 
 #ifdef HAS_OLED
@@ -47,6 +53,11 @@ const int paBat   = 13;       // reads half the battery voltage?
   // or U8G2_ST7920_128X64_1_SW_SPI(rotation, clock, data, cs [, reset])
   // U8G2_R0
 #endif
+
+
+#define WIFI_LOCALE CBMDATACOL
+// CBMDATACOL CBMDDWRT3
+cbmNetworkInfo network;  // to get chipName
 
 const unsigned long sleepPeriod_ms = 5000UL;
 
@@ -95,6 +106,16 @@ void setup () {
     while ( 1 );
   }
   
+  LoRa.enableCrc();
+  
+  // for security reasons, the network settings are stored in a private library
+  network.init ( WIFI_LOCALE );  // doesn't actually try to connect yet
+  
+  if ( ! strncmp ( network.chipName, "unknown", 12 ) ) {
+    network.describeESP ( network.chipName );
+  }
+
+  
   if ( Serial ) Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
   #ifdef HAS_OLED
     u8x8.drawString( 0, 1, PROGNAME );
@@ -110,7 +131,6 @@ void loop() {
   static unsigned long lastXMitAt_ms = 0UL;
   const unsigned long xMitDelay_ms = 500UL;
   
-  int counts = 0;
   
   // lastXMitAt_ms will be zero first time through whether or not we sleep
   
@@ -118,14 +138,18 @@ void loop() {
   
     // Serial.println ( "Packet number: " + String ( bootCount ) );
     
-    counts = analogRead ( paBat );
+    int counts = analogRead ( paBat );
+    float vBat = counts * 2.0 * 3.3 / 1024.0;
     
+    // build packet
+    const int packetBufLen = 32;
+    static char packetBuf [ packetBufLen ];
+    snprintf ( packetBuf, packetBufLen, "%d; bat: %4.2f; chipName: %s",
+      bootCount, vBat, network.chipName );
+
     // send packet
     LoRa.beginPacket();
-    // LoRa.print ( "cbm " );
-    LoRa.print ( bootCount );
-    LoRa.print ("; bat: " );
-    LoRa.print ( counts );
+    LoRa.print ( packetBuf );
     LoRa.endPacket();
     
     #ifdef HAS_OLED
@@ -150,7 +174,15 @@ void loop() {
     // digitalWrite ( pdThrobber, 1 );  // turns blue light OFF
 
     // ESP.deepSleep ( sleepPeriod_us, WAKE_RF_DEFAULT );
-    esp_sleep_enable_timer_wakeup ( sleepPeriod_ms * 1000ULL );
+    // esp_sleep_enable_ext0_wakeup ( GPIOpin, 0 );  // 1 high, 0 low
+    // GPIO12 is available for this
+    esp_sleep_enable_timer_wakeup ( sleepPeriod_ms * 1000ULL );  // uS
+    /*
+      For pin wakeup, select ext0 mode and identify the pin by its GPIO number.
+      For this use, we need a pull-up or pull-down; 100K works.
+      Alternately, we could use ext1 mode and identify the pin(s) with a mask.
+      Finally, we could use touch wakeup.
+    */
     esp_deep_sleep_start ();
 
     while ( 1 ) {

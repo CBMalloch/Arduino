@@ -1,6 +1,6 @@
-#define PROGNAME  "testArdyLoRa_send"
-#define VERSION   "0.1.3"
-#define VERDATE   "2017-12-04"
+#define PROGNAME  "solar_tracker_LoRa_tracker"
+#define VERSION   "0.0.1"
+#define VERDATE   "2017-12-05"
 
 /*
   <https://learn.adafruit.com/adafruit-rfm69hcw-and-rfm96-rfm95-rfm98-lora-packet-padio-breakouts/rfm9x-test>
@@ -28,12 +28,12 @@
 #include <LoRa.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
-// #include <avr/interrupt.h>
 #include <FormatFloat.h>
+#include <LSM303DLH.h>
 
 #define BAUDRATE 115200
 #define VERBOSE 12
-#define SLEEP_ENABLE true
+#define SLEEP_ENABLE false
 
 #if SLEEP_ENABLE
   #ifndef cbi
@@ -51,14 +51,12 @@ const int pdLoRa_RST =  4;    // reset
 const int pdLoRa_DI0 =  7;    // IRQ interrupt request
 
 const int pdLED      = 13;       // LED
-const int pdAwake    = 5;
 const int pdSleep    = 12;       // last time I loaded, was 17, which isn't exposed
-const int pdWakeUp   = 0;        // -> INT2
 const int paBat      = A7;       // reads half the battery voltage
   // relative to 3V3; e.g. 512 counts = 1V15 implies vBat = 3V3
 
 int packetNum = 0;
-volatile int pinWakeUp = 0;
+LSM303DLH lsm303dlh ( Serial );
 const int uniqueIDlen = 20;
 char uniqueID [ uniqueIDlen ];
 
@@ -67,13 +65,12 @@ const long intervalBetweenTransmits_ms = 5000UL;
 void setup () {
 
   pinMode ( pdSleep, INPUT_PULLUP );
-  pinMode ( pdWakeUp, INPUT_PULLUP ); 
-  pinMode ( pdAwake, OUTPUT ); digitalWrite ( pdAwake, 1 ); delay ( 100 ); digitalWrite ( pdAwake, 0 );
+  pinMode ( pdLED, OUTPUT );
   pinMode ( pdLoRa_RST, OUTPUT ); digitalWrite ( pdLoRa_RST, 1 ); 
   
   #if ! SLEEP_ENABLE
   Serial.begin ( BAUDRATE );
-  while ( !Serial && millis () < 2000 );
+  while ( !Serial && millis () < 5000 );
   #endif
   
   LoRa.setPins ( pdLoRa_SS, pdLoRa_RST, pdLoRa_DI0 );
@@ -94,12 +91,18 @@ void setup () {
   */
   
   LoRa.enableCrc();
-    
+  
+  Serial.println ( "before lsm303dlh.init" );
+  // if ( Serial ) lsm303dlh.debug ( Serial );
+  Serial.println ( "between lsm303dlh.init" );
+  lsm303dlh.init ( );  // 2G full-scale
+  Serial.println ( "after lsm303dlh.init" );
+  
   for ( int i = 0; i < uniqueIDlen; i++ ) {
     const int baseAddr = 0x00;
     uniqueID [ i ] = EEPROM.read ( baseAddr + i );
   }
-
+    
   if ( Serial ) {
     Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
     Serial.println ( uniqueID );
@@ -133,21 +136,41 @@ void setup () {
 void loop() {
 
   static unsigned long lastXMitAt_ms = 0UL;
+  
+  static unsigned long lastLsm303dlhAt_ms = 0UL;
+  const unsigned long lsm303dlhDelay_ms = 1000UL;
 
   static unsigned long lastBlinkAt_ms = 0UL;
   const unsigned long blinkDelay_ms = 500UL;
-  
-  if ( pinWakeUp ) {
-    // we were awakened by the INT2 on pin D0
-    
-    // flash the extra LED just for debug
-    digitalWrite ( pdAwake, 1 );
-    delay ( 100 );
-    digitalWrite ( pdAwake, 0 );
-    pinWakeUp = 0;
-  }
 
   // lastXMitAt_ms will be zero first time through whether or not we sleep
+  
+  if ( ( millis() - lastLsm303dlhAt_ms ) > lsm303dlhDelay_ms ) {
+    float accel_g [ 3 ];
+    lsm303dlh.getAccel ( accel_g );
+    
+    
+    
+    
+    
+    /*
+      Currently-connected device is broken - the y-direction magnetometric measurement seems bad
+    */
+    
+    
+    
+    
+    
+    float mag_gauss [ 3 ];    // raw values for x, y, z
+    lsm303dlh.getMag ( mag_gauss );
+    
+    float heading;
+    // heading = lsm303dlh.getHeading ( mag_gauss );
+    float tiltHeading;
+    // tiltHeading = lsm303dlh.getTiltHeading ( mag_gauss, accel_g );
+    
+    lastLsm303dlhAt_ms = millis();
+  }
   
   if ( ! lastXMitAt_ms 
       || ( millis() - lastXMitAt_ms ) > intervalBetweenTransmits_ms )  {
@@ -163,9 +186,22 @@ void loop() {
     char fBuf [ fBufSize ];
     formatFloat ( fBuf, fBufSize, vBat );
     
+    /*
+    int16_t accel [ 3 ];    // raw values for x, y, z
+    lsm303dlh.getAccel ( accel );
+    int16_t mag [ 3 ];    // raw values for x, y, z
+    lsm303dlh.getMag ( mag );
+    float heading;
+    lsm303dlh.getHeading ( &heading );
+    float tiltMag, tiltAccel;
+    lsm303dlh.getTiltHeading ( &tiltMag, &tiltAccel );
+    */
+
+    
     // build packet
     const int packetBufLen = 32;
     static char packetBuf [ packetBufLen ];
+    
     snprintf ( packetBuf, packetBufLen, "%d; bat: %s; %s",
       packetNum, fBuf, uniqueID );
       
@@ -188,14 +224,9 @@ void loop() {
 
     // can prohibit sleep by pulling pin pdSleep to ground
     if ( digitalRead ( pdSleep ) ) {
-      digitalWrite ( pdLED, 1 );
-      sleep_enable ();
-      // setup_INT2_D0 ();  // set up falling-edge INT2 on pin D0
-      attachInterrupt ( 2, ISR_INT2_D0, FALLING );
       sleepFor_ms ( intervalBetweenTransmits_ms );
       // done sleeping
       // do the stuff
-      detachInterrupt ( 2 );
       lastXMitAt_ms = 0UL;
     } else {
       if ( ( millis() - lastBlinkAt_ms ) > blinkDelay_ms ) {
@@ -203,7 +234,11 @@ void loop() {
         lastBlinkAt_ms = millis();
       }
     }
-  
+  #else
+    if ( ( millis() - lastBlinkAt_ms ) > blinkDelay_ms ) {
+      digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
+      lastBlinkAt_ms = millis();
+    }  
   #endif
       
 }
@@ -273,17 +308,12 @@ void loop() {
       
       // ***************** prepare to sleep, go to sleep
     
-      // set all used ports to input to save power
       digitalWrite ( pdLED, 0 );
-      pinMode ( pdLED, INPUT );
-      pinMode ( pdAwake, INPUT );
-      pinMode ( pdWakeUp, INPUT_PULLUP );
+      pinMode ( pdLED, INPUT );      // set all used ports to input to save power
 
-      system_sleep();                // we come back to the next line when we awaken
+      system_sleep();                  // we come back to the next line when we awaken
 
-      // reset set all ports back to pre-sleep states
       pinMode ( pdLED, OUTPUT );     // reset set all ports back to pre-sleep states
-      pinMode ( pdAwake, OUTPUT );
       digitalWrite ( pdLED, 1 );
     
       // ***************** now we're awake again
@@ -311,17 +341,17 @@ void loop() {
   
   void setup_watchdog ( int intervalIndex ) {
 
-    // intervalIndex   time    bb (binary) before setting WDCE
-    // 0               16ms           0000 0000
-    // 1               32ms           0000 0001
-    // 2               64ms           0000 0010
-    // 3              128ms           0000 0011
-    // 4              250ms           0000 0100
-    // 5              500ms           0000 0101
-    // 6                1s            0000 0110
-    // 7                2s            0000 0111
-    // 8                4s            0010 0000
-    // 9                8s            0010 0001
+  // intervalIndex   time    bb (binary) before setting WDCE
+  // 0               16ms           0000 0000
+  // 1               32ms           0000 0001
+  // 2               64ms           0000 0010
+  // 3              128ms           0000 0011
+  // 4              250ms           0000 0100
+  // 5              500ms           0000 0101
+  // 6                1s            0000 0110
+  // 7                2s            0000 0111
+  // 8                4s            0010 0000
+  // 9                8s            0010 0001
 
     byte bb;
     if ( intervalIndex < 0 ) intervalIndex = 0;
@@ -354,49 +384,14 @@ void loop() {
 
   //****************************************************************  
 
-  void setup_INT2_D0 () {
-    
-    // section 7 of the datasheet 
-    // http://www.atmel.com/Images/Atmel-7766-8-bit-AVR-ATmega16U4-32U4_Datasheet.pdf
-    
-    /*
-      2017-12-07 cbm changing for interrupt pin wakeup
-      There are 4 interrupt pins available (INT6 is used by the LoRa radio): 
-        INT0, port D0, SCL, D3
-        INT1, port D1, SDA, D2
-        INT2, port D2, RX, D0
-        INT3, port D3, TX, D1
-      
-      To use INT2, 
-      The PORTD2 bit can still pull this pin up ref p.80
-        oo PUOE<-RXEN1, PUOV<-PORTD2.~PUD, DDOE<-RXEN1, 
-          DIEOE<-INT2 ENABLE, DI<=INT2 INPUT/RXD1, DIEOV<-1
-    */
-    
-    // disable INT2 by turning off its Interrupt Enable bit in EIMSK
-    EIMSK &= B11111011;  // clear interrupt enable for INT2
-    // change the ISC2 bits: 00 = low; 01 = change; 10 = falling; 11 = rising
-    EICRA &= B11001111;  // clear ISC21 and ISC20
-    EICRA |= B00100000;  // falling edge INT2
-    // leave EICRB alone - it's for INT6
-    // clear the INT2 interrupt flag by writing 1 to its Interrupt Flag bit INTF2
-    //   in the EIFR Register
-    EIFR |= B00000100;  // clear INT2 interrupt flag
-    // re-enable INT2 by turning on its Interrupt Enable bit in EIMSK
-    EIMSK |= B00000100;  // set interrupt enable for INT2
-
-  }
-
-  //****************************************************************  
-
   void system_sleep() {
 
-    // set system into the sleep state 
-    // system wakes up when watchdog is timed out
-    
+  // set system into the sleep state 
+  // system wakes up when wtchdog is timed out
+
     cbi ( ADCSRA, ADEN );                    // switch Analog to Digital converter OFF
 
-    set_sleep_mode ( SLEEP_MODE_PWR_DOWN );  // sleep mode is set here; ref p.43
+    set_sleep_mode ( SLEEP_MODE_PWR_DOWN );  // sleep mode is set here
     sleep_enable ();
 
     sleep_mode ();                           // System sleeps here
@@ -409,22 +404,10 @@ void loop() {
   //****************************************************************
   
   ISR ( WDT_vect ) {
+
     // Watchdog Interrupt Service; is executed when watchdog times out
     // wakeupsSinceDoingSomething++;
-  }
   
-  /*
-  ISR ( INT2_vect ) {
-    // pin D0 = RX = INT2 attaches here
-    cli();
-    pinWakeUp = 1;
-    reti();
-  }
-  */
-  
-  void ISR_INT2_D0 () {
-    detachInterrupt ( 0 );
-    pinWakeUp = 1;
   }
 
 #endif
