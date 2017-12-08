@@ -1,12 +1,13 @@
 #define PROGNAME  "testLoRa_receive"
-#define VERSION   "0.1.8"
-#define VERDATE   "2017-11-30"
+#define VERSION   "0.2.0"
+#define VERDATE   "2017-12-07"
 
 /*
-  display size is 128x64
+  OLED display size is 128x64
   
   <https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/using-with-arduino-ide>
   <https://github.com/espressif/arduino-esp32/blob/master/docs/arduino-ide/mac.md>
+
 */
 
 #include <SPI.h>
@@ -82,25 +83,7 @@ void setup () {
   u8x8.setFont ( u8x8_font_chroma48medium8_r );
   u8x8.drawString( 0, 1, "LoRa Receiver" );
   
-  LoRa.setPins ( pdLoRa_SS, pdLoRa_RST, pdLoRa_DI0 );
-  if ( ! LoRa.begin ( LORA_FREQ_BAND ) ) {
-    Serial.println ( "LoRa init failed!" );
-    u8x8.drawString( 0, 1, "LoRa init failed!" );
-    while ( 1 );
-  }
-  
-  /*
-    void setSpreadingFactor(int sf);
-    void setSignalBandwidth(long sbw);
-    void setCodingRate4(int denominator);
-    void setPreambleLength(long length);
-    void setSyncWord(int sw);
-    void enableCrc();
-    void disableCrc();
-  */
-  
-  // LoRa.enableCrc();
-  
+  LoRa_init();
     // for security reasons, the network settings are stored in a private library
   network.init ( WIFI_LOCALE );
   
@@ -140,7 +123,8 @@ void setup () {
   timeStamp ( timeStringBuffer );
   if ( Serial && VERBOSE >= 4 ) {
     Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
-    Serial.printf ( "Started at %s\n", timeStringBuffer );
+    // leave some blank lines for packet display
+    Serial.printf ( "Started at %s\n\n\n\n\n", timeStringBuffer );
   }
   u8x8.drawString( 0, 1, PROGNAME );
   u8x8.drawString( 0, 2, "v" VERSION " cbm" );
@@ -152,18 +136,25 @@ void setup () {
 
 void loop() {
 
+  static int nGoodDumps = 0;
+  const unsigned long stallTimeout_ms = 1UL * 60UL * 1000UL;
+  static unsigned long lastStallResolvedAt_ms = 0UL;
+  static bool goodDumpRequested = true;
+  static int nBadDumps = 0;
+
   static unsigned long lastBlinkAt_ms = 0UL;
   static unsigned long lastPacketAt_ms = 0UL;
   const unsigned long blinkOnTime_ms = 5UL;
   const unsigned long blinkOffTime_ms = 45UL;
   const unsigned long packetBlinkDelay_ms = 1000UL;
           
+  timeStamp ( timeStringBuffer );
+
   // try to parse packet
   int packetSize = LoRa.parsePacket ();
   if ( packetSize ) {
   
     // received a packet
-    timeStamp ( timeStringBuffer );
     
     strBuf [ 0 ] = '\0';
     int cp = 0;
@@ -173,7 +164,7 @@ void loop() {
         strBuf [ cp ] = '\0';
       } else {
         cp++;
-        LoRa.read ();  // to dump characters that won't fit into the buffer
+        LoRa.read ();  // to dump a character that won't fit into the buffer
       }
       // char chr [ 2 ];
       // chr [ 0 ] = LoRa.read ();
@@ -181,30 +172,83 @@ void loop() {
       // strncat ( strBuf, chr, bufLen - strlen ( strBuf ) - 1 );
     }
     
-    char csi [ 3 ] = "\x1b[";
-    static bool lastPacketWasOK = false;
-    if ( strlen ( strBuf ) < 100 && cp == packetSize ) {
-      if ( Serial && VERBOSE >= 8 ) {
-        if ( lastPacketWasOK ) {
-          // erase previous line before putting new one
-          Serial.printf ( "%s1A%s?2K", csi, csi );
-        }
-        Serial.printf ( "%s: received: (%d) '%s'", timeStringBuffer, cp, strBuf );
-      }
+    if ( ( cp == packetSize ) && ( checkPacketIsValid ( strBuf ) ) ) {
       packetText = strBuf;
-      lastPacketWasOK = true;
     } else {
+    
+      /*
+                       Bad packet
+      */
+        
       if ( Serial && VERBOSE >= 1 ) {
-        Serial.printf ( "%s \aERROR! BAD PACKET: (cp=%d; packetSize=%d) '%s'\n", 
-          timeStringBuffer, cp, packetSize, strBuf );
+        /*
+          For better debugging, we're going to eliminate most lines sent by the receiver
+          to the laptop. We choose to display only the most recent line received from each 
+          of two senders. The way we do this is to send the Serial output to a program that 
+          can emulate some of the old displays; VT-100 is the most well-known of these. 
+          However, XTerm is a more recent one which handles a superset of the commands, and 
+          we've chosen that one, although we're not using anything foreign to VT-100.
+          How it works is we send some control characters to the screen that move the cursor 
+          (where the next text will appear) and erase the text on the current line.
+          The details: each command is signalled by the Control Sequence Introducer, which
+          is the ASCII character "escape" (ESC) followed by a left square bracket. The next 
+          characters identify the command itself and sometimes also provide a repeat count.
+          Details are found on, among others, the web sites
+          <https://www.xfree86.org/4.8.0/ctlseqs.html> and
+          <https://vt100.net/docs/vt100-ug/chapter3.html>
+          The ones I use are:
+            Control Sequence Introducer (CSI): \x1b[
+            cursor down s lines (CUD): CSI s B
+              Note: CUD stops at the bottom margin
+            erase current line (EL): CSI P2K
+            cursor up s lines (CUU): CSI s A
+            Cursor Next Line s Times (default = 1) (CNL): CSI s E
+              Note: CNL scrolls if necessary
+            Cursor Preceding Line s Times (default = 1) (CPL): CSI s F
+            Set foreground color to red: CSI 31 m
+            Set foreground color to default: CSI 39 m
+            Set background color to yellow: CSI 43 m
+            Set background color to default: CSI 49 m
+            Colors, from 0=black red green yellow blue magenta cyan 7=white 9=default
+          Also used:
+            Carriage return (not including line feed) (CR): \r
+            Newline (CRLF): \n (which does better than \x1b[nE
+            Alarm (BEL): \a
+        */
+        // go down 2 lines before printing
+        Serial.printf ( "\n\%s \aERROR! BAD PACKET: (cp=%d; packetSize=%d) '", 
+          timeStringBuffer, cp, packetSize );
+        // sanitize each character before printing
+        for ( int i = 0; i < packetSize; i++ ) {
+          char c = strBuf [ i ];
+          // if ( c < 0x20 ) {
+          //   // I thought we needed semicolon (e.g. \x1b[3;1m) but no.
+          //   // control character; print red
+          //   Serial.printf ( "\x1b[31m%c\x1b[39m", c + 0x60 );
+          // } else if ( c & 0x80 ) {
+          //   // high character; print against yellow background
+          //   Serial.printf ( "\x1b[43m%c\x1b[49m", c & 0x7f );
+          // } 
+          if ( ( c < 0x20 ) || ( c & 0x80 ) ) {
+            // bad character; print in green
+            Serial.print ( "\x1b[32m" );
+            if ( c < 0x10 ) Serial.print ( "0" );
+            Serial.print ( c, HEX );
+            Serial.print ( "\x1b[39m" );
+          } else {
+            Serial.print ( c );
+          }
+        }
+        // leave some blank lines for packet display
+        Serial.print ( "'\n\n\n\n\n" );
+        // and stay there
       }
       u8x8.drawString ( 0, 4, "XXXXXXXXXXXX" );
       u8x8.drawString ( 0, 5, "XXXXXXXXXXXX" );
       u8x8.drawString ( 0, 6, "XXXXXXXXXXXX" );
       u8x8.drawString ( 0, 7, "XXXXXXXXXXXX" );
-      lastPacketWasOK = false;
       return;
-    }
+    }  // bad packet
     
     /*
       LoRa.print ( bootCount );
@@ -222,33 +266,83 @@ void loop() {
     u8x8.drawString ( 0, 5, "R: " );
     u8x8.drawString ( 3, 5, currentid );
     
-    int bat = packetText.substring(packetText.indexOf("bat: ")+5).toInt();
-//    int bat = packetText.indexOf("bat: ");
+    int batIndex = packetText.indexOf("bat: ") + 5;
+    float bat = packetText.substring ( batIndex ).toFloat();
+    // int bat = packetText.indexOf("bat: ");
     char currentbat [10];
-    snprintf ( currentbat, 10, "%6d", bat );
+    snprintf ( currentbat, 10, "%4.2f", bat );
     u8x8.clearLine ( 6 );
     u8x8.drawString ( 0, 6, "bat: " );
     u8x8.drawString ( 5, 6, currentbat );
     
-
-    // print RSSI & SNR of packet
+    /*
+                      Report about a good packet
+    */
+    
     if ( Serial && VERBOSE >= 8 ) {
-      Serial.printf ( "; RSSI %4d; SNR %5.2f\n", LoRa.packetRssi(), LoRa.packetSnr() );
+      // char *strstr(const char *haystack, const char *needle);
+      char * pLoRa = strstr ( strBuf, "LoRa32u4" );
+      int linesToGoUp = 3;
+      if ( pLoRa != NULL ) {
+        
+        char cNum = pLoRa [ 9 ];
+        // Serial.print ( "LoRa number: " ); Serial.println ( cNum );
+        
+        // LoRa 0 up 2 lines; LoRa 1 up 1 line
+        linesToGoUp = cNum == '0' ? 2 : 1;
+      }
+      
+      for ( int i = 0; i < linesToGoUp; i++ ) Serial.print ( "\x1b[1F" );   // go up
+
+      Serial.print ( "\x1b[2K" );   // erase this line
+      Serial.printf ( "%s: received: (%d) '%s'", timeStringBuffer, cp, strBuf );
+      Serial.printf ( "; RSSI %4d; SNR %5.2f", LoRa.packetRssi(), LoRa.packetSnr() );
+      
+      for ( int i = 0; i < linesToGoUp; i++ ) Serial.print ( "\n" );   // go back down
+      
     }
+    
     char RSSI_SNR [16];
     snprintf ( RSSI_SNR, 16, "SS/SN:%4d/%4.1f", LoRa.packetRssi(), LoRa.packetSnr() );
     u8x8.clearLine ( 7 );
     u8x8.drawString ( 0, 7, RSSI_SNR );
-        
+    
     lastPacketAt_ms = millis();
-  }
+    
+    if ( ( ( millis() - lastStallResolvedAt_ms ) > 15000UL ) && goodDumpRequested ) {
+    
+      /*
+                        Dump regs while all good
+      */
+    
+      nGoodDumps++;
+      Serial.printf ( "\nDump %d of registers while all good:\n", nGoodDumps );
+      LoRa.dumpRegisters ( Serial );
+      Serial.printf ( "End of dump %d of registers while all good\n\n\n\n\n", nGoodDumps );
+      goodDumpRequested = false;
+    }
+  }  // received a packet
   
-  
-  if ( ( millis() - lastPacketAt_ms ) > 1 * 60 * 1000 ) {
-    // been over a minute since last receive
-    Serial.println ( "Ack! Lost periodic receipt of messages!" );
+  if ( Serial 
+      && ( ( millis() - lastPacketAt_ms ) > stallTimeout_ms )  // we're stalled
+      && ( lastStallResolvedAt_ms < lastPacketAt_ms )        // but we haven't yet resolved it
+     ) {
+    
+    /*
+                      Report a stall
+    */
+    
+    // been too long, too long since last receipt
+    // go down several lines before printing
+    nBadDumps++;
+    Serial.printf ( "\n%s: Ack! Lost periodic receipt of messages!\n", timeStringBuffer );
+    Serial.printf ( "Post-stall dump %d of registers:\n", nBadDumps );
     LoRa.dumpRegisters ( Serial );
-    while ( 1 );
+    Serial.printf ( "End of post-stall dump %d of registers\n\n\n\n\n", nBadDumps );
+    lastStallResolvedAt_ms = millis();
+    goodDumpRequested = true;
+    LoRa.idle();  // try this rather than re-initing
+    // LoRa_init ();
   }
   
   int nextLEDState = -1;
@@ -283,6 +377,38 @@ void timeStamp ( char ts [] ) {
     if ( Serial && VERBOSE >= 18 ) Serial.printf ( "NoTime: %s\n", ts );
   }
 }
+
+bool checkPacketIsValid ( char *strBuf ) {
+  return ( 
+             ( strlen ( strBuf ) < 100 )
+          && ( strstr ( strBuf, "bat:" )   != NULL )
+         );
+}
+
+void LoRa_init () {
+  LoRa.setPins ( pdLoRa_SS, pdLoRa_RST, pdLoRa_DI0 );
+  if ( ! LoRa.begin ( LORA_FREQ_BAND ) ) {
+    Serial.println ( "LoRa init failed!" );
+    u8x8.drawString( 0, 1, "LoRa init failed!" );
+    while ( 1 );
+  }
+  
+  /*
+    void setSpreadingFactor(int sf);
+    void setSignalBandwidth(long sbw);
+    void setCodingRate4(int denominator);
+    void setPreambleLength(long length);
+    void setSyncWord(int sw);
+    void enableCrc();
+    void disableCrc();
+  */
+  
+  #if true
+    LoRa.enableCrc();
+    if ( Serial ) Serial.println ( "CRC enabled" );
+  #endif
+}
+
 
 /*-------- NTP code ----------*/
 

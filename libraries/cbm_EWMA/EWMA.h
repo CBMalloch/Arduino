@@ -37,8 +37,8 @@ Note this is a discrete approximation to the exponential.
   
 	For a given alpha, the number of periods to reach x from an old steady state
 	to a new steady state is (-ln(x)/alpha). For example, from an initial state of 
-	0, it will take (-ln(0.5)/0.2) or 3.46 periods after the input changes to 1 to reach 0.5 if 
-	the alpha is (as is usual) 0.2
+	0, it will take (-ln(0.5)/0.2) or 3.46 periods after the input changes to 1 to 
+	reach 0.5 if the alpha is (as is usual) 0.2
   WRONG!!!
   The correct formula is ln(1/2) / ln(1 - alpha)
 		
@@ -61,21 +61,21 @@ class EWMA
 {
 	public:
 		EWMA();
-		EWMA(double factor);
-    double setAlpha ( double factor );
-		void reset();
-		void load(int n, double EWMA);
-		// void record(double x);
-		double record(double x);
-    double value();
-		//double *results();
-		void results(double *ret);  // returns n and currentvalue
-	//	char *resultString();
-		void init(double factor);
-		double periods (int nPeriodsOfHalfLife);
+		EWMA ( double alpha );
+    double setAlpha ( double alpha );
+		void reset ();
+		void load ( int n, double EWMA );
+		// void record( double x );
+		double record ( double x );
+    double value ();
+		//double *results ();
+		void results ( double *ret );  // returns n and currentvalue
+	//	char *resultString ();
+		void init ( double alpha );
+		double periods ( int nPeriodsOfHalfLife );
     // periods deprecated; to be replaced by alpha
-    double alpha (int nPeriodsOfHalfLife);
-    double alpha (unsigned long nPeriodsOfHalfLife);
+    double alpha ( int nPeriodsOfHalfLife );
+    double alpha ( unsigned long nPeriodsOfHalfLife );
 	
 	protected:
 		// anything that needs to be available only to:
@@ -86,9 +86,9 @@ class EWMA
 		
 	private:
 		
-		double factor;
-		int n;
-		double currentValue;
+		double _alpha;
+		int _n;
+		double _currentValue;
     
 		double *_internals();
 		
