@@ -13,6 +13,8 @@
 #include "Potentiometer.h"
 #include "BatSwitch.h"
 #include "FootSwitch.h"
+#include "Pedal.h"
+#include "Relay.h"
 
 #ifndef OpenEffectsBoxHW_h
 #define OpenEffectsBoxHW_h
@@ -91,12 +93,10 @@ const int pa_bats [] = { A12, A13 };
 const int pd_pbs [] = { 2, 3 };
 
 // relays
-const int pd_relayL = 4;
-const int pd_relayR = 5;
+const int pd_relays [] = { 4, 5 };
 
 // pedals
-const int CV1 = A11;
-const int CV2 = A10;
+const int pa_pedals [] = { A11, A10 };
 
 // NeoPixels
 const int pdWS2812 = 8;
@@ -111,19 +111,29 @@ const int nPots = 4;
 
 // bat switches
 const int nBats = 2;
+const int batL = 0;
+const int batR = 1;
 
 // stomp "pb" pushbuttons
 const int nPBs = 2;
+const int pbL = 0;
+const int pbR = 1;
 
 // relays
+const int nRelays = 2;
+const int relayL = 0;
+const int relayR = 1;
 
 // pedals
+const int nPedals = 2;
 
 // NeoPixels
 const int nNeoPixels    = 10;
 const int ledSingleton = 0;
 const int ledOnOff     = 2;
 const int ledBoost     = 1;
+const int VUfirstPixel = 3;
+const int nVUpixels = 7;
 
 // OLED screen
 
@@ -143,12 +153,20 @@ class OpenEffectsBoxHW {
     Potentiometer pot [ nPots ];
     BatSwitch bat [ nBats ];
     FootSwitch pb [ nPBs ];
+    Relay relay [ nRelays ];
+    Pedal pedal [ nPedals ];
     
+    void setLED ( 
+      int led, 
+      unsigned long color = 0x101010UL
+    );
+
     void setVU ( 
       int n, 
       int mode = 1, 
       unsigned long onColor = 0x106060UL, 
-      unsigned long offColor = 0x101010UL );
+      unsigned long offColor = 0x101010UL
+    );
 
   private:
 
@@ -174,7 +192,6 @@ class OpenEffectsBoxHW {
     //  2 is L dome
     //  3-9 are the rectangular ones in the row, with 3 at R and 9 at L
     void init_NeoPixel_strip ();
-
 
     // OLED screen
     bool _displayIsStale = true;

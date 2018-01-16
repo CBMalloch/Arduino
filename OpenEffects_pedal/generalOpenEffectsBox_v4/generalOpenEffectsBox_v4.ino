@@ -1,5 +1,5 @@
 #define PROGNAME  "generalOpenEffectsBox_v4"
-#define VERSION   "0.0.1"
+#define VERSION   "0.1.0"
 #define VERDATE   "2018-01-10"
 
 #include <SPI.h>
@@ -17,11 +17,26 @@ OpenEffectsBox oeb;
 #define BAUDRATE 115200
 
 void setup () {
+
+  Serial.begin ( BAUDRATE );
+  while ( !Serial && millis () < 5000 );
+
+  Serial.print ( "OpenEffectsBox v." ); Serial.println ( OpenEffectsBox_VERSION );
+  Serial.print ( "OpenEffectsBoxHW v." ); Serial.println ( OpenEffectsBoxHW_VERSION );
+  Serial.print ( "Potentiometer v." ); Serial.println ( Potentiometer_VERSION );
+  Serial.print ( "BatSwitch v." ); Serial.println ( BatSwitch_VERSION );
+  Serial.print ( "FootSwitch v." ); Serial.println ( FootSwitch_VERSION );
+  Serial.print ( "Pedal v." ); Serial.println ( Pedal_VERSION );
+  Serial.print ( "Relay v." ); Serial.println ( Relay_VERSION );
+
   oeb.init ();
+  
+  Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
+  delay ( 250 );
+
 }
 
 void loop () {
-  // oeb.printSomething ( millis() );
   oeb.tickle ();
   delay ( 2 );
 }

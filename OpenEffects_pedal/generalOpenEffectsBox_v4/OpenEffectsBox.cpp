@@ -13,6 +13,52 @@ void OpenEffectsBox::init ( ) {
   
   hw.init ();
   
+  
+  for ( int i = 0; i < 5; i++ ) {
+    hw.relay [ relayL ].setValue ( 0 );
+    hw.setLED ( ledOnOff, 0x102010 );
+    delay ( 100 );
+    hw.relay [ relayL ].setValue ( 1 );
+    hw.setLED ( ledOnOff, 0x201010 );
+    delay ( 100 );
+  }
+  
+  for ( int i = 0; i < 8; i++ ) {
+    hw.relay [ relayR ].setValue ( 0 );
+    hw.setLED ( ledBoost, 0x102010 );
+    delay ( 100 );
+    hw.relay [ relayR ].setValue ( 1 );
+    hw.setLED ( ledBoost, 0x201010 );
+    delay ( 100 );
+  }
+  
+  for ( int i = 0; i < 3; i++ ) {
+    for ( int j = 0; j < 8; j++ ) {
+      hw.setVU ( j );
+      delay ( 100 );
+    }
+    for ( int j = 0; j < 8; j++ ) {
+      hw.setVU ( 7 - j );
+      delay ( 100 );
+    }
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 }
 
 void OpenEffectsBox::tickle () {
@@ -31,6 +77,11 @@ void OpenEffectsBox::tickle () {
       OpenEffectsBox::cbPBs ( i, hw.pb [ i ].getValue () );
   }
 
+  for ( int i = 0; i < nPedals; i++ ) {
+    if ( hw.pedal [ i ].changed () )
+      OpenEffectsBox::cbPedals ( i, hw.pedal [ i ].getValue () );
+  }
+  
 }
 
 
@@ -105,6 +156,14 @@ void OpenEffectsBox::cbPBs ( int pb, int newValue ) {
   Serial.print ( ": new value " ); 
   Serial.println ( newValue );
   hw.pb [ pb ].clearState ();
+}
+
+void OpenEffectsBox::cbPedals ( int pedal, int newValue ) {
+  Serial.print ( "Callback pedal " );
+  Serial.print ( pedal );
+  Serial.print ( ": new value " ); 
+  Serial.println ( newValue );
+  hw.pedal [ pedal ].clearState ();
 }
 
 

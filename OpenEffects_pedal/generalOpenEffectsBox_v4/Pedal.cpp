@@ -1,27 +1,27 @@
-#include "Potentiometer.h"
+#include "Pedal.h"
 
 const int VERBOSE = 2;
 
-Potentiometer::Potentiometer () {
+Pedal::Pedal () {
 }
 
-void Potentiometer::init ( int potID, int pin ) {
+void Pedal::init ( int pedalID, int pin ) {
 
-  _id = potID;
+  _id = pedalID;
   _pin = pin;  // *analog* pin
   
   _lastValueChangeAt_ms = millis();
     
   if ( VERBOSE >= 10 ) {
-    Serial.print ( "Potentiometer " ); Serial.print ( _id );
+    Serial.print ( "Pedal " ); Serial.print ( _id );
     Serial.print ( " (pin " ); Serial.print ( _pin );
     Serial.println ( ") inited" );
   }
 }
 
-void Potentiometer::update () {
+void Pedal::update () {
 
-  int val = constrain ( map ( analogRead ( _pin ), 1023, 5, 0, 1023 ), 0, 1023 );
+  int val = constrain ( map ( analogRead ( _pin ), 5, 192, 0, 1023 ), 0, 1023 );
   _value = val * ( 1.0 - _alpha ) + _value * _alpha;
   if ( abs ( _value - _oldValue ) > _hysteresis ) {
     _oldValue = _value;
@@ -33,14 +33,14 @@ void Potentiometer::update () {
 
 }
 
-bool Potentiometer::changed () {
+bool Pedal::changed () {
   return ( _changed );
 }
 
-int Potentiometer::getValue () {
+int Pedal::getValue () {
   return ( _value );
 }
 
-void Potentiometer::clearState () {
+void Pedal::clearState () {
   _changed = false;
 }
