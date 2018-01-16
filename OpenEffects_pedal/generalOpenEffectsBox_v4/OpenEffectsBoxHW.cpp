@@ -36,14 +36,18 @@ void OpenEffectsBoxHW::init ( ) {
   }
   
   // relays
-  pinMode ( pd_relayL, OUTPUT );
-  pinMode ( pd_relayR, OUTPUT );
-
+  for ( int i = 0; i < nRelays; i++ ) {
+    relay [ i ].init ( i, pd_relays [ i ] );
+  }
+  
   // pedals
+  for ( int i = 0; i < nPedals; i++ ) {
+    pedal [ i ].init ( i, pa_pedals [ i ] );
+  } 
+  
   // NeoPixels
   init_NeoPixel_strip ();
   
-
   // OLED screen
   init_oled_display ();
   
@@ -57,7 +61,35 @@ void OpenEffectsBoxHW::init_NeoPixel_strip () {
   _strip.show();
 }
 
+void OpenEffectsBoxHW::setLED ( int led, unsigned long color ) {
+  if ( led < 0 || led >= nNeoPixels ) return;
+  _strip.setPixelColor ( led, color );
+  _strip.show ();
+}
+
 void OpenEffectsBoxHW::setVU ( int n, int mode, unsigned long onColor, unsigned long offColor ) {
+  // if ( n < 0 || n > nVUpixels ) {
+  //   Serial.println ( "setVU: invalid bargraph value ( 0 - 7 ): " );
+  //   Serial.println ( n );
+  // }
+  for ( int i = 0; i < nVUpixels; i++ ) {
+    unsigned long theColor = offColor;
+    switch ( mode ) {
+      case -1:  // from right
+        if ( i > n ) theColor = onColor;
+        break;
+      case 0:   // just one led on
+        if ( i == n ) theColor = onColor;
+        break;
+      case 1:   // normal mode: from left
+        if ( i < n ) theColor = onColor;
+        break;
+      default:
+        break;
+    }
+    _strip.setPixelColor ( VUfirstPixel + i, theColor );
+  }
+  _strip.show ();
 }
 
 void OpenEffectsBoxHW::init_oled_display () {
@@ -116,6 +148,10 @@ void OpenEffectsBoxHW::updateInputs () {
   
   for ( int i = 0; i < nPBs; i++ ) {
     pb [ i ].update();
+  }
+  
+  for ( int i = 0; i < nPedals; i++ ) {
+    pedal [ i ].update();
   }
   
 }

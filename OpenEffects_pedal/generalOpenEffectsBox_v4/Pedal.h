@@ -1,16 +1,17 @@
 #include <Arduino.h>
 #include <Print.h>
 
-#ifndef Potentiometer_h
-#define Potentiometer_h
+#ifndef Pedal_h
+#define Pedal_h
 
-#define Potentiometer_VERSION "0.001.000"
+#define Pedal_VERSION "0.001.000"
 
-class Potentiometer {
+
+class Pedal {
 
   public:
     
-    Potentiometer ();  // constructor
+    Pedal ();  // constructor
     void init ( int id, int pin );
     void update ();
     
@@ -23,10 +24,10 @@ class Potentiometer {
   
   private:
   
-    const int _hysteresis = 2;
+    const int _hysteresis = 5;
     const float _alpha = 0.9;
     const unsigned long _settlingTime_ms = 2;
-
+    
     int _id;
     int _pin;
     int _value, _oldValue;

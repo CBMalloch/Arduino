@@ -22,7 +22,7 @@
 
 #include "OpenEffectsBoxHW.h"
 
-#define OpenEffectsBox_VERSION "4.000.001"
+#define OpenEffectsBox_VERSION "4.000.002"
 
 class OpenEffectsBox {
   public:
@@ -43,6 +43,7 @@ class OpenEffectsBox {
     void cbBat0 ( int newValue );
     void cbBat1 ( int newValue );
     void cbPBs ( int pb, int newValue );
+    void cbPedals ( int pedal, int newValue );
     
 };
 
