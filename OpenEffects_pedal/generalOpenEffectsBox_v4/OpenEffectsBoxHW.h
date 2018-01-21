@@ -4,17 +4,18 @@
 #include <SPI.h>
 #include <Wire.h>
 
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 // use Paul Stoffregen's NeoPixel library if using Teensy 3.5 or 3.6
 #include <Adafruit_NeoPixel.h>
-#include <Audio.h>
+
+// #include <Audio.h>
 
 #include "Potentiometer.h"
 #include "BatSwitch.h"
 #include "FootSwitch.h"
 #include "Pedal.h"
 #include "Relay.h"
+
+#include "Oled.h"
 
 #ifndef OpenEffectsBoxHW_h
 #define OpenEffectsBoxHW_h
@@ -23,6 +24,8 @@
 // #include "OpenEffectsBox.h"
 
 #define OpenEffectsBoxHW_VERSION "0.000.005"
+
+#define OpenEffectsBoxHW_VERBOSE_DEFAULT 12
 
 /* ======================================================================== //
 
@@ -67,8 +70,9 @@
 /*
 
   Observations:
-    o should create separate objects for knob, bat, foot switch, relay
   Planned work:
+    √ create separate objects for knob, bat, foot switch, relay
+      create objects for ... ??? modes? incl submodes?  sets?
   
 */
 
@@ -126,6 +130,8 @@ const int relayR = 1;
 
 // pedals
 const int nPedals = 2;
+const int pedal0 = 0;
+const int pedal1 = 1;
 
 // NeoPixels
 const int nNeoPixels    = 10;
@@ -135,16 +141,13 @@ const int ledBoost     = 1;
 const int VUfirstPixel = 3;
 const int nVUpixels = 7;
 
-// OLED screen
-
-
-
 class OpenEffectsBoxHW {
   public:
   
     OpenEffectsBoxHW ();  // constructor
+    void setVerbose ( int verbose );
     
-    void init ();
+    void init ( int verbose = OpenEffectsBoxHW_VERBOSE_DEFAULT );
     void tickle ();
     
     // void register_cbOnBatChanged ( int which, void ( OpenEffectsBox::*cb ) ( int * newValue ) );
@@ -156,6 +159,8 @@ class OpenEffectsBoxHW {
     Relay relay [ nRelays ];
     Pedal pedal [ nPedals ];
     
+    Oled oled;
+    
     void setLED ( 
       int led, 
       unsigned long color = 0x101010UL
@@ -164,9 +169,14 @@ class OpenEffectsBoxHW {
     void setVU ( 
       int n, 
       int mode = 1, 
-      unsigned long onColor = 0x106060UL, 
-      unsigned long offColor = 0x101010UL
+      int warnAt = 1024,
+      unsigned long onColor = 0x0c4020, 
+      unsigned long offColor = 0x0c0c0c,
+      unsigned long warnOnColor = 0x601010,
+      unsigned long warnOffColor = 0x100808
     );
+    
+  protected:
 
   private:
 
@@ -193,16 +203,9 @@ class OpenEffectsBoxHW {
     //  3-9 are the rectangular ones in the row, with 3 at R and 9 at L
     void init_NeoPixel_strip ();
 
-    // OLED screen
-    bool _displayIsStale = true;
-    unsigned long _lastOledUpdateAt_ms = 0UL;
-    unsigned long _displayUpdateRate_ms = 200UL;
-
-    void init_oled_display ();
+    // void init_oled_display ();
     // void displayOLED ();
     // void ( * updateOLEDdisplay ) ();
-
-    Adafruit_SSD1306 _oled = Adafruit_SSD1306 ();
     
 };
 

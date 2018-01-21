@@ -28,6 +28,12 @@ void setup () {
   Serial.print ( "FootSwitch v." ); Serial.println ( FootSwitch_VERSION );
   Serial.print ( "Pedal v." ); Serial.println ( Pedal_VERSION );
   Serial.print ( "Relay v." ); Serial.println ( Relay_VERSION );
+  
+  Serial.print ( "OLED v." ); Serial.println ( Oled_VERSION );
+  
+  Serial.print ( "Mixer v." ); Serial.println ( Mixer_VERSION );
+  Serial.print ( "Sine v." ); Serial.println ( Sine_VERSION );
+  Serial.print ( "DisplayableModule v." ); Serial.println ( DisplayableModule_VERSION );
 
   oeb.init ();
   

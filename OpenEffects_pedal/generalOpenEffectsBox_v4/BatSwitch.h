@@ -6,9 +6,6 @@
 
 #define BatSwitch_VERSION "0.001.000"
 
-const unsigned long batSwitchNoticePeriod_ms =  50UL;
-const unsigned long batSwitchRepeatPeriod_ms = 500UL;
-
 class BatSwitch {
 
   public:
@@ -26,6 +23,9 @@ class BatSwitch {
   
   private:
   
+    const unsigned long _noticePeriod_ms =  50UL;
+    const unsigned long _repeatPeriod_ms = 500UL;
+
     int _id;
     int _pin;
     int _value, _oldValue;
