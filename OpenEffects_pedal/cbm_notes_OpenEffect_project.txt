@@ -72,7 +72,7 @@ int relayR = 5;      // select the pin for the RelayR
 LED management:
   The WS2812 pixel strip updates are unreliable at 800MHz. I changed the 
   configuration to NEO_KHZ400 and it is much smoother. 
-  (later) But it doesn't work. Have gone back to 800MHz.
+  (later) But it doesn't work. Have gone back to 800MHz and it's OK.
 
 
 Observations:
@@ -87,8 +87,8 @@ Observations:
     5V_D runs the WS2812s, while 5V_A runs the op-amps.
   Archer adapter powers Teensy 3.2 from OnkartGromt, but the
     Teensy 3.6 doesn't boot properly. Spectrum power supply,
-    same thing. Appears to non-boot because my program was waiting forever
-    for Serial to come up...
+    same thing. Oops on me. Appears to non-boot because my program was 
+    waiting forever for Serial to come up...
 
 ===============================================================================
 
@@ -107,3 +107,8 @@ Additional observations:
   
   chorus - its method is not .modify() but is in fact .voices()
   reverb - its argument is not integer milliseconds, but is float seconds.
+    If set to zero seconds, it assumes a value of about 1 second.
+    It produces artifacts if set more than 1 second.
+  tonesweep - its last argument is not integer milliseconds, but is float seconds.
+    It chuffs when it is started
+  

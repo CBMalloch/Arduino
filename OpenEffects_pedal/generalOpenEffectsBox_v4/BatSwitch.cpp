@@ -35,9 +35,9 @@ void BatSwitch::update () {
   } else {
     // have detected actuation
     // notice only if it's been here a while
-    if ( ( millis() - _lastCenteredAt_ms ) > batSwitchNoticePeriod_ms ) {
+    if ( ( millis() - _lastCenteredAt_ms ) > _noticePeriod_ms ) {
       // it's firmly actuated; hit it and then ignore until it's time to repeat
-      if ( ( millis() - _lastRepeatAt_ms ) > batSwitchRepeatPeriod_ms ) {
+      if ( ( millis() - _lastRepeatAt_ms ) > _repeatPeriod_ms ) {
         // ready to call actuated or do another repeat
         _value = val;
         _changed = true;

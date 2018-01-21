@@ -1,18 +1,19 @@
 #include "Pedal.h"
 
-const int VERBOSE = 2;
-
 Pedal::Pedal () {
 }
 
-void Pedal::init ( int pedalID, int pin ) {
+void Pedal::init ( int pedalID, int pin, int verbose ) {
 
   _id = pedalID;
   _pin = pin;  // *analog* pin
+  _verbose = verbose;
   
+  _value = constrain ( map ( analogRead ( _pin ), 5, 192, 0, 1023 ), 0, 1023 );
+  _oldValue = _value;
   _lastValueChangeAt_ms = millis();
     
-  if ( VERBOSE >= 10 ) {
+  if ( _verbose >= 10 ) {
     Serial.print ( "Pedal " ); Serial.print ( _id );
     Serial.print ( " (pin " ); Serial.print ( _pin );
     Serial.println ( ") inited" );
@@ -21,14 +22,27 @@ void Pedal::init ( int pedalID, int pin ) {
 
 void Pedal::update () {
 
-  int val = constrain ( map ( analogRead ( _pin ), 5, 192, 0, 1023 ), 0, 1023 );
+  int val = constrain ( map ( analogRead ( _pin ), 8, 180, 0, 1023 ), 0, 1023 );
   _value = val * ( 1.0 - _alpha ) + _value * _alpha;
   if ( abs ( _value - _oldValue ) > _hysteresis ) {
+    if ( _verbose >= 12 ) {
+      Serial.print ( "Pedal " ); Serial.print ( _id );
+      Serial.print ( " (pin " ); Serial.print ( _pin );
+      Serial.print ( ") new value: " );
+      Serial.println ( _value );
+    }
     _oldValue = _value;
     _lastValueChangeAt_ms = millis();
-  }
-  if ( ( millis() - _lastValueChangeAt_ms ) < _settlingTime_ms ) {
+    _changeReported = false;
+//  } else if ( ( millis() - _lastValueChangeAt_ms ) < _settlingTime_ms ) {
+  } else if ( ! _changeReported ) {
+    if ( _verbose >= 12 ) {
+      Serial.print ( "Pedal " ); Serial.print ( _id );
+      Serial.print ( " (pin " ); Serial.print ( _pin );
+      Serial.println ( ") reporting change" );
+    }
     _changed = true;
+    _changeReported = true;
   }
 
 }

@@ -6,15 +6,20 @@
 // relays
 // pedals
 // NeoPixels
-// OLED screen
 
 
 OpenEffectsBoxHW::OpenEffectsBoxHW() {
 }
 
-void OpenEffectsBoxHW::init ( ) {
+void OpenEffectsBoxHW::setVerbose ( int verbose ) {
+  _verbose = verbose;
+  Serial.print ( "OEBHW VERBOSE: " );
+  Serial.println ( _verbose );
+}
 
-  _verbose = 2;
+void OpenEffectsBoxHW::init ( int verbose ) {
+
+  _verbose = verbose;
   
   // callbacks
   // register_cbOnBatChanged = NULL;
@@ -49,7 +54,7 @@ void OpenEffectsBoxHW::init ( ) {
   init_NeoPixel_strip ();
   
   // OLED screen
-  init_oled_display ();
+  oled.init ();
   
 }
 
@@ -67,49 +72,29 @@ void OpenEffectsBoxHW::setLED ( int led, unsigned long color ) {
   _strip.show ();
 }
 
-void OpenEffectsBoxHW::setVU ( int n, int mode, unsigned long onColor, unsigned long offColor ) {
+void OpenEffectsBoxHW::setVU ( int n, int mode, int warnAt, 
+                               unsigned long onColor, unsigned long offColor,
+                               unsigned long warnOnColor, unsigned long warnOffColor ) {
   // if ( n < 0 || n > nVUpixels ) {
   //   Serial.println ( "setVU: invalid bargraph value ( 0 - 7 ): " );
   //   Serial.println ( n );
   // }
   for ( int i = 0; i < nVUpixels; i++ ) {
-    unsigned long theColor = offColor;
-    switch ( mode ) {
-      case -1:  // from right
-        if ( i > n ) theColor = onColor;
-        break;
-      case 0:   // just one led on
-        if ( i == n ) theColor = onColor;
-        break;
-      case 1:   // normal mode: from left
-        if ( i < n ) theColor = onColor;
-        break;
-      default:
-        break;
+    bool warn = i >= warnAt;
+    unsigned long on = warn ? warnOnColor : onColor;
+    unsigned long off = warn ? warnOffColor : offColor;
+    unsigned long theColor = off;
+    if ( mode == 0 ) {
+      // just one led on
+      if ( i == n ) theColor = on;
+    } else {
+      // normal mode: bar
+      if ( i < n ) theColor = on;
     }
-    _strip.setPixelColor ( VUfirstPixel + i, theColor );
+    int thePixel = ( mode == -1 ) ? nVUpixels - 1 - i : i;
+    _strip.setPixelColor ( VUfirstPixel + thePixel, theColor );
   }
   _strip.show ();
-}
-
-void OpenEffectsBoxHW::init_oled_display () {
-  // by default, we'll generate the high voltage from the 3.3v line internally! (neat!)
-  // initialize with the I2C addr 0x3D (for the 128x64)
-  // 0x3c on Open Effects box
-  
-  const byte addI2C = 0x3c;
-  _oled.begin ( SSD1306_SWITCHCAPVCC, addI2C );  
-  // init done
-  
-  // Show image buffer on the display hardware.
-  // Since the buffer is intialized with an Adafruit splashscreen
-  // internally, this will display the splashscreen.
-  _oled.display ();
-  delay ( 500 );
-
-  // Clear the buffer.
-  _oled.clearDisplay ();
-  _oled.display ();
 }
 
 void OpenEffectsBoxHW::tickle () {

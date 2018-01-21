@@ -1,34 +1,54 @@
 #include "Potentiometer.h"
 
-const int VERBOSE = 2;
-
 Potentiometer::Potentiometer () {
 }
 
-void Potentiometer::init ( int potID, int pin ) {
+void Potentiometer::init ( int potID, int pin, int verbose ) {
 
   _id = potID;
   _pin = pin;  // *analog* pin
+  _verbose = verbose;
   
+  _value = constrain ( map ( analogRead ( _pin ), 1023, 5, 0, 1023 ), 0, 1023 );
+  _oldValue = _value;
   _lastValueChangeAt_ms = millis();
     
-  if ( VERBOSE >= 10 ) {
+  if ( _verbose >= 12 ) {
     Serial.print ( "Potentiometer " ); Serial.print ( _id );
     Serial.print ( " (pin " ); Serial.print ( _pin );
-    Serial.println ( ") inited" );
+    Serial.print ( ") initialized: " );
+    Serial.println ( _value );
   }
+
+
 }
 
 void Potentiometer::update () {
 
   int val = constrain ( map ( analogRead ( _pin ), 1023, 5, 0, 1023 ), 0, 1023 );
   _value = val * ( 1.0 - _alpha ) + _value * _alpha;
+  
+  // if value is changing, we record that.
+  // once value stops changing, we report the change
   if ( abs ( _value - _oldValue ) > _hysteresis ) {
+    if ( _verbose >= 12 ) {
+      Serial.print ( "Potentiometer " ); Serial.print ( _id );
+      Serial.print ( " (pin " ); Serial.print ( _pin );
+      Serial.print ( ") new value: " );
+      Serial.println ( _value );
+    }
     _oldValue = _value;
     _lastValueChangeAt_ms = millis();
-  }
-  if ( ( millis() - _lastValueChangeAt_ms ) < _settlingTime_ms ) {
+    _changeReported = false;
+//  } else if ( ( millis() - _lastValueChangeAt_ms ) < _settlingTime_ms ) {
+  } else if ( ! _changeReported ) {
+    if ( _verbose >= 12 ) {
+      Serial.print ( "Potentiometer " ); Serial.print ( _id );
+      Serial.print ( " (pin " ); Serial.print ( _pin );
+      Serial.println ( ") reporting change" );
+    }
     _changed = true;
+    _changeReported = true;
   }
 
 }
