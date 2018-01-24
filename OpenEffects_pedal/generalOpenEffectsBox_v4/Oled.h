@@ -21,13 +21,6 @@ class Oled : public Adafruit_SSD1306 {
     
     void displayCommon ( int mode, int subMode );
     
-    
-    
-    
-    
-    
-    
-    
     /*
     void display ();
   
@@ -38,9 +31,6 @@ class Oled : public Adafruit_SSD1306 {
     void setCursor ( int col, int row );
     // void print ( const char *str );
 */
-
-
-
 
 
   protected:

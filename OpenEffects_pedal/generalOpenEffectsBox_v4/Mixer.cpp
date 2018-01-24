@@ -11,14 +11,14 @@ void Mixer::init ( int id, char *name, AudioMixer4 *mixer, OpenEffectsBoxHW *oeb
 void Mixer::init ( int id, char *name, AudioMixer4 *mixer, OpenEffectsBoxHW *oebhw, 
                    int ch0, int ch1, int ch2, int ch3, int verbose ) {
                    
-                   
   DisplayableModule::init ( id, name, oebhw, verbose );
   
   _mixer = mixer;
-  _gains [ 0 ] = ch0;
-  _gains [ 1 ] = ch1;
-  _gains [ 2 ] = ch2;
-  _gains [ 3 ] = ch3;
+  
+  setGain ( 0, ch0 );
+  setGain ( 1, ch1 );
+  setGain ( 2, ch2 );
+  setGain ( 3, ch3 );
   
   if ( _verbose >= 12 ) {
     Serial.print ( "Mixer " );
@@ -29,10 +29,6 @@ void Mixer::init ( int id, char *name, AudioMixer4 *mixer, OpenEffectsBoxHW *oeb
       Serial.print ( i < nChannels - 1 ? ", " : "\n" );
     }
   }
-  _mixer->gain ( 0, ch0 );
-  _mixer->gain ( 1, ch1 );
-  _mixer->gain ( 2, ch2 );
-  _mixer->gain ( 3, ch3 );
   
   if ( _verbose >= 12 ) {
     Serial.print ( "Mixer " );
@@ -45,7 +41,7 @@ void Mixer::setGain ( int channel, float gain ) {
   if ( channel < 0 || channel >= nChannels ) return;
   _gains [ channel ] = gain;
   if ( _verbose >= 12 ) {
-    Serial.print ( "Mixer " );
+    Serial.print ( "                                               Mixer " );
     Serial.print ( _id );
     Serial.print ( " gain " );
     Serial.print ( channel );
@@ -53,11 +49,21 @@ void Mixer::setGain ( int channel, float gain ) {
     Serial.println ( _gains [ channel ] );
   }
   _mixer->gain ( channel, _gains [ channel ] );
+  _displayIsStale = true;
 }
 
-void Mixer::display () {
+void Mixer::notify ( int channel, float value ) {
+  if ( channel < 0 || channel >= nChannels ) return;
+  float gain = Utility::fmapc ( value, 0.0, 1.0, 0.0, 2.0 );
+  setGain ( channel, gain );
+}
 
-  // somebody will have already issued oled.displayCommon ( mode, subMode )
+void Mixer::display ( int mode, int subMode, bool force ) {
+
+  if ( ! force && ! _displayIsStale ) return;
+  
+  _oebhw->oled.displayCommon ( mode, subMode );
+
   
   if ( _verbose >= 12 ) {
     Serial.print ( "Mixer " );
@@ -67,21 +73,23 @@ void Mixer::display () {
     Serial.println ( ") display" );
   }
 
-  _oebhw->oled.setTextSize ( 2 );
+  _oebhw->oled.setTextSize ( 2 );  // 12x16
   _oebhw->oled.setCursor ( 0, 0 );
-  _oebhw->oled.print ( _name );
-  _oebhw->oled.print ( " gain" );
+  if ( strlen ( _name ) > 0 ) {
+    _oebhw->oled.print ( _name );
+    _oebhw->oled.print ( " " );
+  }
+  _oebhw->oled.print ( "gain" );
   
-  for ( int i = 1; i < nChannels; i++ ) {
-    int y = ( i - 1 ) * 16 + 16;
-    _oebhw->oled.setTextSize ( 1 );
+  for ( int i = 0; i < nChannels; i++ ) {
+    int y = i * 12 + 18;
+    _oebhw->oled.setTextSize ( 1 );  // 6x8
     _oebhw->oled.setCursor ( 30, y );
     _oebhw->oled.print ( _gains [ i ] );
-    // _oebhw->oled.setTextSize ( 1 );
-    // _oebhw->oled.setCursor ( 0, y );
-    // _oebhw->oled.print ( "" );
   }
     
   _oebhw->oled.display();  // note takes about 100ms!!!
+  
+  _displayIsStale = false;
   
 }

@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <Print.h>
 
+#include "Utility.h"
+
 #ifndef Potentiometer_h
 #define Potentiometer_h
 
@@ -17,7 +19,7 @@ class Potentiometer {
     void update ();
     
     bool changed ();
-    int getValue ();
+    float getValue ();
     void clearState ();
 
 
@@ -25,14 +27,17 @@ class Potentiometer {
   
   private:
   
-    const int _hysteresis = 2;
-    const float _alpha = 0.9;
-    const unsigned long _settlingTime_ms = 2;
+    float read ();
+    
+    // LSB is about 1023 - 5
+    const float _hysteresis = 2.5 / ( 1023.0 - 5.0 );
+    const float _alpha = 0.6;
+    // const unsigned long _settlingTime_ms = 2;
     
     int _id;
     int _pin;
     int _verbose;
-    int _value, _oldValue;
+    float _value, _oldValue;
     unsigned long _lastValueChangeAt_ms;
     bool _changed;
     bool _changeReported = false;

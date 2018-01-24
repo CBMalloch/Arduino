@@ -77,33 +77,24 @@ void Oled::display () {
 
 */
 
-/*
+
 void Oled::displayCommon ( int mode, int subMode ) {
   // 128h x 64v
   
-  _oled_hw.clearDisplay();
-  _oled_hw.setTextColor ( WHITE );
-    
-  // large numbers are the bat switch positions
+  if ( _verbose >= 12 ) {
+    Serial.print ( "OLED displayCommon: " );
+    Serial.print ( mode );
+    Serial.print ( "." );
+    Serial.println ( subMode );
+  }
 
-  _oled_hw.setTextSize ( 1 );
-  _oled_hw.setCursor ( 96, 56 );
-  _oled_hw.print ( mode );
-  _oled_hw.print ( "." );
-  _oled_hw.print ( subMode );
-
-}
-*/
-
-void Oled::displayCommon ( int mode, int subMode ) {
-  // 128h x 64v
   
   clearDisplay();
   setTextColor ( WHITE );
     
   // large numbers are the bat switch positions
 
-  setTextSize ( 1 );
+  setTextSize ( 1 );  // 6x8
   setCursor ( 96, 56 );
   print ( mode );
   print ( "." );

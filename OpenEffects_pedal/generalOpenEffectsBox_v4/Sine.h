@@ -14,7 +14,8 @@ class Sine : public DisplayableModule {
     void setVerbose ( int verbose );
     
     void init ( int id, char *name, AudioSynthWaveformSine *sine, OpenEffectsBoxHW *oebhw, int verbose = Sine_VERBOSE_DEFAULT );
-    void display ();
+    void notify ( int channel, float value );
+    void display ( int mode, int subMode, bool force = false );
     
     void setFrequency ( float frequency );    
   
