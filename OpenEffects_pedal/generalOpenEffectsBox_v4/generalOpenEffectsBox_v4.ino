@@ -1,6 +1,6 @@
 #define PROGNAME  "generalOpenEffectsBox_v4"
-#define VERSION   "0.1.0"
-#define VERDATE   "2018-01-10"
+#define VERSION   "0.1.2"
+#define VERDATE   "2018-01-23"
 
 #include <SPI.h>
 #include <Wire.h>
@@ -31,11 +31,17 @@ void setup () {
   
   Serial.print ( "OLED v." ); Serial.println ( Oled_VERSION );
   
+  Serial.print ( "Mode0 v." ); Serial.println ( Mode0_VERSION );
   Serial.print ( "Mixer v." ); Serial.println ( Mixer_VERSION );
   Serial.print ( "Sine v." ); Serial.println ( Sine_VERSION );
+  Serial.print ( "Tonesweep v." ); Serial.println ( Tonesweep_VERSION );
+  Serial.print ( "DC v." ); Serial.println ( DC_VERSION );
+  Serial.print ( "Bitcrusher v." ); Serial.println ( Bitcrusher_VERSION );
+  Serial.print ( "Chorus v." ); Serial.println ( Chorus_VERSION );
+  Serial.print ( "Flange v." ); Serial.println ( Flange_VERSION );
   Serial.print ( "DisplayableModule v." ); Serial.println ( DisplayableModule_VERSION );
 
-  oeb.init ();
+  oeb.init ( (char *) VERSION );
   
   Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
   delay ( 250 );

@@ -17,6 +17,7 @@ void DisplayableModule::init ( int id, char *name, OpenEffectsBoxHW *oebhw, int 
   setVerbose ( verbose );
   _oebhw = oebhw;
   _isActive = false;
+  _displayIsStale = true;
 }
 
 bool DisplayableModule::isActive () {
@@ -27,8 +28,11 @@ void DisplayableModule::activate ( bool val ) {
   _isActive = val;
 }
 
-void DisplayableModule::display () {
+// void DisplayableModule::notify ( int channel, int value ) {
+// }
+    
+void DisplayableModule::notify ( int channel, float value ) {
 }
-
-
-
+    
+void DisplayableModule::display ( int mode, int subMode, bool force ) {
+}

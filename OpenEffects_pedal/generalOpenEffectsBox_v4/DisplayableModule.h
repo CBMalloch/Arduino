@@ -9,6 +9,7 @@
 #include <Audio.h>
 
 #include "OpenEffectsBoxHW.h"
+#include "Utility.h"
 
 #define DisplayableModule_VERBOSE_DEFAULT 12
 
@@ -23,7 +24,9 @@ class DisplayableModule {
     void activate ( bool val );  // these just query and control the _isActive flag
     
     #define _DisplayableModule_VERBOSE_DEFAULT 2
-    virtual void display (); 
+    
+    virtual void notify ( int channel, float value );
+    virtual void display ( int mode, int subMode, bool force = false ); 
   
   protected:
   
@@ -34,6 +37,7 @@ class DisplayableModule {
     OpenEffectsBoxHW *_oebhw;
     
     bool _isActive;
+    bool _displayIsStale;
     
   private:
     // since this is a base class, mostly everything needs to be "protected" rather than "private"

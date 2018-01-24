@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <Print.h>
 
+#include "Utility.h"
+
 #ifndef Pedal_h
 #define Pedal_h
 
@@ -17,10 +19,11 @@ class Pedal {
     
     Pedal ();  // constructor
     void init ( int id, int pin, int verbose = _Pedal_VERBOSE_DEFAULT );
+    
     void update ();
     
     bool changed ();
-    int getValue ();
+    float getValue ();
     void clearState ();
 
 
@@ -28,14 +31,18 @@ class Pedal {
   
   private:
   
-    const int _hysteresis = 8;
-    const float _alpha = 0.9;
-    const unsigned long _settlingTime_ms = 2;
+    float read ();
+    
+    // LSB is 1 / ( 172 - 12 )
+    const float _hysteresis = 2.5 / ( 172.0 - 12.0 );
+    const float _alpha = 0.6;
+    // const unsigned long _settlingTime_ms = 2;
+    // const int _nReadRepetitions = 10;
     
     int _id;
     int _pin;
     int _verbose;
-    int _value, _oldValue;
+    float _value, _oldValue;
     unsigned long _lastValueChangeAt_ms;
     bool _changed;
     bool _changeReported = false;

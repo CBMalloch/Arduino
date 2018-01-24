@@ -1,10 +1,5 @@
 #include "OpenEffectsBox.h"
 
-    
-/* *****************************************************
-    Audio system definitions and assignments
-// *****************************************************/
-
 // GUItool: begin automatically generated code
 AudioSynthKarplusStrong  string1;        //xy=70,270
 AudioInputI2S            i2s1;           //xy=72,129
@@ -22,7 +17,8 @@ AudioAnalyzePeak         peak1;          //xy=379,135
 AudioEffectMultiply      multiply1;      //xy=396,338
 AudioEffectChorus        chorus1;        //xy=406,399
 AudioEffectFlange        flange1;        //xy=422,456
-AudioEffectReverb        reverb1;        //xy=443,514
+AudioFilterStateVariable filter1;        //xy=441,521
+AudioEffectReverb        reverb1;        //xy=466,590
 AudioEffectDelayExternal delayExt1;      //xy=590,333
 AudioMixer4              mixer4;         //xy=661,546
 AudioMixer4              mixer2;         //xy=729,316
@@ -35,33 +31,30 @@ AudioConnection          patchCord5(sine2, 0, mixer3, 1);
 AudioConnection          patchCord6(dc1, 0, mixer3, 0);
 AudioConnection          patchCord7(waveform1, 0, mixer3, 3);
 AudioConnection          patchCord8(tonesweep2, 0, mixer3, 2);
-
-
-
-AudioConnection          patchCord9(mixer1, 0, mixer4, 0);
-
-
-
+AudioConnection          patchCord9(mixer1, bitcrusher1);
 AudioConnection          patchCord10(mixer1, peak1);
 AudioConnection          patchCord11(mixer3, 0, multiply1, 1);
-AudioConnection          patchCord12(bitcrusher1, waveshape1);
-AudioConnection          patchCord13(waveshape1, 0, multiply1, 0);
+// AudioConnection          patchCord12(bitcrusher1, waveshape1);
+// AudioConnection          patchCord13(waveshape1, 0, multiply1, 0);
+
+AudioConnection          patchCord12(bitcrusher1, 0, multiply1, 0);
+AudioConnection          patchCord13(flange1, 0, mixer4, 0);
+
+
 AudioConnection          patchCord14(multiply1, chorus1);
 AudioConnection          patchCord15(chorus1, flange1);
-AudioConnection          patchCord16(flange1, reverb1);
-AudioConnection          patchCord17(reverb1, delayExt1);
-AudioConnection          patchCord18(delayExt1, 0, mixer2, 0);
-AudioConnection          patchCord19(delayExt1, 1, mixer2, 1);
-AudioConnection          patchCord20(delayExt1, 2, mixer2, 2);
-AudioConnection          patchCord21(delayExt1, 3, mixer2, 3);
-AudioConnection          patchCord22(mixer4, 0, i2s2, 0);
-AudioConnection          patchCord23(mixer4, 0, i2s2, 1);
+AudioConnection          patchCord16(flange1, 0, filter1, 0);
+AudioConnection          patchCord17(filter1, 1, reverb1, 0);
+AudioConnection          patchCord18(reverb1, delayExt1);
+AudioConnection          patchCord19(delayExt1, 0, mixer2, 0);
+AudioConnection          patchCord20(delayExt1, 1, mixer2, 1);
+AudioConnection          patchCord21(delayExt1, 2, mixer2, 2);
+AudioConnection          patchCord22(delayExt1, 3, mixer2, 3);
+AudioConnection          patchCord23(mixer4, 0, i2s2, 0);
+AudioConnection          patchCord24(mixer4, 0, i2s2, 1);
 
 
-
-// AudioConnection          patchCord24(mixer2, 0, mixer4, 0);
-
-
+// AudioConnection          patchCord25(mixer2, 0, mixer4, 0);
 
 AudioControlSGTL5000     sgtl5000_1;     //xy=595,184
 // GUItool: end automatically generated code
@@ -75,7 +68,7 @@ void OpenEffectsBox::setVerbose ( int verbose ) {
   Serial.println ( _verbose );
 }
 
-void OpenEffectsBox::init ( int verbose ) {
+void OpenEffectsBox::init ( char * version, int verbose ) {
 
   AudioMemory ( 250 );
 
@@ -83,11 +76,11 @@ void OpenEffectsBox::init ( int verbose ) {
   
   _displayableModule = NULL;
   
-  _displayIsStale = true;
   _lastUpdateAt_ms = 0UL;
   _displayUpdatePeriod_ms = 0xFFFFFFFF;  // never update...
 
   _mode = 0;
+  _nSubModes = 1;
   _subMode = 0;
   
   _hw.init ();
@@ -141,12 +134,24 @@ void OpenEffectsBox::init ( int verbose ) {
   sgtl5000_1.enable();
   sgtl5000_init ();
   
-  _mixers [ inputMixer ].init ( inputMixer, (char *) "input", &mixer1, &_hw, 1.0, 1.0, 0.0, 0.0 );
-  _mixers [ mpyMixer ].init ( mpyMixer, (char *) "mpy", &mixer3, &_hw, 1.0, 0.0, 0.0, 0.0 );
-  _mixers [ delayMixer ].init ( delayMixer,  (char *) "delay",  &mixer2, &_hw, 1.0, 0.0, 0.0, 0.0 );
-  _mixers [ outputMixer ].init ( outputMixer, (char *) "outpt", &mixer4, &_hw, 1.0, 0.0, 0.0, 0.0 );
+  _mode0.init ( &_hw, version, &_outputVolume );
   
-  _sines [ inputSine ].init ( inputSine, (char *) "tuner", &sine1, &_hw );
+  _mixers [ idx_inputMixer ].init ( idx_inputMixer, (char *) "input", &mixer1, &_hw, 1.0, 1.0, 0.0, 0.0 );
+  _mixers [ idx_mpyMixer ].init ( idx_mpyMixer, (char *) "mpy", &mixer3, &_hw, 1.0, 0.0, 0.0, 0.0 );
+  _mixers [ idx_delayMixer ].init ( idx_delayMixer,  (char *) "delay",  &mixer2, &_hw, 1.0, 0.0, 0.0, 0.0 );
+  _mixers [ idx_outputMixer ].init ( idx_outputMixer, (char *) "outpt", &mixer4, &_hw, 1.0, 0.0, 0.0, 0.0 );
+  
+  _sines [ idx_inputSine ].init ( idx_inputSine, (char *) "tuner", &sine1, &_hw );
+  _tonesweeps [ idx_inputTonesweep ].init ( idx_inputTonesweep, (char *) "inp", &tonesweep1, &_hw );
+  
+  _bitcrushers [ idx_Bitcrusher ].init ( idx_Bitcrusher, (char *) "", &bitcrusher1, &_hw );
+
+  _dcs [ idx_mpyDC ].init ( idx_mpyDC, (char *) "mpy", &dc1, &_hw );
+  _sines [ idx_mpy_sine ].init ( idx_mpy_sine, (char *) "tuner", &sine2, &_hw );
+  _tonesweeps [ idx_mpyTonesweep ].init ( idx_mpyTonesweep, (char *) "mpy", &tonesweep2, &_hw );
+  _chori [ idx_Chorus ].init ( idx_Chorus, (char *) "", &chorus1, &_hw );
+  
+  _flanges [ idx_Flange ].init ( idx_Flange, (char *) "", &flange1, &_hw );
 
   _onOffP = false; _hw.relay [ 0 ].setValue ( _onOffP );
   _boostP = false; _hw.relay [ 1 ].setValue ( _boostP );
@@ -154,17 +159,19 @@ void OpenEffectsBox::init ( int verbose ) {
   
   if ( 1 ) {
   
-    _sines [ inputSine ].setFrequency ( 880.0 );
+    _sines [ idx_inputSine ].setFrequency ( 880.0 );
 
-    _mixers [ inputMixer ].setGain ( input_mixer_tuning_sine, 1.0 );
-    bitcrusher1.bits ( 16 );
-    bitcrusher1.sampleRate ( 44100 );
+    _mixers [ idx_inputMixer ].setGain ( ch_inputMixer_tuning_sine, 1.0 );
+    _bitcrushers [ idx_Bitcrusher ].setNBits ( 16 );
+    _bitcrushers [ idx_Bitcrusher ].setSampleRate ( 44100 );
 
-    mixer2.gain ( 0, 1.0 );
-    dc1.amplitude ( 0.2 );
-    mixer3.gain ( 0, 1.0 );
-    mixer4.gain ( 0, 1.0 );
+    _mixers [ idx_delayMixer ].setGain ( 0, 1.0 );
+    _dcs [ idx_mpyDC ].setLevel ( 0.2 );
+    _mixers [ idx_mpyMixer ].setGain ( 0, 1.0 );
+    _mixers [ idx_outputMixer ].setGain ( 0, 1.0 );
   }
+  
+  setDisplay ( & _mode0 );
 
   Serial.println ( "OEB Init complete." );
   
@@ -174,6 +181,10 @@ void OpenEffectsBox::tickle () {
 
   _hw.tickle ();
   
+  for ( int i = 0; i < _nTonesweeps; i++ ) {
+    _tonesweeps [ i ].tickle();
+  }
+  
   for ( int i = 0; i < nPots; i++ ) {
     if ( _hw.pot [ i ].changed () ) {
       OpenEffectsBox::cbPots ( i, _hw.pot [ i ].getValue () );
@@ -182,12 +193,10 @@ void OpenEffectsBox::tickle () {
   
   if ( _hw.bat [ 0 ].changed () ) {
     OpenEffectsBox::cbBat0 ( _hw.bat [ 0 ].getValue () );
-    _displayIsStale = true;
   }
   
   if ( _hw.bat [ 1 ].changed () ) {
     OpenEffectsBox::cbBat1 ( _hw.bat [ 1 ].getValue () );
-    _displayIsStale = true;
   }
   
   for ( int i = 0; i < nPBs; i++ ) {
@@ -198,82 +207,11 @@ void OpenEffectsBox::tickle () {
   for ( int i = 0; i < nPedals; i++ ) {
     if ( _hw.pedal [ i ].changed () ) {
       OpenEffectsBox::cbPedals ( i, _hw.pedal [ i ].getValue () );
-      _hw.setVU ( map ( _hw.pedal [ i ].getValue (), 0, 1023, 0, 7 ) );
     }
   }
   
-
-
-/*
-How do we determine when the display goes stale? We need to know what's currently being
-displayed, and what just changed, and that will tell us whether that's something on-screen.
-Each module know its own mode / submode, and get a call when something changes?
-Display list? Boolean array of all things currently displayed? Or send change notifications 
-to all objects?
-
-
-
-Also set a maximum display update rate, about 100ms. -> 500ms.
-
-How do we do screen update in the background, or when nothing else is happening?
-
-Perhaps only the pots and mode switches changing should stale the screen
-
-Looks like we have a working solution; need to blog it!!!!
-
-*/
-
-
-
-
-
-
-
-
-
-
-
-  setDisplay ( & _sines [ inputSine ] );
-  
-  /*
-    Updating the screen takes ~100ms, so we can't just do it any time we'd like
-    So we've set criteria for updating:
-      Never more frequently than a minimum update period
-      Only when there's something new to show
-        This can be set for a single update of a stale display
-        Or it can be periodic for some special purpose, with a period
-          set by _displayUpdatePeriod_ms. If that's set to 0xffffffff ( 4294967296 )
-          that means don't periodically update.
-  */
-  
-  if ( ( ( millis() - _lastUpdateAt_ms ) > _displayMinimumUpdatePeriod_ms )
-       && ( _displayIsStale
-          || ( ( ( millis() - _lastUpdateAt_ms ) > _displayUpdatePeriod_ms ) 
-                 && ( _displayUpdatePeriod_ms != 0xFFFFFFFF ) 
-             )
-          )
-     ) {
-    
-    _hw.oled.displayCommon ( _mode, _subMode );
-  
-    _displayableModule->display ();
-    _displayIsStale = false;
-  }
-  
-  
-  
-  
-  
-  
-  
 }
 
-
-void OpenEffectsBox::setDisplay ( DisplayableModule *who ) {
-  if ( _displayableModule != NULL ) _displayableModule->activate ( false );
-  _displayableModule = who;
-  _displayableModule->activate ( true );
-}
 
 
 /* ======================================================================== //
@@ -283,29 +221,48 @@ void OpenEffectsBox::setDisplay ( DisplayableModule *who ) {
 // ======================================================================== */
 
 
-void OpenEffectsBox::cbPots ( int pot, int newValue ) {
+void OpenEffectsBox::cbPots ( int pot, float newValue ) {
   if ( _verbose >= 12 ) {
     Serial.print ( "Callback pot " );
     Serial.print ( pot );
     Serial.print ( ": new value " ); 
     Serial.println ( newValue );
   }
+    
+  /*
+    Depending on what the active display is, each pot has a different meaning.
+    It is only the pots that have such a dependent function. 
+    Create a method under DisplayableModule called 'notify' that reports
+    changed pots; is called only when a change occurs.
+    When notify is called, it
+      o updates the value dependent on that pot
+      
+  */
   
   // the following fails because it's not the pot that is or is not active...
   // maybe we need "uses" as a function of the display
   // if ( isActive ( _hw.pot [ pot ] ) {
-    _displayIsStale = true;
-  // }
+  // we're moving _displayIsStale into each displayable module
   
+  if ( _displayableModule != NULL ) { 
+    _displayableModule->notify ( pot, newValue );
+    
+    setOutputVolume ( _outputVolume );
   
+    //if ( ( millis() - _lastUpdateAt_ms ) > _displayMinimumUpdatePeriod_ms ) {
+    
+    _displayableModule->display ( _mode, _subMode );
+    _lastUpdateAt_ms = millis ();
+  }  
   
+  //}
   
   _hw.pot [ pot ].clearState ();
 }
 
 void OpenEffectsBox::cbBat0 ( int newValue ) {
 
-  _mode = constrain ( _mode + newValue, 0, nModes - 1 );
+  _mode = constrain ( _mode + newValue, 0, _nModes - 1 );
 
   if ( _verbose >= 12 ) {
     Serial.print ( "Callback bat0: new value " ); 
@@ -314,14 +271,23 @@ void OpenEffectsBox::cbBat0 ( int newValue ) {
     Serial.println ( _mode );
   }
   
+  _subMode = 0;
+  selectDisplay ();
   _hw.bat [ 0 ].clearState ();
 }
 
 void OpenEffectsBox::cbBat1 ( int newValue ) {
+
+  _subMode = constrain ( _subMode + newValue, 0, _nSubModes - 1 );
+
   if ( _verbose >= 12 ) {
     Serial.print ( "Callback bat1: new value " ); 
-    Serial.println ( newValue );
+    Serial.print ( newValue );
+    Serial.print ( "; subMode = " );
+    Serial.println ( _subMode );
   }
+  
+  selectDisplay();
   _hw.bat [ 1 ].clearState ();
 }
 
@@ -337,7 +303,8 @@ void OpenEffectsBox::cbPBs ( int pb, int newValue ) {
   _hw.pb [ pb ].clearState ();
 }
 
-void OpenEffectsBox::cbPedals ( int pedal, int newValue ) {
+void OpenEffectsBox::cbPedals ( int pedal, float newValue ) {
+  newValue *= 1.5;
   if ( _verbose >= 12 ) {
     Serial.print ( "Callback pedal " );
     Serial.print ( pedal );
@@ -347,9 +314,10 @@ void OpenEffectsBox::cbPedals ( int pedal, int newValue ) {
   
   switch ( pedal ) {
     case pedal0:
-      setOutputVolume ( float ( newValue ) * 1.5 / 1023.0 );
+      setOutputVolume ( newValue );
       break;
     case pedal1:
+      setWah ( newValue );
       break;
     default:
       Serial.print ( "Callback with invalid pedal ( " );
@@ -357,6 +325,16 @@ void OpenEffectsBox::cbPedals ( int pedal, int newValue ) {
       Serial.println ( ")" );
       break;
   }
+  
+  if ( _displayableModule != NULL ) { 
+    _displayableModule->notify ( -1, newValue );
+  
+    //if ( ( millis() - _lastUpdateAt_ms ) > _displayMinimumUpdatePeriod_ms ) {
+    
+    _displayableModule->display ( _mode, _subMode );
+    _lastUpdateAt_ms = millis ();
+  }  
+
   _hw.pedal [ pedal ].clearState ();
 }
 
@@ -374,6 +352,95 @@ void OpenEffectsBox::cbPBBoost ( int newValue ) {
   if ( ! newValue ) return;
   _boostP = !_boostP;
   _hw.setLED ( ledBoost, _boostP ? 0x102010 : 0x201010 );
+}
+
+/* ======================================================================== //
+
+                  support code
+
+// ======================================================================== */
+
+void OpenEffectsBox::setDisplay ( DisplayableModule *who ) {
+  if ( _displayableModule != NULL ) _displayableModule->activate ( false );
+  _displayableModule = who;
+  _displayableModule->activate ( true );
+  if ( _displayableModule != NULL ) _displayableModule->display ( _mode, _subMode );
+}
+
+void OpenEffectsBox::selectDisplay () {
+  switch ( _mode ) {
+    case 0:  // mode0
+      _nSubModes = 1;
+      setDisplay ( & _mode0 );
+      break;
+      
+    case 1:  // input mixer
+      _nSubModes = 3;
+      switch ( _subMode ) {
+        case 0:
+          setDisplay ( & _mixers [ idx_inputMixer ] );
+          break;
+        case 1:
+          setDisplay ( & _sines [ idx_inputSine ] );
+          break;
+        case 2:
+          setDisplay ( & _tonesweeps [ idx_inputTonesweep ] );
+          break;
+        default:
+          break;
+      }
+      break;
+      
+    case 2:  // bitcrusher
+      _nSubModes = 1;
+      setDisplay ( & _bitcrushers [ idx_Bitcrusher ] );
+      break;
+    
+    case 3:  // multiply
+      _nSubModes = 4;
+      switch ( _subMode ) {
+        case 0:
+          setDisplay ( & _mixers [ idx_mpyMixer ] );
+          break;
+        case 1:
+          setDisplay ( & _dcs [ idx_mpyDC ] );
+          break;
+        case 2:
+          setDisplay ( & _sines [ idx_mpy_sine ] );
+          break;
+        case 3:
+          setDisplay ( & _tonesweeps [ idx_mpyTonesweep ] );
+          break;
+        case 4:  // waveform1
+          //setDisplay ( & _tonesweeps [ idx_inputTonesweep ] );
+          break;
+        default:
+          break;
+      }
+      break;
+      
+    case 4:  // chorus
+      _nSubModes = 1;
+      setDisplay ( & _chori [ idx_Chorus ] );
+      break;
+      
+    case 5:  // flange
+      _nSubModes = 1;
+      setDisplay ( & _flanges [ idx_Flange ] );
+      break;
+      
+    default:
+      break;
+  }
+  
+  
+  if ( _displayableModule != NULL ) { 
+  
+    //if ( ( millis() - _lastUpdateAt_ms ) > _displayMinimumUpdatePeriod_ms ) {
+    
+    _displayableModule->display ( _mode, _subMode, true );  // true forces redisplay
+    _lastUpdateAt_ms = millis ();
+  }  
 }
 
 
@@ -411,6 +478,20 @@ void OpenEffectsBox::setOutputVolume ( float volume ) {
     Serial.print ( "setOutputVolume: new value " ); 
     Serial.println ( _outputVolume );
   }
-  _hw.setVU ( int ( volume * 7.01 ) );
-  _mixers [ outputMixer ].setGain ( 0, _outputVolume );
+  _hw.setVU ( int ( volume * 5 ), 1, 5 );
+  _mixers [ idx_outputMixer ].setGain ( 0, _outputVolume );
+  _mode0.notify ( -1, _outputVolume );
+}
+
+void OpenEffectsBox::setWah ( float wah ) {
+  _wah = wah;
+  if ( _verbose >= 22 ) {
+    Serial.print ( "setWah: new value " ); 
+    Serial.println ( _wah );
+  }
+  _mixers [ idx_mpyMixer ].setGain ( ch_mpyMixer_sine, 1.0 );
+  float value = Utility::fmapc ( Utility::expmap ( wah ), 0.0, 1.0, 55.0, 440.0 * 16.0 );
+  _sines [ idx_mpy_sine ].setFrequency ( value );
+  _hw.setVU ( int ( wah * 7 ) );
+
 }

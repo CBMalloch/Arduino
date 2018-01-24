@@ -89,7 +89,15 @@ Observations:
     Teensy 3.6 doesn't boot properly. Spectrum power supply,
     same thing. Oops on me. Appears to non-boot because my program was 
     waiting forever for Serial to come up...
-
+    
+Left to do: 
+  filter1, with pedal1 wah
+  mixer5
+  
+  reverb1
+  delayExt1
+  mixer2
+    
 ===============================================================================
 
 Additional observations:

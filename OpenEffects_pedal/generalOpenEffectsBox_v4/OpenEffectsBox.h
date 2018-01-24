@@ -19,7 +19,7 @@
 
 #include "OpenEffectsBoxHW.h"
 
-#define OpenEffectsBox_VERSION "4.000.004"
+#define OpenEffectsBox_VERSION "4.000.007"
 
 #include <Arduino.h>
 #include <Print.h>
@@ -30,11 +30,17 @@
 #include <SD.h>
 #include <SerialFlash.h>
 
+#include "Mode0.h"
 #include "Mixer.h"
 #include "Sine.h"
+#include "Tonesweep.h"
+#include "Bitcrusher.h"
+#include "DC.h"
+#include "Chorus.h"
+#include "Flange.h"
 
 #define OpenEffectsBox_VERBOSE_DEFAULT 12
-#define OpenEffectsBox_NMODES 7
+#define OpenEffectsBox_NMODES 10
     
 class OpenEffectsBox {
   public:
@@ -42,7 +48,7 @@ class OpenEffectsBox {
     OpenEffectsBox ();  // constructor
     void setVerbose ( int i );
     
-    void init ( int verbose = OpenEffectsBox_VERBOSE_DEFAULT );
+    void init ( char * version, int verbose = OpenEffectsBox_VERBOSE_DEFAULT );
     void tickle ();    
     
   protected:
@@ -50,7 +56,7 @@ class OpenEffectsBox {
   private:
 
     int _verbose;
-    #define nModes OpenEffectsBox_NMODES
+    #define _nModes OpenEffectsBox_NMODES
     int _nSubModes;
     int _mode, _subMode;
     
@@ -61,59 +67,73 @@ class OpenEffectsBox {
     
     OpenEffectsBoxHW _hw;
     
+    void selectDisplay ();
+    
     void sgtl5000_init ();
 
-    void cbPots ( int pot, int newValue );
+    void cbPots ( int pot, float newValue );
     void cbBat0 ( int newValue );
     void cbBat1 ( int newValue );
     void cbPBs ( int pb, int newValue );
     void cbPBOnOff ( int newValue );
     void cbPBBoost ( int newValue );
-    void cbPedals ( int pedal, int newValue );
+    void cbPedals ( int pedal, float newValue );
     
+    Mode0 _mode0;
     #define _nMixers 4
     Mixer _mixers [ _nMixers ];
-    #define _nSines 1
+    #define _nSines 2
     Sine _sines [ _nSines ];
+    #define _nTonesweeps 2
+    Tonesweep _tonesweeps [ _nTonesweeps ];
+    #define _nBitcrushers 1
+    Bitcrusher _bitcrushers [ _nBitcrushers ];
+    #define _nDCs 1
+    DC _dcs [ _nDCs ];
+    #define _nChori 1
+    Chorus _chori [ _nChori ];
+    #define _nFlanges 1
+    Flange _flanges [ _nFlanges ];
     
     void setOutputVolume ( float volume );
+    void setWah ( float wah );
 
     /* *****************************************************
         audio system definitions and variable setups
     // *****************************************************/
 
-    #define inputMixer              0
-    #define input_mixer_input_L     0
-    #define input_mixer_input_R     1
-    #define input_mixer_tuning_sine 2
-    #define input_mixer_tonesweep1  3
-    #define mpyMixer                2
-    #define delayMixer              1
-    #define outputMixer             3
+    const static int idx_inputMixer               = 0;
+    const static int idx_mpyMixer                 = 1;
+    const static int idx_delayMixer               = 2;
+    const static int idx_outputMixer              = 3;
     
-    #define inputSine               0
-
-    #if 1
-    #define FLANGE_DELAY_LENGTH ( 2 * AUDIO_BLOCK_SAMPLES )
-    int s_idx = 2 * FLANGE_DELAY_LENGTH / 4;
-    int s_depth = FLANGE_DELAY_LENGTH / 4;
-    double s_freq = 3;
-    #else
-    #define FLANGE_DELAY_LENGTH ( 12 * AUDIO_BLOCK_SAMPLES )
-    int s_idx = 3 * FLANGE_DELAY_LENGTH / 4;
-    int s_depth = FLANGE_DELAY_LENGTH / 8;
-    double s_freq = 0.0625;
-    #endif
-    short flangeDelayLine [ FLANGE_DELAY_LENGTH ];
-    #define CHORUS_DELAY_LENGTH ( 16 * AUDIO_BLOCK_SAMPLES )
-    short chorusDelayLine [ CHORUS_DELAY_LENGTH ];
-    #define mpy_mixer_DC          0
-    #define mpy_mixer_sine2       1
-    #define mpy_mixer_tonesweep2  2
+    const static int idx_inputSine                = 0;
+    const static int idx_mpy_sine                 = 1;
+    
+    const static int idx_inputTonesweep           = 0;
+    const static int idx_mpyTonesweep            = 1;
+    
+    const static int idx_Bitcrusher               = 0;
+    const static int idx_mpyDC                    = 0; 
+    const static int idx_Chorus                   = 0;
+    const static int idx_Flange                   = 0;
+    
+    const static int ch_inputMixer_input_L       = 0;
+    const static int ch_inputMixer_input_R       = 1;
+    const static int ch_inputMixer_tuning_sine   = 2;
+    const static int ch_inputMixer_tonesweep1    = 3;
+    
+    const static int ch_mpyMixer_dc               = 0;
+    const static int ch_mpyMixer_sine             = 1;
+    const static int ch_mpyMixer_sweep            = 2;
+    const static int ch_mpyMixer_wave             = 3;
+    
+    const static int ch_outputMixer               = 0;
+    
 
     float _outputVolume = 1.0;
+    float _wah = 0.0;
     
-    bool _displayIsStale = true;
     unsigned long _lastUpdateAt_ms = 0UL;
     unsigned long _displayUpdatePeriod_ms = 200UL;
     const unsigned long _displayMinimumUpdatePeriod_ms = 500UL;

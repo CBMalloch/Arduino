@@ -32,11 +32,49 @@ void Sine::setFrequency ( float frequency ) {
     Serial.print ( "\n" );\
   }
   _sine->frequency ( _frequency );
+  
+  /*
+    Normally _displayIsStale would be unconditionally set by setFrequency, but 
+    I needed to be able to set the gain without incurring the delay of updating
+    the display. We'll use the _isActive flag to avoid updating a non-showing
+    display!
+  */
+  if ( _isActive ) {
+    _displayIsStale = true;
+  } else {
+    if ( _verbose >= 12 ) {
+      Serial.print ( "Sine " );
+      Serial.print ( _id );
+      Serial.println ( " skipping display of non-active display" );
+    }
+  }
+
 }
 
-void Sine::display () {
+void Sine::notify ( int channel, float value ) {
+  if ( _verbose >= 12 ) {
+    Serial.print ( "Sine " );
+    Serial.print ( _id );
+    Serial.print ( " / " );
+    Serial.print ( channel );
+    Serial.print ( ": " );
+    Serial.println ( value );
+  }
 
-  // somebody will have already issued oled.displayCommon ( mode, subMode )
+  if ( channel != 0 ) return;
+  
+  float frequency = Utility::fmapc ( Utility::expmap ( value ), 0.0, 1.0, 55.0, 440.0 * 16.0 );
+   
+  setFrequency ( frequency );
+  
+}
+
+void Sine::display ( int mode, int subMode, bool force ) {
+
+  if ( ! force && ! _displayIsStale ) return;
+  
+  _oebhw->oled.displayCommon ( mode, subMode );
+
   
   if ( _verbose >= 12 ) {
     Serial.print ( "Sine " );
@@ -48,8 +86,11 @@ void Sine::display () {
 
   _oebhw->oled.setTextSize ( 2 );
   _oebhw->oled.setCursor ( 0, 0 );
-  _oebhw->oled.print ( _name );
-  _oebhw->oled.print ( " freq" );
+  if ( strlen ( _name ) > 0 ) {
+    _oebhw->oled.print ( _name );
+    _oebhw->oled.print ( " " );
+  }
+  _oebhw->oled.print ( "freq" );
   
   _oebhw->oled.setTextSize ( 2 );
   _oebhw->oled.setCursor ( 30, 16 );
@@ -58,4 +99,5 @@ void Sine::display () {
 
   _oebhw->oled.display();  // note takes about 100ms!!!
   
+  _displayIsStale = false;
 }
