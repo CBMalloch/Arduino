@@ -1,0 +1,228 @@
+\hypertarget{class_open_effects_box_h_w}{}\section{Open\+Effects\+Box\+HW Class Reference}
+\label{class_open_effects_box_h_w}\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+
+
+The top-\/level wrapper for the Open\+Effects Project hardware.  
+
+
+
+
+{\ttfamily \#include $<$Open\+Effects\+Box\+H\+W.\+h$>$}
+
+
+
+Collaboration diagram for Open\+Effects\+Box\+HW\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_open_effects_box_h_w__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_open_effects_box_h_w_a5cfe531f432bc672dd08b45568bb09ec}{Open\+Effects\+Box\+HW}} ()
+\item 
+void \mbox{\hyperlink{class_open_effects_box_h_w_a23264e9f5d39eab721501b5a2bd3b190}{set\+Verbose}} (int verbose)
+\item 
+void \mbox{\hyperlink{class_open_effects_box_h_w_ac070397f7c596522c83c7ff1d540e2df}{init}} (int verbose=\mbox{\hyperlink{_open_effects_box_h_w_8h_ab5b85b536bb3e261f523db8c00ea9605}{Open\+Effects\+Box\+H\+W\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}})
+\item 
+void \mbox{\hyperlink{class_open_effects_box_h_w_a4623ed8f605ab7d6a4abedf6879f06ac}{tickle}} ()
+\item 
+void \mbox{\hyperlink{class_open_effects_box_h_w_a8bb57e4e28ba7012045ce7adaa15b78b}{set\+L\+ED}} (int led, unsigned long color=0x101010\+U\+L)
+\item 
+void \mbox{\hyperlink{class_open_effects_box_h_w_a9313d16771542c43c7782c19046caa8d}{set\+VU}} (int n, int mode=1, int warn\+At=1024, unsigned long on\+Color=0x0c4020, unsigned long off\+Color=0x0c0c0c, unsigned long warn\+On\+Color=0x601010, unsigned long warn\+Off\+Color=0x100808)
+\end{DoxyCompactItemize}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_potentiometer}{Potentiometer}} \mbox{\hyperlink{class_open_effects_box_h_w_a7f9ef97832b111faf82ba832cfa42fe6}{pot}} \mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a352d1681e96241516bf636a810bd26d9}{n\+Pots}}\mbox{]}
+\item 
+\mbox{\hyperlink{class_bat_switch}{Bat\+Switch}} \mbox{\hyperlink{class_open_effects_box_h_w_a705b1a8313c014b390897bbc7a7a21a0}{bat}} \mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a36382b6deaaa10e505e0426701830964}{n\+Bats}}\mbox{]}
+\item 
+\mbox{\hyperlink{class_foot_switch}{Foot\+Switch}} \mbox{\hyperlink{class_open_effects_box_h_w_a8d03d86b0d55c135f413a86fff56393c}{pb}} \mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a66b2de1f056e3372214c3244690b509f}{n\+P\+Bs}}\mbox{]}
+\item 
+\mbox{\hyperlink{class_relay}{Relay}} \mbox{\hyperlink{class_open_effects_box_h_w_a106b87ae726618d5f816ad4e9cfe2cbc}{relay}} \mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a6da04c873e299e44ccf5a2fe43f50ae1}{n\+Relays}}\mbox{]}
+\item 
+\mbox{\hyperlink{class_pedal}{Pedal}} \mbox{\hyperlink{class_open_effects_box_h_w_a1a6432eed1b73a5b3cbf18da9085beb1}{pedal}} \mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a4fea7d8a44c63d401b302fd9ce5964bf}{n\+Pedals}}\mbox{]}
+\item 
+\mbox{\hyperlink{class_oled}{Oled}} \mbox{\hyperlink{class_open_effects_box_h_w_a567084cd766ac8fa8966e6b8f749f210}{oled}}
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+The top-\/level wrapper for the Open\+Effects Project hardware. 
+
+\subsection*{Hardware Definitions}
+
+The hardware includes pots bat switches stomp \char`\"{}pb\char`\"{} pushbuttons relays jacks for expression pedals Neo\+Pixels an O\+L\+ED graphics display
+
+This file is where the pin assignments are made. All of them.
+
+\subsubsection*{N O T E S}
+
+I burned out my original Open\+Effects board. It is now replaced, but I installed {\itshape momentary} switches to the bat switch locations. So now I can digitally change states, but I need to have a debounced read of these switches and maintain the resulting states. Difficulty\+: the bat switches return analog values, which cannot be used to trigger an interrupt.
+
+Here are the voltages at the analog input pin for each of the 3 positions ( L, C, and R ) of the two switches ( left and right )
+
+\tabulinesep=1mm
+\begin{longtabu} spread 0pt [c]{*{3}{|X[-1]}|}
+\hline
+\rowcolor{\tableheadbgcolor}\textbf{ }&\textbf{ left  }&\textbf{ right   }\\\cline{1-3}
+\endfirsthead
+\hline
+\endfoot
+\hline
+\rowcolor{\tableheadbgcolor}\textbf{ }&\textbf{ left  }&\textbf{ right   }\\\cline{1-3}
+\endhead
+L  &G\+ND  &Vcc   \\\cline{1-3}
+C  &Vcc/2  &Vcc/2   \\\cline{1-3}
+R  &Vcc  &G\+ND   \\\cline{1-3}
+\end{longtabu}
+
+
+I also installed the other bank of input/output jacks; the input is on the R and is 1/4\char`\"{} stereo; the output is on the L and is 1/4\char`\"{} stereo; the two center jacks are for expression pedals. Note that the rightmost of these is labeled Exp1 but goes to A11 on the Teensy, which is described in the schematic as being connected to C\+V\+Input2.
+
+{\bfseries I\+M\+P\+O\+R\+T\+A\+NT\+:} The output, incorporating both L and R channels, is {\itshape stereo}. Using a 1/4" TS (mono) plug in this jack will short out the right channel, and may cause damage to the electronics.
+
+The expression pedals divide bewteen Vcc and G\+ND and return a value somewhere in between. The pinout of the 1/4" stereo jacks for these is
+\begin{DoxyItemize}
+\item T -\/ voltage variably divided by the effects pedal
+\item R -\/ 3\+V3
+\item S -\/ G\+ND
+\end{DoxyItemize}
+
+\subsubsection*{Observations\+: $<$list of hacks I will find during alpha test...$>$}
+
+\subsubsection*{Planned work\+:}
+
+
+\begin{DoxyItemize}
+\item create separate objects for knob, bat, foot switch, relay √
+\item create a method of reinitializing the settings, so we can
+\begin{DoxyItemize}
+\item create a method of creating and activating presets 
+\end{DoxyItemize}
+\end{DoxyItemize}
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{class_open_effects_box_h_w_a5cfe531f432bc672dd08b45568bb09ec}\label{class_open_effects_box_h_w_a5cfe531f432bc672dd08b45568bb09ec}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{Open\+Effects\+Box\+H\+W()}{OpenEffectsBoxHW()}}
+{\footnotesize\ttfamily Open\+Effects\+Box\+H\+W\+::\+Open\+Effects\+Box\+HW (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{class_open_effects_box_h_w_ac070397f7c596522c83c7ff1d540e2df}\label{class_open_effects_box_h_w_ac070397f7c596522c83c7ff1d540e2df}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!init@{init}}
+\index{init@{init}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{init()}{init()}}
+{\footnotesize\ttfamily void Open\+Effects\+Box\+H\+W\+::init (\begin{DoxyParamCaption}\item[{int}]{verbose = {\ttfamily \mbox{\hyperlink{_open_effects_box_h_w_8h_ab5b85b536bb3e261f523db8c00ea9605}{Open\+Effects\+Box\+H\+W\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}}} }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=336pt]{class_open_effects_box_h_w_ac070397f7c596522c83c7ff1d540e2df_cgraph}
+\end{center}
+\end{figure}
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_open_effects_box_h_w_ac070397f7c596522c83c7ff1d540e2df_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_open_effects_box_h_w_a8bb57e4e28ba7012045ce7adaa15b78b}\label{class_open_effects_box_h_w_a8bb57e4e28ba7012045ce7adaa15b78b}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!set\+L\+ED@{set\+L\+ED}}
+\index{set\+L\+ED@{set\+L\+ED}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{set\+L\+E\+D()}{setLED()}}
+{\footnotesize\ttfamily void Open\+Effects\+Box\+H\+W\+::set\+L\+ED (\begin{DoxyParamCaption}\item[{int}]{led,  }\item[{unsigned long}]{color = {\ttfamily 0x101010UL} }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_open_effects_box_h_w_a8bb57e4e28ba7012045ce7adaa15b78b_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_open_effects_box_h_w_a23264e9f5d39eab721501b5a2bd3b190}\label{class_open_effects_box_h_w_a23264e9f5d39eab721501b5a2bd3b190}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!set\+Verbose@{set\+Verbose}}
+\index{set\+Verbose@{set\+Verbose}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{set\+Verbose()}{setVerbose()}}
+{\footnotesize\ttfamily void Open\+Effects\+Box\+H\+W\+::set\+Verbose (\begin{DoxyParamCaption}\item[{int}]{verbose }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{class_open_effects_box_h_w_a9313d16771542c43c7782c19046caa8d}\label{class_open_effects_box_h_w_a9313d16771542c43c7782c19046caa8d}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!set\+VU@{set\+VU}}
+\index{set\+VU@{set\+VU}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{set\+V\+U()}{setVU()}}
+{\footnotesize\ttfamily void Open\+Effects\+Box\+H\+W\+::set\+VU (\begin{DoxyParamCaption}\item[{int}]{n,  }\item[{int}]{mode = {\ttfamily 1},  }\item[{int}]{warn\+At = {\ttfamily 1024},  }\item[{unsigned long}]{on\+Color = {\ttfamily 0x0c4020},  }\item[{unsigned long}]{off\+Color = {\ttfamily 0x0c0c0c},  }\item[{unsigned long}]{warn\+On\+Color = {\ttfamily 0x601010},  }\item[{unsigned long}]{warn\+Off\+Color = {\ttfamily 0x100808} }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_open_effects_box_h_w_a9313d16771542c43c7782c19046caa8d_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_open_effects_box_h_w_a4623ed8f605ab7d6a4abedf6879f06ac}\label{class_open_effects_box_h_w_a4623ed8f605ab7d6a4abedf6879f06ac}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!tickle@{tickle}}
+\index{tickle@{tickle}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{tickle()}{tickle()}}
+{\footnotesize\ttfamily void Open\+Effects\+Box\+H\+W\+::tickle (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_open_effects_box_h_w_a4623ed8f605ab7d6a4abedf6879f06ac_icgraph}
+\end{center}
+\end{figure}
+
+
+\subsection{Member Data Documentation}
+\mbox{\Hypertarget{class_open_effects_box_h_w_a705b1a8313c014b390897bbc7a7a21a0}\label{class_open_effects_box_h_w_a705b1a8313c014b390897bbc7a7a21a0}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!bat@{bat}}
+\index{bat@{bat}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{bat}{bat}}
+{\footnotesize\ttfamily \mbox{\hyperlink{class_bat_switch}{Bat\+Switch}} Open\+Effects\+Box\+H\+W\+::bat\mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a36382b6deaaa10e505e0426701830964}{n\+Bats}}\mbox{]}}
+
+\mbox{\Hypertarget{class_open_effects_box_h_w_a567084cd766ac8fa8966e6b8f749f210}\label{class_open_effects_box_h_w_a567084cd766ac8fa8966e6b8f749f210}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!oled@{oled}}
+\index{oled@{oled}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{oled}{oled}}
+{\footnotesize\ttfamily \mbox{\hyperlink{class_oled}{Oled}} Open\+Effects\+Box\+H\+W\+::oled}
+
+\mbox{\Hypertarget{class_open_effects_box_h_w_a8d03d86b0d55c135f413a86fff56393c}\label{class_open_effects_box_h_w_a8d03d86b0d55c135f413a86fff56393c}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!pb@{pb}}
+\index{pb@{pb}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{pb}{pb}}
+{\footnotesize\ttfamily \mbox{\hyperlink{class_foot_switch}{Foot\+Switch}} Open\+Effects\+Box\+H\+W\+::pb\mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a66b2de1f056e3372214c3244690b509f}{n\+P\+Bs}}\mbox{]}}
+
+\mbox{\Hypertarget{class_open_effects_box_h_w_a1a6432eed1b73a5b3cbf18da9085beb1}\label{class_open_effects_box_h_w_a1a6432eed1b73a5b3cbf18da9085beb1}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!pedal@{pedal}}
+\index{pedal@{pedal}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{pedal}{pedal}}
+{\footnotesize\ttfamily \mbox{\hyperlink{class_pedal}{Pedal}} Open\+Effects\+Box\+H\+W\+::pedal\mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a4fea7d8a44c63d401b302fd9ce5964bf}{n\+Pedals}}\mbox{]}}
+
+\mbox{\Hypertarget{class_open_effects_box_h_w_a7f9ef97832b111faf82ba832cfa42fe6}\label{class_open_effects_box_h_w_a7f9ef97832b111faf82ba832cfa42fe6}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!pot@{pot}}
+\index{pot@{pot}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{pot}{pot}}
+{\footnotesize\ttfamily \mbox{\hyperlink{class_potentiometer}{Potentiometer}} Open\+Effects\+Box\+H\+W\+::pot\mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a352d1681e96241516bf636a810bd26d9}{n\+Pots}}\mbox{]}}
+
+\mbox{\Hypertarget{class_open_effects_box_h_w_a106b87ae726618d5f816ad4e9cfe2cbc}\label{class_open_effects_box_h_w_a106b87ae726618d5f816ad4e9cfe2cbc}} 
+\index{Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}!relay@{relay}}
+\index{relay@{relay}!Open\+Effects\+Box\+HW@{Open\+Effects\+Box\+HW}}
+\subsubsection{\texorpdfstring{relay}{relay}}
+{\footnotesize\ttfamily \mbox{\hyperlink{class_relay}{Relay}} Open\+Effects\+Box\+H\+W\+::relay\mbox{[}\mbox{\hyperlink{_open_effects_box_h_w_8h_a6da04c873e299e44ccf5a2fe43f50ae1}{n\+Relays}}\mbox{]}}
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{_open_effects_box_h_w_8h}{Open\+Effects\+Box\+H\+W.\+h}}\item 
+\mbox{\hyperlink{_open_effects_box_h_w_8cpp}{Open\+Effects\+Box\+H\+W.\+cpp}}\end{DoxyCompactItemize}

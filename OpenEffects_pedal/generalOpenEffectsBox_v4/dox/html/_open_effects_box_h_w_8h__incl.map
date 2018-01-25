@@ -1,0 +1,9 @@
+<map id="OpenEffectsBoxHW.h" name="OpenEffectsBoxHW.h">
+<area shape="rect" id="node7" href="$_potentiometer_8h.html" title="Potentiometer.h" alt="" coords="34,79,149,104"/>
+<area shape="rect" id="node9" href="$_bat_switch_8h.html" title="BatSwitch.h" alt="" coords="183,152,275,177"/>
+<area shape="rect" id="node10" href="$_foot_switch_8h.html" title="FootSwitch.h" alt="" coords="541,152,639,177"/>
+<area shape="rect" id="node12" href="$_pedal_8h.html" title="Pedal.h" alt="" coords="198,79,265,104"/>
+<area shape="rect" id="node13" href="$_relay_8h.html" title="Relay.h" alt="" coords="400,152,466,177"/>
+<area shape="rect" id="node14" href="$_oled_8h.html" title="Oled.h" alt="" coords="664,152,724,177"/>
+<area shape="rect" id="node8" href="$_utility_8h.html" title="Utility.h" alt="" coords="45,152,109,177"/>
+</map>

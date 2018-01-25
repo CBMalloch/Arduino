@@ -17,12 +17,13 @@ AudioAnalyzePeak         peak1;          //xy=379,135
 AudioEffectMultiply      multiply1;      //xy=396,338
 AudioEffectChorus        chorus1;        //xy=406,399
 AudioEffectFlange        flange1;        //xy=422,456
-AudioFilterStateVariable filter1;        //xy=441,521
-AudioEffectReverb        reverb1;        //xy=466,590
-AudioEffectDelayExternal delayExt1;      //xy=590,333
-AudioMixer4              mixer4;         //xy=661,546
-AudioMixer4              mixer2;         //xy=729,316
-AudioOutputI2S           i2s2;           //xy=794,547
+AudioFilterStateVariable filter1;        //xy=443,522
+AudioMixer4              mixer5;         //xy=620,535
+AudioEffectReverb        reverb1;        //xy=655,218
+AudioEffectDelayExternal delayExt1;      //xy=817,266
+AudioMixer4              mixer4;         //xy=888,479
+AudioMixer4              mixer2;         //xy=956,249
+AudioOutputI2S           i2s2;           //xy=1021,480
 AudioConnection          patchCord1(i2s1, 0, mixer1, 0);
 AudioConnection          patchCord2(i2s1, 1, mixer1, 1);
 AudioConnection          patchCord3(sine1, 0, mixer1, 2);
@@ -34,30 +35,33 @@ AudioConnection          patchCord8(tonesweep2, 0, mixer3, 2);
 AudioConnection          patchCord9(mixer1, bitcrusher1);
 AudioConnection          patchCord10(mixer1, peak1);
 AudioConnection          patchCord11(mixer3, 0, multiply1, 1);
+
+// route around the waveshaper, at least for now.
+// more trouble than it's worth to remove it from the design tool
 // AudioConnection          patchCord12(bitcrusher1, waveshape1);
 // AudioConnection          patchCord13(waveshape1, 0, multiply1, 0);
-
 AudioConnection          patchCord12(bitcrusher1, 0, multiply1, 0);
 AudioConnection          patchCord13(flange1, 0, mixer4, 0);
-
 
 AudioConnection          patchCord14(multiply1, chorus1);
 AudioConnection          patchCord15(chorus1, flange1);
 AudioConnection          patchCord16(flange1, 0, filter1, 0);
-AudioConnection          patchCord17(filter1, 1, reverb1, 0);
-AudioConnection          patchCord18(reverb1, delayExt1);
-AudioConnection          patchCord19(delayExt1, 0, mixer2, 0);
-AudioConnection          patchCord20(delayExt1, 1, mixer2, 1);
-AudioConnection          patchCord21(delayExt1, 2, mixer2, 2);
-AudioConnection          patchCord22(delayExt1, 3, mixer2, 3);
-AudioConnection          patchCord23(mixer4, 0, i2s2, 0);
-AudioConnection          patchCord24(mixer4, 0, i2s2, 1);
-
-
-// AudioConnection          patchCord25(mixer2, 0, mixer4, 0);
-
-AudioControlSGTL5000     sgtl5000_1;     //xy=595,184
+AudioConnection          patchCord17(flange1, 0, mixer5, 0);
+AudioConnection          patchCord18(filter1, 0, mixer5, 1);
+AudioConnection          patchCord19(filter1, 1, mixer5, 2);
+AudioConnection          patchCord20(filter1, 2, mixer5, 3);
+AudioConnection          patchCord21(mixer5, reverb1);
+AudioConnection          patchCord22(reverb1, delayExt1);
+AudioConnection          patchCord23(delayExt1, 0, mixer2, 0);
+AudioConnection          patchCord24(delayExt1, 1, mixer2, 1);
+AudioConnection          patchCord25(delayExt1, 2, mixer2, 2);
+AudioConnection          patchCord26(delayExt1, 3, mixer2, 3);
+AudioConnection          patchCord27(mixer4, 0, i2s2, 0);
+AudioConnection          patchCord28(mixer4, 0, i2s2, 1);
+AudioConnection          patchCord29(mixer2, 0, mixer4, 0);
+AudioControlSGTL5000     sgtl5000_1;     //xy=646,130
 // GUItool: end automatically generated code
+
 
 OpenEffectsBox::OpenEffectsBox() {
 }
@@ -76,8 +80,8 @@ void OpenEffectsBox::init ( char * version, int verbose ) {
   
   _displayableModule = NULL;
   
-  _lastUpdateAt_ms = 0UL;
-  _displayUpdatePeriod_ms = 0xFFFFFFFF;  // never update...
+  // _lastUpdateAt_ms = 0UL;
+  // _displayUpdatePeriod_ms = 0xFFFFFFFF;  // never update...
 
   _mode = 0;
   _nSubModes = 1;
@@ -136,9 +140,10 @@ void OpenEffectsBox::init ( char * version, int verbose ) {
   
   _mode0.init ( &_hw, version, &_outputVolume );
   
-  _mixers [ idx_inputMixer ].init ( idx_inputMixer, (char *) "input", &mixer1, &_hw, 1.0, 1.0, 0.0, 0.0 );
-  _mixers [ idx_mpyMixer ].init ( idx_mpyMixer, (char *) "mpy", &mixer3, &_hw, 1.0, 0.0, 0.0, 0.0 );
-  _mixers [ idx_delayMixer ].init ( idx_delayMixer,  (char *) "delay",  &mixer2, &_hw, 1.0, 0.0, 0.0, 0.0 );
+  _mixers [ idx_inputMixer ].init  ( idx_inputMixer,  (char *) "input", &mixer1, &_hw, 1.0, 1.0, 0.0, 0.0 );
+  _mixers [ idx_mpyMixer ].init    ( idx_mpyMixer,    (char *) "mpy",   &mixer3, &_hw, 1.0, 0.0, 0.0, 0.0 );
+  _mixers [ idx_filterMixer ].init ( idx_filterMixer, (char *) "wah",   &mixer5, &_hw, 1.0, 0.0, 0.0, 0.0 );
+  _mixers [ idx_delayMixer ].init  ( idx_delayMixer,  (char *) "delay", &mixer2, &_hw, 1.0, 0.0, 0.0, 0.0 );
   _mixers [ idx_outputMixer ].init ( idx_outputMixer, (char *) "outpt", &mixer4, &_hw, 1.0, 0.0, 0.0, 0.0 );
   
   _sines [ idx_inputSine ].init ( idx_inputSine, (char *) "tuner", &sine1, &_hw );
@@ -149,9 +154,13 @@ void OpenEffectsBox::init ( char * version, int verbose ) {
   _dcs [ idx_mpyDC ].init ( idx_mpyDC, (char *) "mpy", &dc1, &_hw );
   _sines [ idx_mpy_sine ].init ( idx_mpy_sine, (char *) "tuner", &sine2, &_hw );
   _tonesweeps [ idx_mpyTonesweep ].init ( idx_mpyTonesweep, (char *) "mpy", &tonesweep2, &_hw );
-  _chori [ idx_Chorus ].init ( idx_Chorus, (char *) "", &chorus1, &_hw );
   
+  _chori [ idx_Chorus ].init ( idx_Chorus, (char *) "", &chorus1, &_hw );
   _flanges [ idx_Flange ].init ( idx_Flange, (char *) "", &flange1, &_hw );
+  
+  _filters [ idx_Filter ].init ( idx_Filter, (char *) "", &filter1, &_hw );
+  _reverbs [ idx_Reverb ].init ( idx_Reverb, (char *) "", &reverb1, &_hw );
+  _delayExts [ idx_DelayExt ].init ( idx_DelayExt, (char *) "", &delayExt1, &_hw );
 
   _onOffP = false; _hw.relay [ 0 ].setValue ( _onOffP );
   _boostP = false; _hw.relay [ 1 ].setValue ( _boostP );
@@ -252,7 +261,7 @@ void OpenEffectsBox::cbPots ( int pot, float newValue ) {
     //if ( ( millis() - _lastUpdateAt_ms ) > _displayMinimumUpdatePeriod_ms ) {
     
     _displayableModule->display ( _mode, _subMode );
-    _lastUpdateAt_ms = millis ();
+   //  _lastUpdateAt_ms = millis ();
   }  
   
   //}
@@ -293,6 +302,7 @@ void OpenEffectsBox::cbBat1 ( int newValue ) {
 
 void OpenEffectsBox::cbPBs ( int pb, int newValue ) {
 
+  // newValue will be 1 if the pedal has been pushed or it's repeating
   pb == 0 ? cbPBOnOff ( newValue ) : cbPBBoost ( newValue );
   if ( _verbose >= 12 ) {
     Serial.print ( "Callback pushbutton " );
@@ -304,7 +314,6 @@ void OpenEffectsBox::cbPBs ( int pb, int newValue ) {
 }
 
 void OpenEffectsBox::cbPedals ( int pedal, float newValue ) {
-  newValue *= 1.5;
   if ( _verbose >= 12 ) {
     Serial.print ( "Callback pedal " );
     Serial.print ( pedal );
@@ -314,6 +323,7 @@ void OpenEffectsBox::cbPedals ( int pedal, float newValue ) {
   
   switch ( pedal ) {
     case pedal0:
+      newValue *= 1.5;
       setOutputVolume ( newValue );
       break;
     case pedal1:
@@ -332,7 +342,7 @@ void OpenEffectsBox::cbPedals ( int pedal, float newValue ) {
     //if ( ( millis() - _lastUpdateAt_ms ) > _displayMinimumUpdatePeriod_ms ) {
     
     _displayableModule->display ( _mode, _subMode );
-    _lastUpdateAt_ms = millis ();
+    // _lastUpdateAt_ms = millis ();
   }  
 
   _hw.pedal [ pedal ].clearState ();
@@ -349,9 +359,19 @@ void OpenEffectsBox::cbPBOnOff ( int newValue ) {
 }
 
 void OpenEffectsBox::cbPBBoost ( int newValue ) {
+  // enable the wah
   if ( ! newValue ) return;
   _boostP = !_boostP;
   _hw.setLED ( ledBoost, _boostP ? 0x102010 : 0x201010 );
+  if ( _boostP ) {
+    // enable wah
+    _mixers [ idx_filterMixer ].setGain ( ch_filterMixer_BP, 1.0 );
+    _filters [ idx_Filter ].setFrequency ( Utility::fmapc ( Utility::expmap ( _wah ), 0.0, 1.0, 55.0, 7040.0 ) );
+  } else {
+    // disable wah
+    _mixers [ idx_filterMixer ].setGain ( ch_filterMixer_BP, 0.0 );
+  }
+    
 }
 
 /* ======================================================================== //
@@ -429,6 +449,31 @@ void OpenEffectsBox::selectDisplay () {
       setDisplay ( & _flanges [ idx_Flange ] );
       break;
       
+    case 6:  // filter
+      _nSubModes = 1;
+      setDisplay ( & _filters [ idx_Filter ] );
+      break;
+      
+    case 7:  // filter mixer
+      _nSubModes = 1;
+      setDisplay ( & _mixers [ idx_filterMixer ] );
+      break;
+      
+    case 8:  // reverb
+      _nSubModes = 1;
+      setDisplay ( & _reverbs [ idx_Reverb ] );
+      break;
+      
+    case 9:  // delayExt
+      _nSubModes = 1;
+      setDisplay ( & _delayExts [ idx_DelayExt ] );
+      break;
+      
+    case 10:  // delay mixer
+      _nSubModes = 1;
+      setDisplay ( & _mixers [ idx_delayMixer ] );
+      break;
+      
     default:
       break;
   }
@@ -439,7 +484,7 @@ void OpenEffectsBox::selectDisplay () {
     //if ( ( millis() - _lastUpdateAt_ms ) > _displayMinimumUpdatePeriod_ms ) {
     
     _displayableModule->display ( _mode, _subMode, true );  // true forces redisplay
-    _lastUpdateAt_ms = millis ();
+    // _lastUpdateAt_ms = millis ();
   }  
 }
 
@@ -483,15 +528,13 @@ void OpenEffectsBox::setOutputVolume ( float volume ) {
   _mode0.notify ( -1, _outputVolume );
 }
 
-void OpenEffectsBox::setWah ( float wah ) {
+void OpenEffectsBox::setWah ( float wah ) {  // 0.0 - 1.0
   _wah = wah;
   if ( _verbose >= 22 ) {
     Serial.print ( "setWah: new value " ); 
     Serial.println ( _wah );
   }
-  _mixers [ idx_mpyMixer ].setGain ( ch_mpyMixer_sine, 1.0 );
-  float value = Utility::fmapc ( Utility::expmap ( wah ), 0.0, 1.0, 55.0, 440.0 * 16.0 );
-  _sines [ idx_mpy_sine ].setFrequency ( value );
-  _hw.setVU ( int ( wah * 7 ) );
-
+  if ( ! _boostP ) return;  // _boostP enables the wah pedal's action
+  _filters [ idx_Filter ].setFrequency ( Utility::fmapc ( Utility::expmap ( _wah ), 0.0, 1.0, 55.0, 7040.0 ) );
+  _hw.setVU ( int ( wah * 7.2 ) );
 }

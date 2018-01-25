@@ -1,0 +1,25 @@
+var searchData=
+[
+  ['_5fdisplayablemodule_5fverbose_5fdefault',['_DisplayableModule_VERBOSE_DEFAULT',['../_displayable_module_8h.html#a3da363a9adf1ffbb41cf0336b58d154e',1,'DisplayableModule.h']]],
+  ['_5fdisplayisstale',['_displayIsStale',['../class_displayable_module.html#add6db9c66946829488facc41a8a9331a',1,'DisplayableModule']]],
+  ['_5fid',['_id',['../class_displayable_module.html#af06d4fc8c566bb4bb23a46b4c9951826',1,'DisplayableModule']]],
+  ['_5fisactive',['_isActive',['../class_displayable_module.html#a3f7442a98e7b99e753270202b2301310',1,'DisplayableModule']]],
+  ['_5fname',['_name',['../class_displayable_module.html#af26ba38e9f363b6c427c53871ecd6a82',1,'DisplayableModule']]],
+  ['_5fnbitcrushers',['_nBitcrushers',['../_open_effects_box_8h.html#a6866005ca1476a84689a4b4822001859',1,'OpenEffectsBox.h']]],
+  ['_5fnchori',['_nChori',['../_open_effects_box_8h.html#a64c8b5e314b0d39888fb63be22f6f840',1,'OpenEffectsBox.h']]],
+  ['_5fndcs',['_nDCs',['../_open_effects_box_8h.html#aa58523ed5257983a510c8c52678dabe5',1,'OpenEffectsBox.h']]],
+  ['_5fndelayexts',['_nDelayExts',['../_open_effects_box_8h.html#ab3c78d5b372c798b12f38912843bf9c1',1,'OpenEffectsBox.h']]],
+  ['_5fnfilters',['_nFilters',['../_open_effects_box_8h.html#a814a6789ab21ad1ee3ca00f3288a38b3',1,'OpenEffectsBox.h']]],
+  ['_5fnflanges',['_nFlanges',['../_open_effects_box_8h.html#ac6b7a40d935daf1f693e16e1a72e5333',1,'OpenEffectsBox.h']]],
+  ['_5fnmixers',['_nMixers',['../_open_effects_box_8h.html#a445d92ee18d2309cef3816f1672e3eca',1,'OpenEffectsBox.h']]],
+  ['_5fnmodes',['_nModes',['../_open_effects_box_8h.html#a4519f2ed1c5bb1b18f8a0e36b12d8668',1,'OpenEffectsBox.h']]],
+  ['_5fnreverbs',['_nReverbs',['../_open_effects_box_8h.html#a5aa0cd3061ef9838572df0d15a249530',1,'OpenEffectsBox.h']]],
+  ['_5fnsines',['_nSines',['../_open_effects_box_8h.html#a14466abf042237876ce15bb696a1a952',1,'OpenEffectsBox.h']]],
+  ['_5fntonesweeps',['_nTonesweeps',['../_open_effects_box_8h.html#aeddb458f808d14325a627272ee457128',1,'OpenEffectsBox.h']]],
+  ['_5foebhw',['_oebhw',['../class_displayable_module.html#a9d2fcd94a6963583f8b4207fb0ee293f',1,'DisplayableModule']]],
+  ['_5foled_5fverbose_5fdefault',['_Oled_VERBOSE_DEFAULT',['../_oled_8h.html#a709eafcdb5f29b4e09e40afd3797bf1f',1,'Oled.h']]],
+  ['_5fpedal_5fverbose_5fdefault',['_Pedal_VERBOSE_DEFAULT',['../_pedal_8h.html#aef931352995575197c1519d764ea7ef6',1,'Pedal.h']]],
+  ['_5fpotentiometer_5fverbose_5fdefault',['_Potentiometer_VERBOSE_DEFAULT',['../_potentiometer_8h.html#ada534779e17a276eadfea81c53d6bd03',1,'Potentiometer.h']]],
+  ['_5fverbose',['_verbose',['../class_displayable_module.html#a1688c41afaaae55f3c9597ee263904d0',1,'DisplayableModule']]],
+  ['_5fversionstrlen',['_versionStrLen',['../_mode0_8h.html#af4733a1448f9485ae76a9660b462a374',1,'Mode0.h']]]
+];

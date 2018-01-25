@@ -1,0 +1,158 @@
+\hypertarget{_open_effects_box_8h}{}\section{Open\+Effects\+Box.\+h File Reference}
+\label{_open_effects_box_8h}\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+{\ttfamily \#include \char`\"{}Open\+Effects\+Box\+H\+W.\+h\char`\"{}}\newline
+{\ttfamily \#include $<$Arduino.\+h$>$}\newline
+{\ttfamily \#include $<$Print.\+h$>$}\newline
+{\ttfamily \#include $<$Audio.\+h$>$}\newline
+{\ttfamily \#include $<$Wire.\+h$>$}\newline
+{\ttfamily \#include $<$S\+P\+I.\+h$>$}\newline
+{\ttfamily \#include $<$S\+D.\+h$>$}\newline
+{\ttfamily \#include $<$Serial\+Flash.\+h$>$}\newline
+{\ttfamily \#include \char`\"{}Mode0.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Mixer.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Sine.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Tonesweep.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Bitcrusher.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}D\+C.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Chorus.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Flange.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Filter.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Reverb.\+h\char`\"{}}\newline
+{\ttfamily \#include \char`\"{}Delay\+Ext.\+h\char`\"{}}\newline
+Include dependency graph for Open\+Effects\+Box.\+h\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{_open_effects_box_8h__incl}
+\end{center}
+\end{figure}
+This graph shows which files directly or indirectly include this file\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=326pt]{_open_effects_box_8h__dep__incl}
+\end{center}
+\end{figure}
+\subsection*{Classes}
+\begin{DoxyCompactItemize}
+\item 
+class \mbox{\hyperlink{class_open_effects_box}{Open\+Effects\+Box}}
+\begin{DoxyCompactList}\small\item\em \mbox{\hyperlink{class_open_effects_box}{Open\+Effects\+Box}} -\/ main class to abstract the firmware of the Audio\+Effects web development toolkit for application to the Open\+Effects Project being developed by Øyvind Mjanger. \end{DoxyCompactList}\end{DoxyCompactItemize}
+\subsection*{Macros}
+\begin{DoxyCompactItemize}
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a25210229a37e68d325b3e7b7cc5c822b}{Open\+Effects\+Box\+\_\+\+V\+E\+R\+S\+I\+ON}}~\char`\"{}4.\+000.\+007\char`\"{}
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_aa08a10c75cee6b15fc7197be8c849b48}{Open\+Effects\+Box\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}}~12
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a032cd0d08597e21c3d40a97b0fdc3bfa}{Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES}}~11
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a4519f2ed1c5bb1b18f8a0e36b12d8668}{\+\_\+n\+Modes}}~\mbox{\hyperlink{_open_effects_box_8h_a032cd0d08597e21c3d40a97b0fdc3bfa}{Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES}}
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a445d92ee18d2309cef3816f1672e3eca}{\+\_\+n\+Mixers}}~5
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a14466abf042237876ce15bb696a1a952}{\+\_\+n\+Sines}}~2
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_aeddb458f808d14325a627272ee457128}{\+\_\+n\+Tonesweeps}}~2
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a6866005ca1476a84689a4b4822001859}{\+\_\+n\+Bitcrushers}}~1
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_aa58523ed5257983a510c8c52678dabe5}{\+\_\+n\+D\+Cs}}~1
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a64c8b5e314b0d39888fb63be22f6f840}{\+\_\+n\+Chori}}~1
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_ac6b7a40d935daf1f693e16e1a72e5333}{\+\_\+n\+Flanges}}~1
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a814a6789ab21ad1ee3ca00f3288a38b3}{\+\_\+n\+Filters}}~1
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_a5aa0cd3061ef9838572df0d15a249530}{\+\_\+n\+Reverbs}}~1
+\item 
+\#define \mbox{\hyperlink{_open_effects_box_8h_ab3c78d5b372c798b12f38912843bf9c1}{\+\_\+n\+Delay\+Exts}}~1
+\end{DoxyCompactItemize}
+
+
+\subsection{Macro Definition Documentation}
+\mbox{\Hypertarget{_open_effects_box_8h_a6866005ca1476a84689a4b4822001859}\label{_open_effects_box_8h_a6866005ca1476a84689a4b4822001859}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Bitcrushers@{\+\_\+n\+Bitcrushers}}
+\index{\+\_\+n\+Bitcrushers@{\+\_\+n\+Bitcrushers}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Bitcrushers}{\_nBitcrushers}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Bitcrushers~1}
+
+\mbox{\Hypertarget{_open_effects_box_8h_a64c8b5e314b0d39888fb63be22f6f840}\label{_open_effects_box_8h_a64c8b5e314b0d39888fb63be22f6f840}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Chori@{\+\_\+n\+Chori}}
+\index{\+\_\+n\+Chori@{\+\_\+n\+Chori}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Chori}{\_nChori}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Chori~1}
+
+\mbox{\Hypertarget{_open_effects_box_8h_aa58523ed5257983a510c8c52678dabe5}\label{_open_effects_box_8h_aa58523ed5257983a510c8c52678dabe5}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+D\+Cs@{\+\_\+n\+D\+Cs}}
+\index{\+\_\+n\+D\+Cs@{\+\_\+n\+D\+Cs}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+D\+Cs}{\_nDCs}}
+{\footnotesize\ttfamily \#define \+\_\+n\+D\+Cs~1}
+
+\mbox{\Hypertarget{_open_effects_box_8h_ab3c78d5b372c798b12f38912843bf9c1}\label{_open_effects_box_8h_ab3c78d5b372c798b12f38912843bf9c1}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Delay\+Exts@{\+\_\+n\+Delay\+Exts}}
+\index{\+\_\+n\+Delay\+Exts@{\+\_\+n\+Delay\+Exts}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Delay\+Exts}{\_nDelayExts}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Delay\+Exts~1}
+
+\mbox{\Hypertarget{_open_effects_box_8h_a814a6789ab21ad1ee3ca00f3288a38b3}\label{_open_effects_box_8h_a814a6789ab21ad1ee3ca00f3288a38b3}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Filters@{\+\_\+n\+Filters}}
+\index{\+\_\+n\+Filters@{\+\_\+n\+Filters}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Filters}{\_nFilters}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Filters~1}
+
+\mbox{\Hypertarget{_open_effects_box_8h_ac6b7a40d935daf1f693e16e1a72e5333}\label{_open_effects_box_8h_ac6b7a40d935daf1f693e16e1a72e5333}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Flanges@{\+\_\+n\+Flanges}}
+\index{\+\_\+n\+Flanges@{\+\_\+n\+Flanges}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Flanges}{\_nFlanges}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Flanges~1}
+
+\mbox{\Hypertarget{_open_effects_box_8h_a445d92ee18d2309cef3816f1672e3eca}\label{_open_effects_box_8h_a445d92ee18d2309cef3816f1672e3eca}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Mixers@{\+\_\+n\+Mixers}}
+\index{\+\_\+n\+Mixers@{\+\_\+n\+Mixers}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Mixers}{\_nMixers}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Mixers~5}
+
+\mbox{\Hypertarget{_open_effects_box_8h_a4519f2ed1c5bb1b18f8a0e36b12d8668}\label{_open_effects_box_8h_a4519f2ed1c5bb1b18f8a0e36b12d8668}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Modes@{\+\_\+n\+Modes}}
+\index{\+\_\+n\+Modes@{\+\_\+n\+Modes}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Modes}{\_nModes}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Modes~\mbox{\hyperlink{_open_effects_box_8h_a032cd0d08597e21c3d40a97b0fdc3bfa}{Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES}}}
+
+\mbox{\Hypertarget{_open_effects_box_8h_a5aa0cd3061ef9838572df0d15a249530}\label{_open_effects_box_8h_a5aa0cd3061ef9838572df0d15a249530}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Reverbs@{\+\_\+n\+Reverbs}}
+\index{\+\_\+n\+Reverbs@{\+\_\+n\+Reverbs}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Reverbs}{\_nReverbs}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Reverbs~1}
+
+\mbox{\Hypertarget{_open_effects_box_8h_a14466abf042237876ce15bb696a1a952}\label{_open_effects_box_8h_a14466abf042237876ce15bb696a1a952}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Sines@{\+\_\+n\+Sines}}
+\index{\+\_\+n\+Sines@{\+\_\+n\+Sines}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Sines}{\_nSines}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Sines~2}
+
+\mbox{\Hypertarget{_open_effects_box_8h_aeddb458f808d14325a627272ee457128}\label{_open_effects_box_8h_aeddb458f808d14325a627272ee457128}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!\+\_\+n\+Tonesweeps@{\+\_\+n\+Tonesweeps}}
+\index{\+\_\+n\+Tonesweeps@{\+\_\+n\+Tonesweeps}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{\+\_\+n\+Tonesweeps}{\_nTonesweeps}}
+{\footnotesize\ttfamily \#define \+\_\+n\+Tonesweeps~2}
+
+\mbox{\Hypertarget{_open_effects_box_8h_a032cd0d08597e21c3d40a97b0fdc3bfa}\label{_open_effects_box_8h_a032cd0d08597e21c3d40a97b0fdc3bfa}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES@{Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES}}
+\index{Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES@{Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES}{OpenEffectsBox\_NMODES}}
+{\footnotesize\ttfamily \#define Open\+Effects\+Box\+\_\+\+N\+M\+O\+D\+ES~11}
+
+\mbox{\Hypertarget{_open_effects_box_8h_aa08a10c75cee6b15fc7197be8c849b48}\label{_open_effects_box_8h_aa08a10c75cee6b15fc7197be8c849b48}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!Open\+Effects\+Box\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT@{Open\+Effects\+Box\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}}
+\index{Open\+Effects\+Box\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT@{Open\+Effects\+Box\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{Open\+Effects\+Box\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}{OpenEffectsBox\_VERBOSE\_DEFAULT}}
+{\footnotesize\ttfamily \#define Open\+Effects\+Box\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT~12}
+
+\mbox{\Hypertarget{_open_effects_box_8h_a25210229a37e68d325b3e7b7cc5c822b}\label{_open_effects_box_8h_a25210229a37e68d325b3e7b7cc5c822b}} 
+\index{Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}!Open\+Effects\+Box\+\_\+\+V\+E\+R\+S\+I\+ON@{Open\+Effects\+Box\+\_\+\+V\+E\+R\+S\+I\+ON}}
+\index{Open\+Effects\+Box\+\_\+\+V\+E\+R\+S\+I\+ON@{Open\+Effects\+Box\+\_\+\+V\+E\+R\+S\+I\+ON}!Open\+Effects\+Box.\+h@{Open\+Effects\+Box.\+h}}
+\subsubsection{\texorpdfstring{Open\+Effects\+Box\+\_\+\+V\+E\+R\+S\+I\+ON}{OpenEffectsBox\_VERSION}}
+{\footnotesize\ttfamily \#define Open\+Effects\+Box\+\_\+\+V\+E\+R\+S\+I\+ON~\char`\"{}4.\+000.\+007\char`\"{}}
+

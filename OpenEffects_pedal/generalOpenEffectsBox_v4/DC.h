@@ -7,6 +7,12 @@
 
 #define DC_VERBOSE_DEFAULT 12
     
+/*! \brief Wrapper for Audio Design Tool -DC-.
+
+  See [Paul Stoffregen's Audio Design Tool](https://www.pjrc.com/teensy/gui/)
+ 
+*/
+
 class DC : public DisplayableModule {
 
   public:

@@ -10,6 +10,22 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+/*! \brief Wrapper for hardware interface -OLED-.
+
+  The OpenEffects Project hardware includes a small OLED graphical display.
+  
+  I have abstracted some common display elements into this class, so that 
+  any other class using the display doesn't have to redundantly define them.
+  
+  _NOTE:_ Sending information to the OLED is reasonably quick, but calling 
+  display() ( which actually does the rendering and sends the data to the
+  display controller ) takes close to a second. While this runs on the Teensy 
+  and doesn't interrupt the flow of data through the i2s chip, it does affect
+  the Teensy's control of some things ( such as tone sweeps ) and its ability 
+  to react expeditiously to control inputs.
+  
+*/
+
 class Oled : public Adafruit_SSD1306 {
 
   public:

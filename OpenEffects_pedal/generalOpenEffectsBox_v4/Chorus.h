@@ -7,6 +7,12 @@
 
 #define Chorus_VERBOSE_DEFAULT 12
     
+/*! \brief Wrapper for Audio Design Tool -Chorus-.
+
+  See [Paul Stoffregen's Audio Design Tool](https://www.pjrc.com/teensy/gui/)
+ 
+*/
+
 class Chorus : public DisplayableModule {
 
   public:

@@ -13,6 +13,15 @@
 
 #define DisplayableModule_VERBOSE_DEFAULT 12
 
+/*! \brief Base class for any class using the OLED display.
+
+  In order to limit the delays involved in calling display() to the OLED,
+  we want to re-render the display only when something changes that is reflected
+  on the current display. This base class provides the instance variables to 
+  keep track of that.
+
+*/
+
 class DisplayableModule {
 
   public:

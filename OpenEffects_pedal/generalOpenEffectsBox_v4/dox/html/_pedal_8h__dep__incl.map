@@ -1,0 +1,32 @@
+<map id="Pedal.h" name="Pedal.h">
+<area shape="rect" id="node2" href="$_open_effects_box_h_w_8h.html" title="OpenEffectsBoxHW.h" alt="" coords="540,79,690,104"/>
+<area shape="rect" id="node31" href="$_pedal_8cpp.html" title="Pedal.cpp" alt="" coords="715,79,796,104"/>
+<area shape="rect" id="node3" href="$_displayable_module_8h.html" title="DisplayableModule.h" alt="" coords="543,152,688,177"/>
+<area shape="rect" id="node6" href="$_open_effects_box_8h.html" title="OpenEffectsBox.h" alt="" coords="554,299,682,324"/>
+<area shape="rect" id="node30" href="$_open_effects_box_h_w_8cpp.html" title="OpenEffectsBoxHW.cpp" alt="" coords="712,152,876,177"/>
+<area shape="rect" id="node4" href="$_bitcrusher_8h.html" title="Bitcrusher.h" alt="" coords="1076,225,1168,251"/>
+<area shape="rect" id="node9" href="$_chorus_8h.html" title="Chorus.h" alt="" coords="1192,225,1268,251"/>
+<area shape="rect" id="node11" href="$_d_c_8h.html" title="DC.h" alt="" coords="1292,225,1344,251"/>
+<area shape="rect" id="node13" href="$_delay_ext_8h.html" title="DelayExt.h" alt="" coords="59,225,145,251"/>
+<area shape="rect" id="node15" href="$_displayable_module_8cpp.html" title="DisplayableModule.cpp" alt="" coords="893,225,1052,251"/>
+<area shape="rect" id="node16" href="$_filter_8h.html" title="Filter.h" alt="" coords="169,225,230,251"/>
+<area shape="rect" id="node18" href="$_flange_8h.html" title="Flange.h" alt="" coords="253,225,327,251"/>
+<area shape="rect" id="node20" href="$_mode0_8h.html" title="Mode0.h" alt="" coords="351,225,424,251"/>
+<area shape="rect" id="node22" href="$_mixer_8h.html" title="Mixer.h" alt="" coords="498,225,562,251"/>
+<area shape="rect" id="node24" href="$_sine_8h.html" title="Sine.h" alt="" coords="586,225,645,251"/>
+<area shape="rect" id="node26" href="$_tonesweep_8h.html" title="Tonesweep.h" alt="" coords="669,225,769,251"/>
+<area shape="rect" id="node28" href="$_reverb_8h.html" title="Reverb.h" alt="" coords="794,225,869,251"/>
+<area shape="rect" id="node5" href="$_bitcrusher_8cpp.html" title="Bitcrusher.cpp" alt="" coords="1056,299,1162,324"/>
+<area shape="rect" id="node7" href="$general_open_effects_box__v4_8ino.html" title="generalOpenEffectsBox\l_v4.ino" alt="" coords="449,372,611,411"/>
+<area shape="rect" id="node8" href="$_open_effects_box_8cpp.html" title="OpenEffectsBox.cpp" alt="" coords="635,379,777,404"/>
+<area shape="rect" id="node10" href="$_chorus_8cpp.html" title="Chorus.cpp" alt="" coords="1185,299,1275,324"/>
+<area shape="rect" id="node12" href="$_d_c_8cpp.html" title="DC.cpp" alt="" coords="1298,299,1364,324"/>
+<area shape="rect" id="node14" href="$_delay_ext_8cpp.html" title="DelayExt.cpp" alt="" coords="5,299,105,324"/>
+<area shape="rect" id="node17" href="$_filter_8cpp.html" title="Filter.cpp" alt="" coords="130,299,205,324"/>
+<area shape="rect" id="node19" href="$_flange_8cpp.html" title="Flange.cpp" alt="" coords="229,299,316,324"/>
+<area shape="rect" id="node21" href="$_mode0_8cpp.html" title="Mode0.cpp" alt="" coords="340,299,427,324"/>
+<area shape="rect" id="node23" href="$_mixer_8cpp.html" title="Mixer.cpp" alt="" coords="451,299,529,324"/>
+<area shape="rect" id="node25" href="$_sine_8cpp.html" title="Sine.cpp" alt="" coords="707,299,780,324"/>
+<area shape="rect" id="node27" href="$_tonesweep_8cpp.html" title="Tonesweep.cpp" alt="" coords="804,299,918,324"/>
+<area shape="rect" id="node29" href="$_reverb_8cpp.html" title="Reverb.cpp" alt="" coords="941,299,1031,324"/>
+</map>

@@ -1,0 +1,6 @@
+<map id="Mixer::notify" name="Mixer::notify">
+<area shape="rect" id="node2" href="$class_utility.html#abee51df02bf586bd7d6bc36481152402" title="Utility::fmapc" alt="" coords="151,29,249,55"/>
+<area shape="rect" id="node5" href="$class_mixer.html#ab8ff46ce57c3c783de4cefbb6f86b1cc" title="Mixer::setGain" alt="" coords="147,79,254,104"/>
+<area shape="rect" id="node3" href="$class_utility.html#af50f94cc1c9126f9f2334686158f617f" title="Utility::fconstrain" alt="" coords="302,5,421,31"/>
+<area shape="rect" id="node4" href="$class_utility.html#ad35eff6790f16f4afcd546cb5de861c2" title="Utility::fmap" alt="" coords="316,55,407,80"/>
+</map>

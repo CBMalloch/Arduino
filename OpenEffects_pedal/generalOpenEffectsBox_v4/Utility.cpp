@@ -26,6 +26,10 @@ float Utility::fmapc ( float n, float n0, float n9, float y1, float y9 ) {
   return fconstrain ( fmap ( n, n0, n9, y1, y9 ), y1, y9 );
 }
 
+/*!
+  Simulation of the action of an audio-taper pot
+*/
+
 float Utility::expmap ( float x, float fifty_pct_value ) {
   // 0 -> small num; 0.5 -> fifty_pct_value; 1 -> 1
   // good for values of fifty_pct_value from >0 to about 0.4

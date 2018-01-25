@@ -7,6 +7,13 @@
 
 #define Mode0_VERBOSE_DEFAULT 12
     
+/*! \brief Class to instantiate the mode-0 screen.
+
+  Wherein is set the output volume. Alternatively, the volume can be set by an effects 
+  pedal plugged into Exp1.
+ 
+*/
+
 class Mode0 : public DisplayableModule {
 
   public:

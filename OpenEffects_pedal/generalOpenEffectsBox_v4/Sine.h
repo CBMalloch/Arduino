@@ -7,6 +7,11 @@
 
 #define Sine_VERBOSE_DEFAULT 12
     
+/*! \brief Wrapper for Audio Design Tool -Sine-.
+
+  See [Paul Stoffregen's Audio Design Tool](https://www.pjrc.com/teensy/gui/)
+ 
+*/
 class Sine : public DisplayableModule {
 
   public:

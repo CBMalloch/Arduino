@@ -1,0 +1,7 @@
+<map id="Flange::init" name="Flange::init">
+<area shape="rect" id="node2" href="$class_displayable_module.html#a12010231a6a049a1110b642cc1c83efd" title="DisplayableModule::init" alt="" coords="140,12,298,37"/>
+<area shape="rect" id="node4" href="$class_flange.html#a733bc8118f327fc4c31c896642ad49ad" title="Flange::setOffset" alt="" coords="158,61,280,87"/>
+<area shape="rect" id="node5" href="$class_flange.html#a34ba641893065a297d5fe767a1fa2fc4" title="Flange::setDepth" alt="" coords="158,111,281,136"/>
+<area shape="rect" id="node6" href="$class_flange.html#af132f265ce1567691ffa2ce29bb512c6" title="Flange::setDelayFreq" alt="" coords="145,160,294,185"/>
+<area shape="rect" id="node3" href="$class_displayable_module.html#a3c659ed0797811970d156ce342cdb187" title="DisplayableModule::\lsetVerbose" alt="" coords="346,5,488,44"/>
+</map>

@@ -7,6 +7,17 @@
 
 #define FootSwitch_VERSION "0.001.002"
 
+/*! \brief Wrapper for hardware interface -FootSwitch-.
+ 
+  The foot switches are momentary-contact switches. We use the Arduino library
+  Bounce2 to debounce these.
+  I wanted to allow autorepeat for these switches, in case I needed to sense
+  when they were being held down. So instead of using the methods rose() and
+  fell(), which are called exactly once, I used the read() method to poll 
+  the status of the switch.
+
+*/
+
 class FootSwitch {
 
   public:

@@ -7,6 +7,11 @@
 
 #define Tonesweep_VERBOSE_DEFAULT 12
     
+/*! \brief Wrapper for Audio Design Tool -Tonesweep-.
+
+  See [Paul Stoffregen's Audio Design Tool](https://www.pjrc.com/teensy/gui/)
+ 
+*/
 class Tonesweep : public DisplayableModule {
 
   public:

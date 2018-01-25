@@ -1,0 +1,190 @@
+\hypertarget{class_displayable_module}{}\section{Displayable\+Module Class Reference}
+\label{class_displayable_module}\index{Displayable\+Module@{Displayable\+Module}}
+
+
+Base class for any class using the O\+L\+ED display.  
+
+
+
+
+{\ttfamily \#include $<$Displayable\+Module.\+h$>$}
+
+
+
+Inheritance diagram for Displayable\+Module\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_displayable_module__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Displayable\+Module\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_displayable_module__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_displayable_module_a2495c334435664dba66160a00193ca7f}{Displayable\+Module}} ()
+\item 
+void \mbox{\hyperlink{class_displayable_module_a3c659ed0797811970d156ce342cdb187}{set\+Verbose}} (int verbose)
+\item 
+void \mbox{\hyperlink{class_displayable_module_a12010231a6a049a1110b642cc1c83efd}{init}} (int id, char $\ast$name, \mbox{\hyperlink{class_open_effects_box_h_w}{Open\+Effects\+Box\+HW}} $\ast$oebhw, int verbose=\mbox{\hyperlink{_displayable_module_8h_a483eb167fdc6365824170a77f4900236}{Displayable\+Module\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}})
+\item 
+bool \mbox{\hyperlink{class_displayable_module_ac681bcbdec3aa9daeb1d9ade59f0313c}{is\+Active}} ()
+\item 
+void \mbox{\hyperlink{class_displayable_module_a829fc6e70ddf9286a0772e3c1d173e7e}{activate}} (bool val)
+\item 
+virtual void \mbox{\hyperlink{class_displayable_module_a8ae5383931f10c54cff2feef2bc07dee}{notify}} (int channel, float value)
+\item 
+virtual void \mbox{\hyperlink{class_displayable_module_a02de26d62ef508cae9ed07920e21784d}{display}} (int mode, int sub\+Mode, bool force=false)
+\end{DoxyCompactItemize}
+\subsection*{Protected Attributes}
+\begin{DoxyCompactItemize}
+\item 
+int \mbox{\hyperlink{class_displayable_module_a1688c41afaaae55f3c9597ee263904d0}{\+\_\+verbose}}
+\item 
+int \mbox{\hyperlink{class_displayable_module_af06d4fc8c566bb4bb23a46b4c9951826}{\+\_\+id}}
+\item 
+char \mbox{\hyperlink{class_displayable_module_af26ba38e9f363b6c427c53871ecd6a82}{\+\_\+name}} \mbox{[}\mbox{\hyperlink{_displayable_module_8h_a24a04c2abf64a124761ed400e373354f}{name\+Str\+Len}}\mbox{]}
+\item 
+\mbox{\hyperlink{class_open_effects_box_h_w}{Open\+Effects\+Box\+HW}} $\ast$ \mbox{\hyperlink{class_displayable_module_a9d2fcd94a6963583f8b4207fb0ee293f}{\+\_\+oebhw}}
+\item 
+bool \mbox{\hyperlink{class_displayable_module_a3f7442a98e7b99e753270202b2301310}{\+\_\+is\+Active}}
+\item 
+bool \mbox{\hyperlink{class_displayable_module_add6db9c66946829488facc41a8a9331a}{\+\_\+display\+Is\+Stale}}
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Base class for any class using the O\+L\+ED display. 
+
+In order to limit the delays involved in calling \mbox{\hyperlink{class_displayable_module_a02de26d62ef508cae9ed07920e21784d}{display()}} to the O\+L\+ED, we want to re-\/render the display only when something changes that is reflected on the current display. This base class provides the instance variables to keep track of that. 
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{class_displayable_module_a2495c334435664dba66160a00193ca7f}\label{class_displayable_module_a2495c334435664dba66160a00193ca7f}} 
+\index{Displayable\+Module@{Displayable\+Module}!Displayable\+Module@{Displayable\+Module}}
+\index{Displayable\+Module@{Displayable\+Module}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{Displayable\+Module()}{DisplayableModule()}}
+{\footnotesize\ttfamily Displayable\+Module\+::\+Displayable\+Module (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{class_displayable_module_a829fc6e70ddf9286a0772e3c1d173e7e}\label{class_displayable_module_a829fc6e70ddf9286a0772e3c1d173e7e}} 
+\index{Displayable\+Module@{Displayable\+Module}!activate@{activate}}
+\index{activate@{activate}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{activate()}{activate()}}
+{\footnotesize\ttfamily void Displayable\+Module\+::activate (\begin{DoxyParamCaption}\item[{bool}]{val }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{class_displayable_module_a02de26d62ef508cae9ed07920e21784d}\label{class_displayable_module_a02de26d62ef508cae9ed07920e21784d}} 
+\index{Displayable\+Module@{Displayable\+Module}!display@{display}}
+\index{display@{display}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{display()}{display()}}
+{\footnotesize\ttfamily void Displayable\+Module\+::display (\begin{DoxyParamCaption}\item[{int}]{mode,  }\item[{int}]{sub\+Mode,  }\item[{bool}]{force = {\ttfamily false} }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Reimplemented in \mbox{\hyperlink{class_delay_ext_a53d22982c98ab7cc1206744304ecd5a9}{Delay\+Ext}}, \mbox{\hyperlink{class_filter_a3a2062c5c576d18cd734546ca41d29ad}{Filter}}, \mbox{\hyperlink{class_mixer_a13c7c7e025c83d2f9a22b4c16b400551}{Mixer}}, \mbox{\hyperlink{class_bitcrusher_aa5d365b3690a76f968465b9e841720f6}{Bitcrusher}}, \mbox{\hyperlink{class_mode0_a7d43e749cfd1831974f36d7d8e54e221}{Mode0}}, \mbox{\hyperlink{class_chorus_a6a28900025c58af59c7eb70f49347422}{Chorus}}, \mbox{\hyperlink{class_d_c_a006f266e63bdff5042fa2c443e1a04cc}{DC}}, \mbox{\hyperlink{class_reverb_aaf90c9b334f7e1c869c5b406ada68135}{Reverb}}, \mbox{\hyperlink{class_flange_afce68b7e8538cf7bfacdcec8d603f602}{Flange}}, \mbox{\hyperlink{class_sine_a1fcdbe7a2ac18201dfc30cb1dca0b3b3}{Sine}}, and \mbox{\hyperlink{class_tonesweep_ad16e1b0c7eb84827c3ee8a6ae43b0e81}{Tonesweep}}.
+
+\mbox{\Hypertarget{class_displayable_module_a12010231a6a049a1110b642cc1c83efd}\label{class_displayable_module_a12010231a6a049a1110b642cc1c83efd}} 
+\index{Displayable\+Module@{Displayable\+Module}!init@{init}}
+\index{init@{init}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{init()}{init()}}
+{\footnotesize\ttfamily void Displayable\+Module\+::init (\begin{DoxyParamCaption}\item[{int}]{id,  }\item[{char $\ast$}]{name,  }\item[{\mbox{\hyperlink{class_open_effects_box_h_w}{Open\+Effects\+Box\+HW}} $\ast$}]{oebhw,  }\item[{int}]{verbose = {\ttfamily \mbox{\hyperlink{_displayable_module_8h_a483eb167fdc6365824170a77f4900236}{Displayable\+Module\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}}} }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=341pt]{class_displayable_module_a12010231a6a049a1110b642cc1c83efd_cgraph}
+\end{center}
+\end{figure}
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_displayable_module_a12010231a6a049a1110b642cc1c83efd_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_displayable_module_ac681bcbdec3aa9daeb1d9ade59f0313c}\label{class_displayable_module_ac681bcbdec3aa9daeb1d9ade59f0313c}} 
+\index{Displayable\+Module@{Displayable\+Module}!is\+Active@{is\+Active}}
+\index{is\+Active@{is\+Active}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{is\+Active()}{isActive()}}
+{\footnotesize\ttfamily bool Displayable\+Module\+::is\+Active (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{class_displayable_module_a8ae5383931f10c54cff2feef2bc07dee}\label{class_displayable_module_a8ae5383931f10c54cff2feef2bc07dee}} 
+\index{Displayable\+Module@{Displayable\+Module}!notify@{notify}}
+\index{notify@{notify}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{notify()}{notify()}}
+{\footnotesize\ttfamily void Displayable\+Module\+::notify (\begin{DoxyParamCaption}\item[{int}]{channel,  }\item[{float}]{value }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Reimplemented in \mbox{\hyperlink{class_delay_ext_a76001b2a3aad7ce1a2e1220ab7387be4}{Delay\+Ext}}, \mbox{\hyperlink{class_filter_a9cdce58ac2fe0b8beb6d561ab3725041}{Filter}}, \mbox{\hyperlink{class_mixer_a73177ee1e071909ef23ff2e913eb6cbc}{Mixer}}, \mbox{\hyperlink{class_bitcrusher_ae392ad4b140a5121df417ece060911f4}{Bitcrusher}}, \mbox{\hyperlink{class_mode0_a743ebe3d0faccc421d06c9114026a099}{Mode0}}, \mbox{\hyperlink{class_chorus_acb22e9cc93011859d1ae02b05a7388f5}{Chorus}}, \mbox{\hyperlink{class_d_c_a45e51132fbd69668134f3ab13f3668b1}{DC}}, \mbox{\hyperlink{class_reverb_a0a4818faef8203311b3c31eb9d59c277}{Reverb}}, \mbox{\hyperlink{class_flange_a10541758c108d92a73e96ed9f8f1377b}{Flange}}, \mbox{\hyperlink{class_sine_a91e8327318758647ea3e0f856eb3eb60}{Sine}}, and \mbox{\hyperlink{class_tonesweep_a26d324fb0de4aac00a04e7e7e9e812c0}{Tonesweep}}.
+
+\mbox{\Hypertarget{class_displayable_module_a3c659ed0797811970d156ce342cdb187}\label{class_displayable_module_a3c659ed0797811970d156ce342cdb187}} 
+\index{Displayable\+Module@{Displayable\+Module}!set\+Verbose@{set\+Verbose}}
+\index{set\+Verbose@{set\+Verbose}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{set\+Verbose()}{setVerbose()}}
+{\footnotesize\ttfamily void Displayable\+Module\+::set\+Verbose (\begin{DoxyParamCaption}\item[{int}]{verbose }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_displayable_module_a3c659ed0797811970d156ce342cdb187_icgraph}
+\end{center}
+\end{figure}
+
+
+\subsection{Member Data Documentation}
+\mbox{\Hypertarget{class_displayable_module_add6db9c66946829488facc41a8a9331a}\label{class_displayable_module_add6db9c66946829488facc41a8a9331a}} 
+\index{Displayable\+Module@{Displayable\+Module}!\+\_\+display\+Is\+Stale@{\+\_\+display\+Is\+Stale}}
+\index{\+\_\+display\+Is\+Stale@{\+\_\+display\+Is\+Stale}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{\+\_\+display\+Is\+Stale}{\_displayIsStale}}
+{\footnotesize\ttfamily bool Displayable\+Module\+::\+\_\+display\+Is\+Stale\hspace{0.3cm}{\ttfamily [protected]}}
+
+\mbox{\Hypertarget{class_displayable_module_af06d4fc8c566bb4bb23a46b4c9951826}\label{class_displayable_module_af06d4fc8c566bb4bb23a46b4c9951826}} 
+\index{Displayable\+Module@{Displayable\+Module}!\+\_\+id@{\+\_\+id}}
+\index{\+\_\+id@{\+\_\+id}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{\+\_\+id}{\_id}}
+{\footnotesize\ttfamily int Displayable\+Module\+::\+\_\+id\hspace{0.3cm}{\ttfamily [protected]}}
+
+\mbox{\Hypertarget{class_displayable_module_a3f7442a98e7b99e753270202b2301310}\label{class_displayable_module_a3f7442a98e7b99e753270202b2301310}} 
+\index{Displayable\+Module@{Displayable\+Module}!\+\_\+is\+Active@{\+\_\+is\+Active}}
+\index{\+\_\+is\+Active@{\+\_\+is\+Active}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{\+\_\+is\+Active}{\_isActive}}
+{\footnotesize\ttfamily bool Displayable\+Module\+::\+\_\+is\+Active\hspace{0.3cm}{\ttfamily [protected]}}
+
+\mbox{\Hypertarget{class_displayable_module_af26ba38e9f363b6c427c53871ecd6a82}\label{class_displayable_module_af26ba38e9f363b6c427c53871ecd6a82}} 
+\index{Displayable\+Module@{Displayable\+Module}!\+\_\+name@{\+\_\+name}}
+\index{\+\_\+name@{\+\_\+name}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{\+\_\+name}{\_name}}
+{\footnotesize\ttfamily char Displayable\+Module\+::\+\_\+name\mbox{[}\mbox{\hyperlink{_displayable_module_8h_a24a04c2abf64a124761ed400e373354f}{name\+Str\+Len}}\mbox{]}\hspace{0.3cm}{\ttfamily [protected]}}
+
+\mbox{\Hypertarget{class_displayable_module_a9d2fcd94a6963583f8b4207fb0ee293f}\label{class_displayable_module_a9d2fcd94a6963583f8b4207fb0ee293f}} 
+\index{Displayable\+Module@{Displayable\+Module}!\+\_\+oebhw@{\+\_\+oebhw}}
+\index{\+\_\+oebhw@{\+\_\+oebhw}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{\+\_\+oebhw}{\_oebhw}}
+{\footnotesize\ttfamily \mbox{\hyperlink{class_open_effects_box_h_w}{Open\+Effects\+Box\+HW}}$\ast$ Displayable\+Module\+::\+\_\+oebhw\hspace{0.3cm}{\ttfamily [protected]}}
+
+\mbox{\Hypertarget{class_displayable_module_a1688c41afaaae55f3c9597ee263904d0}\label{class_displayable_module_a1688c41afaaae55f3c9597ee263904d0}} 
+\index{Displayable\+Module@{Displayable\+Module}!\+\_\+verbose@{\+\_\+verbose}}
+\index{\+\_\+verbose@{\+\_\+verbose}!Displayable\+Module@{Displayable\+Module}}
+\subsubsection{\texorpdfstring{\+\_\+verbose}{\_verbose}}
+{\footnotesize\ttfamily int Displayable\+Module\+::\+\_\+verbose\hspace{0.3cm}{\ttfamily [protected]}}
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{_displayable_module_8h}{Displayable\+Module.\+h}}\item 
+\mbox{\hyperlink{_displayable_module_8cpp}{Displayable\+Module.\+cpp}}\end{DoxyCompactItemize}

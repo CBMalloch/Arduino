@@ -7,6 +7,12 @@
 
 #define Mixer_VERBOSE_DEFAULT 12
     
+/*! \brief Wrapper for Audio Design Tool -Filter-.
+
+  See [Paul Stoffregen's Audio Design Tool](https://www.pjrc.com/teensy/gui/)
+ 
+*/
+
 class Mixer : public DisplayableModule {
 
   public:

@@ -1,13 +1,5 @@
 #include "OpenEffectsBoxHW.h"
 
-// pots
-// bat switches
-// stomp "pb" pushbuttons
-// relays
-// pedals
-// NeoPixels
-
-
 OpenEffectsBoxHW::OpenEffectsBoxHW() {
 }
 

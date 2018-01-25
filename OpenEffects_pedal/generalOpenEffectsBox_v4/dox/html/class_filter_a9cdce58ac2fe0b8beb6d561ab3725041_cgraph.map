@@ -1,0 +1,8 @@
+<map id="Filter::notify" name="Filter::notify">
+<area shape="rect" id="node2" href="$class_filter.html#afe0720f8c3ed40208ebe59d894bf0645" title="Filter::setFrequency" alt="" coords="146,5,285,31"/>
+<area shape="rect" id="node3" href="$class_utility.html#abee51df02bf586bd7d6bc36481152402" title="Utility::fmapc" alt="" coords="167,55,264,80"/>
+<area shape="rect" id="node6" href="$class_utility.html#ae1259b03eaff875dfb05b040a6fb11b1" title="Utility::expmap" alt="" coords="161,104,270,129"/>
+<area shape="rect" id="node7" href="$class_filter.html#a9bd50f058259b8c3bc83daf99cdc9837" title="Filter::setResonance" alt="" coords="144,153,287,179"/>
+<area shape="rect" id="node4" href="$class_utility.html#af50f94cc1c9126f9f2334686158f617f" title="Utility::fconstrain" alt="" coords="335,31,454,56"/>
+<area shape="rect" id="node5" href="$class_utility.html#ad35eff6790f16f4afcd546cb5de861c2" title="Utility::fmap" alt="" coords="349,80,440,105"/>
+</map>
