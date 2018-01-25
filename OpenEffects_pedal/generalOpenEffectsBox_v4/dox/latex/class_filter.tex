@@ -1,0 +1,175 @@
+\hypertarget{class_filter}{}\section{Filter Class Reference}
+\label{class_filter}\index{Filter@{Filter}}
+
+
+Wrapper for Audio Design Tool -\/\+Filter-\/.  
+
+
+
+
+{\ttfamily \#include $<$Filter.\+h$>$}
+
+
+
+Inheritance diagram for Filter\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=180pt]{class_filter__inherit__graph}
+\end{center}
+\end{figure}
+
+
+Collaboration diagram for Filter\+:
+\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_filter__coll__graph}
+\end{center}
+\end{figure}
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_filter_ad15994c30d497afd567a6445446a249e}{Filter}} ()
+\item 
+void \mbox{\hyperlink{class_filter_aff18613de2ab3bc90035babc58c7b055}{set\+Verbose}} (int verbose)
+\item 
+void \mbox{\hyperlink{class_filter_acff0d2a488a223caa11d48a6147c7feb}{init}} (int id, char $\ast$name, Audio\+Filter\+State\+Variable $\ast$filter, \mbox{\hyperlink{class_open_effects_box_h_w}{Open\+Effects\+Box\+HW}} $\ast$oebhw, int verbose=\mbox{\hyperlink{_filter_8h_aeedb664ae18205202837764d021883e7}{Filter\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}})
+\item 
+void \mbox{\hyperlink{class_filter_a9cdce58ac2fe0b8beb6d561ab3725041}{notify}} (int channel, float value)
+\item 
+void \mbox{\hyperlink{class_filter_a3a2062c5c576d18cd734546ca41d29ad}{display}} (int mode, int sub\+Mode, bool force=false)
+\item 
+void \mbox{\hyperlink{class_filter_afe0720f8c3ed40208ebe59d894bf0645}{set\+Frequency}} (float frequency)
+\item 
+void \mbox{\hyperlink{class_filter_a9bd50f058259b8c3bc83daf99cdc9837}{set\+Resonance}} (float resonance)
+\item 
+void \mbox{\hyperlink{class_filter_ad4e47469cb53f7c7e3f95021c30599cc}{set\+Octave\+Control}} (float octave\+Control)
+\end{DoxyCompactItemize}
+\subsection*{Additional Inherited Members}
+
+
+\subsection{Detailed Description}
+Wrapper for Audio Design Tool -\/\+Filter-\/. 
+
+See \href{https://www.pjrc.com/teensy/gui/}{\tt Paul Stoffregen\textquotesingle{}s Audio Design Tool}
+
+Also see the Wikipedia article on \href{https://en.wikipedia.org/wiki/Wah-wah_pedal}{\tt Wah-\/wah pedals} I am trying to create a wah-\/wah pedal using an expression pedal routed to control the base frequency of this filter. 
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{class_filter_ad15994c30d497afd567a6445446a249e}\label{class_filter_ad15994c30d497afd567a6445446a249e}} 
+\index{Filter@{Filter}!Filter@{Filter}}
+\index{Filter@{Filter}!Filter@{Filter}}
+\subsubsection{\texorpdfstring{Filter()}{Filter()}}
+{\footnotesize\ttfamily Filter\+::\+Filter (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{class_filter_a3a2062c5c576d18cd734546ca41d29ad}\label{class_filter_a3a2062c5c576d18cd734546ca41d29ad}} 
+\index{Filter@{Filter}!display@{display}}
+\index{display@{display}!Filter@{Filter}}
+\subsubsection{\texorpdfstring{display()}{display()}}
+{\footnotesize\ttfamily void Filter\+::display (\begin{DoxyParamCaption}\item[{int}]{mode,  }\item[{int}]{sub\+Mode,  }\item[{bool}]{force = {\ttfamily false} }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Reimplemented from \mbox{\hyperlink{class_displayable_module_a02de26d62ef508cae9ed07920e21784d}{Displayable\+Module}}.
+
+Here is the call graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=305pt]{class_filter_a3a2062c5c576d18cd734546ca41d29ad_cgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_filter_acff0d2a488a223caa11d48a6147c7feb}\label{class_filter_acff0d2a488a223caa11d48a6147c7feb}} 
+\index{Filter@{Filter}!init@{init}}
+\index{init@{init}!Filter@{Filter}}
+\subsubsection{\texorpdfstring{init()}{init()}}
+{\footnotesize\ttfamily void Filter\+::init (\begin{DoxyParamCaption}\item[{int}]{id,  }\item[{char $\ast$}]{name,  }\item[{Audio\+Filter\+State\+Variable $\ast$}]{filter,  }\item[{\mbox{\hyperlink{class_open_effects_box_h_w}{Open\+Effects\+Box\+HW}} $\ast$}]{oebhw,  }\item[{int}]{verbose = {\ttfamily \mbox{\hyperlink{_filter_8h_aeedb664ae18205202837764d021883e7}{Filter\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}}} }\end{DoxyParamCaption})}
+
+Here is the call graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_filter_acff0d2a488a223caa11d48a6147c7feb_cgraph}
+\end{center}
+\end{figure}
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_filter_acff0d2a488a223caa11d48a6147c7feb_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_filter_a9cdce58ac2fe0b8beb6d561ab3725041}\label{class_filter_a9cdce58ac2fe0b8beb6d561ab3725041}} 
+\index{Filter@{Filter}!notify@{notify}}
+\index{notify@{notify}!Filter@{Filter}}
+\subsubsection{\texorpdfstring{notify()}{notify()}}
+{\footnotesize\ttfamily void Filter\+::notify (\begin{DoxyParamCaption}\item[{int}]{channel,  }\item[{float}]{value }\end{DoxyParamCaption})\hspace{0.3cm}{\ttfamily [virtual]}}
+
+
+
+Reimplemented from \mbox{\hyperlink{class_displayable_module_a8ae5383931f10c54cff2feef2bc07dee}{Displayable\+Module}}.
+
+Here is the call graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_filter_a9cdce58ac2fe0b8beb6d561ab3725041_cgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_filter_afe0720f8c3ed40208ebe59d894bf0645}\label{class_filter_afe0720f8c3ed40208ebe59d894bf0645}} 
+\index{Filter@{Filter}!set\+Frequency@{set\+Frequency}}
+\index{set\+Frequency@{set\+Frequency}!Filter@{Filter}}
+\subsubsection{\texorpdfstring{set\+Frequency()}{setFrequency()}}
+{\footnotesize\ttfamily void Filter\+::set\+Frequency (\begin{DoxyParamCaption}\item[{float}]{frequency }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_filter_afe0720f8c3ed40208ebe59d894bf0645_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_filter_ad4e47469cb53f7c7e3f95021c30599cc}\label{class_filter_ad4e47469cb53f7c7e3f95021c30599cc}} 
+\index{Filter@{Filter}!set\+Octave\+Control@{set\+Octave\+Control}}
+\index{set\+Octave\+Control@{set\+Octave\+Control}!Filter@{Filter}}
+\subsubsection{\texorpdfstring{set\+Octave\+Control()}{setOctaveControl()}}
+{\footnotesize\ttfamily void Filter\+::set\+Octave\+Control (\begin{DoxyParamCaption}\item[{float}]{octave\+Control }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_filter_ad4e47469cb53f7c7e3f95021c30599cc_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_filter_a9bd50f058259b8c3bc83daf99cdc9837}\label{class_filter_a9bd50f058259b8c3bc83daf99cdc9837}} 
+\index{Filter@{Filter}!set\+Resonance@{set\+Resonance}}
+\index{set\+Resonance@{set\+Resonance}!Filter@{Filter}}
+\subsubsection{\texorpdfstring{set\+Resonance()}{setResonance()}}
+{\footnotesize\ttfamily void Filter\+::set\+Resonance (\begin{DoxyParamCaption}\item[{float}]{resonance }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_filter_a9bd50f058259b8c3bc83daf99cdc9837_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_filter_aff18613de2ab3bc90035babc58c7b055}\label{class_filter_aff18613de2ab3bc90035babc58c7b055}} 
+\index{Filter@{Filter}!set\+Verbose@{set\+Verbose}}
+\index{set\+Verbose@{set\+Verbose}!Filter@{Filter}}
+\subsubsection{\texorpdfstring{set\+Verbose()}{setVerbose()}}
+{\footnotesize\ttfamily void Filter\+::set\+Verbose (\begin{DoxyParamCaption}\item[{int}]{verbose }\end{DoxyParamCaption})}
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{_filter_8h}{Filter.\+h}}\item 
+\mbox{\hyperlink{_filter_8cpp}{Filter.\+cpp}}\end{DoxyCompactItemize}

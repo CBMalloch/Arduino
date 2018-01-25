@@ -8,6 +8,13 @@
 
 #define Pedal_VERSION "0.001.000"
 
+  /*! \brief Wrapper for hardware interface -Pedal-.
+ 
+    A note on the [handling of potentiometers]
+    (http://cbmalloch.umasscreate.net/wp/uncategorized/the-overloading-of-potentiometers/),
+    which applies also to the potentiometers used in expression pedals.
+
+  */
 
 class Pedal {
 

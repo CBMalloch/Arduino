@@ -1,0 +1,100 @@
+\hypertarget{class_foot_switch}{}\section{Foot\+Switch Class Reference}
+\label{class_foot_switch}\index{Foot\+Switch@{Foot\+Switch}}
+
+
+Wrapper for hardware interface -\/\+Foot\+Switch-\/.  
+
+
+
+
+{\ttfamily \#include $<$Foot\+Switch.\+h$>$}
+
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_foot_switch_ae8a0b76b3a44b865bdcdc3851554ad58}{Foot\+Switch}} ()
+\item 
+void \mbox{\hyperlink{class_foot_switch_af9db72b8850c90fcd857aa97cdc6cc33}{init}} (int id, int pin)
+\item 
+void \mbox{\hyperlink{class_foot_switch_a3bda23682bf3dc91fefa3efa98e9cd1f}{update}} ()
+\item 
+bool \mbox{\hyperlink{class_foot_switch_abc055774bd30c4b6185f323d4e58789e}{changed}} ()
+\item 
+int \mbox{\hyperlink{class_foot_switch_ae93d6b174a73840c5b4d978435d58114}{get\+Value}} ()
+\item 
+void \mbox{\hyperlink{class_foot_switch_a2971bbc4bbc9b14001c350d29f8f7ae9}{clear\+State}} ()
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Wrapper for hardware interface -\/\+Foot\+Switch-\/. 
+
+The foot switches are momentary-\/contact switches. We use the Arduino library Bounce2 to debounce these. I wanted to allow autorepeat for these switches, in case I needed to sense when they were being held down. So instead of using the methods rose() and fell(), which are called exactly once, I used the read() method to poll the status of the switch. 
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{class_foot_switch_ae8a0b76b3a44b865bdcdc3851554ad58}\label{class_foot_switch_ae8a0b76b3a44b865bdcdc3851554ad58}} 
+\index{Foot\+Switch@{Foot\+Switch}!Foot\+Switch@{Foot\+Switch}}
+\index{Foot\+Switch@{Foot\+Switch}!Foot\+Switch@{Foot\+Switch}}
+\subsubsection{\texorpdfstring{Foot\+Switch()}{FootSwitch()}}
+{\footnotesize\ttfamily Foot\+Switch\+::\+Foot\+Switch (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{class_foot_switch_abc055774bd30c4b6185f323d4e58789e}\label{class_foot_switch_abc055774bd30c4b6185f323d4e58789e}} 
+\index{Foot\+Switch@{Foot\+Switch}!changed@{changed}}
+\index{changed@{changed}!Foot\+Switch@{Foot\+Switch}}
+\subsubsection{\texorpdfstring{changed()}{changed()}}
+{\footnotesize\ttfamily bool Foot\+Switch\+::changed (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_foot_switch_abc055774bd30c4b6185f323d4e58789e_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_foot_switch_a2971bbc4bbc9b14001c350d29f8f7ae9}\label{class_foot_switch_a2971bbc4bbc9b14001c350d29f8f7ae9}} 
+\index{Foot\+Switch@{Foot\+Switch}!clear\+State@{clear\+State}}
+\index{clear\+State@{clear\+State}!Foot\+Switch@{Foot\+Switch}}
+\subsubsection{\texorpdfstring{clear\+State()}{clearState()}}
+{\footnotesize\ttfamily void Foot\+Switch\+::clear\+State (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{class_foot_switch_ae93d6b174a73840c5b4d978435d58114}\label{class_foot_switch_ae93d6b174a73840c5b4d978435d58114}} 
+\index{Foot\+Switch@{Foot\+Switch}!get\+Value@{get\+Value}}
+\index{get\+Value@{get\+Value}!Foot\+Switch@{Foot\+Switch}}
+\subsubsection{\texorpdfstring{get\+Value()}{getValue()}}
+{\footnotesize\ttfamily int Foot\+Switch\+::get\+Value (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_foot_switch_ae93d6b174a73840c5b4d978435d58114_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_foot_switch_af9db72b8850c90fcd857aa97cdc6cc33}\label{class_foot_switch_af9db72b8850c90fcd857aa97cdc6cc33}} 
+\index{Foot\+Switch@{Foot\+Switch}!init@{init}}
+\index{init@{init}!Foot\+Switch@{Foot\+Switch}}
+\subsubsection{\texorpdfstring{init()}{init()}}
+{\footnotesize\ttfamily void Foot\+Switch\+::init (\begin{DoxyParamCaption}\item[{int}]{id,  }\item[{int}]{pin }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_foot_switch_af9db72b8850c90fcd857aa97cdc6cc33_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_foot_switch_a3bda23682bf3dc91fefa3efa98e9cd1f}\label{class_foot_switch_a3bda23682bf3dc91fefa3efa98e9cd1f}} 
+\index{Foot\+Switch@{Foot\+Switch}!update@{update}}
+\index{update@{update}!Foot\+Switch@{Foot\+Switch}}
+\subsubsection{\texorpdfstring{update()}{update()}}
+{\footnotesize\ttfamily void Foot\+Switch\+::update (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{_foot_switch_8h}{Foot\+Switch.\+h}}\item 
+\mbox{\hyperlink{_foot_switch_8cpp}{Foot\+Switch.\+cpp}}\end{DoxyCompactItemize}

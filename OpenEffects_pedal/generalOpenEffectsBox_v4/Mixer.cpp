@@ -41,7 +41,7 @@ void Mixer::setGain ( int channel, float gain ) {
   if ( channel < 0 || channel >= nChannels ) return;
   _gains [ channel ] = gain;
   if ( _verbose >= 12 ) {
-    Serial.print ( "                                               Mixer " );
+    Serial.print ( "Mixer " );
     Serial.print ( _id );
     Serial.print ( " gain " );
     Serial.print ( channel );

@@ -1,0 +1,102 @@
+\hypertarget{class_potentiometer}{}\section{Potentiometer Class Reference}
+\label{class_potentiometer}\index{Potentiometer@{Potentiometer}}
+
+
+Wrapper for hardware interface -\/\+Potentiometer-\/.  
+
+
+
+
+{\ttfamily \#include $<$Potentiometer.\+h$>$}
+
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_potentiometer_a266317bbba4856942985925d044b969a}{Potentiometer}} ()
+\item 
+void \mbox{\hyperlink{class_potentiometer_ab1c2e1513f98952487482eb48406f1bb}{init}} (int id, int pin, int verbose=\mbox{\hyperlink{_potentiometer_8h_ada534779e17a276eadfea81c53d6bd03}{\+\_\+\+Potentiometer\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}})
+\item 
+void \mbox{\hyperlink{class_potentiometer_a56e36ed55abee08cbe81ce01687f82ad}{update}} ()
+\item 
+bool \mbox{\hyperlink{class_potentiometer_a518a49f1d9d85ae9bfea32fe6caff3e7}{changed}} ()
+\item 
+float \mbox{\hyperlink{class_potentiometer_a88c44aecdfce24a5dd0e719b94267dc6}{get\+Value}} ()
+\item 
+void \mbox{\hyperlink{class_potentiometer_a7307a8f883fb934f0440b2b4dc47b823}{clear\+State}} ()
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Wrapper for hardware interface -\/\+Potentiometer-\/. 
+
+\subsubsection*{Handling of potentiometers}
+
+Since this design overloads the potentiometers ( for each settings mode, a given potentiometer controls some aspect of a different effect module ), I had to think long and hard about what should happen when a new mode is selected, since the pot can\textquotesingle{}t move to reflect the ( different ) setting of the ( different ) parameter of the ( different ) effect module. I chose to ignore each pot until it is moved, at which time the related effect module setting will ( unfortunately ) jump to the current pot setting. $\ast$(Note to Paul -\/ consider offering a rotary-\/encoder option here...)$\ast$ This brings up a {\itshape different} gotcha. Reading a voltage several times will often yield different values. This will cause the pot value to be perceived as changed. Rats. So I had to add a guard band around the current setting, considering any reading within the guard band to be unchanged. I also added an \href{https://en.wikipedia.org/wiki/Moving_average}{\tt E\+W\+MA smoothing algorithm} to minimize the required size of the guard band. The larger the guard band, the more one has to move the pot in order for the change to be noticed. The longer the averaging period, the more sluggishly the reaction to a change occurs and settles. I had to split the difference. 
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{class_potentiometer_a266317bbba4856942985925d044b969a}\label{class_potentiometer_a266317bbba4856942985925d044b969a}} 
+\index{Potentiometer@{Potentiometer}!Potentiometer@{Potentiometer}}
+\index{Potentiometer@{Potentiometer}!Potentiometer@{Potentiometer}}
+\subsubsection{\texorpdfstring{Potentiometer()}{Potentiometer()}}
+{\footnotesize\ttfamily Potentiometer\+::\+Potentiometer (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{class_potentiometer_a518a49f1d9d85ae9bfea32fe6caff3e7}\label{class_potentiometer_a518a49f1d9d85ae9bfea32fe6caff3e7}} 
+\index{Potentiometer@{Potentiometer}!changed@{changed}}
+\index{changed@{changed}!Potentiometer@{Potentiometer}}
+\subsubsection{\texorpdfstring{changed()}{changed()}}
+{\footnotesize\ttfamily bool Potentiometer\+::changed (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_potentiometer_a518a49f1d9d85ae9bfea32fe6caff3e7_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_potentiometer_a7307a8f883fb934f0440b2b4dc47b823}\label{class_potentiometer_a7307a8f883fb934f0440b2b4dc47b823}} 
+\index{Potentiometer@{Potentiometer}!clear\+State@{clear\+State}}
+\index{clear\+State@{clear\+State}!Potentiometer@{Potentiometer}}
+\subsubsection{\texorpdfstring{clear\+State()}{clearState()}}
+{\footnotesize\ttfamily void Potentiometer\+::clear\+State (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{class_potentiometer_a88c44aecdfce24a5dd0e719b94267dc6}\label{class_potentiometer_a88c44aecdfce24a5dd0e719b94267dc6}} 
+\index{Potentiometer@{Potentiometer}!get\+Value@{get\+Value}}
+\index{get\+Value@{get\+Value}!Potentiometer@{Potentiometer}}
+\subsubsection{\texorpdfstring{get\+Value()}{getValue()}}
+{\footnotesize\ttfamily float Potentiometer\+::get\+Value (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_potentiometer_a88c44aecdfce24a5dd0e719b94267dc6_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_potentiometer_ab1c2e1513f98952487482eb48406f1bb}\label{class_potentiometer_ab1c2e1513f98952487482eb48406f1bb}} 
+\index{Potentiometer@{Potentiometer}!init@{init}}
+\index{init@{init}!Potentiometer@{Potentiometer}}
+\subsubsection{\texorpdfstring{init()}{init()}}
+{\footnotesize\ttfamily void Potentiometer\+::init (\begin{DoxyParamCaption}\item[{int}]{id,  }\item[{int}]{pin,  }\item[{int}]{verbose = {\ttfamily \mbox{\hyperlink{_potentiometer_8h_ada534779e17a276eadfea81c53d6bd03}{\+\_\+\+Potentiometer\+\_\+\+V\+E\+R\+B\+O\+S\+E\+\_\+\+D\+E\+F\+A\+U\+LT}}} }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_potentiometer_ab1c2e1513f98952487482eb48406f1bb_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_potentiometer_a56e36ed55abee08cbe81ce01687f82ad}\label{class_potentiometer_a56e36ed55abee08cbe81ce01687f82ad}} 
+\index{Potentiometer@{Potentiometer}!update@{update}}
+\index{update@{update}!Potentiometer@{Potentiometer}}
+\subsubsection{\texorpdfstring{update()}{update()}}
+{\footnotesize\ttfamily void Potentiometer\+::update (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{_potentiometer_8h}{Potentiometer.\+h}}\item 
+\mbox{\hyperlink{_potentiometer_8cpp}{Potentiometer.\+cpp}}\end{DoxyCompactItemize}

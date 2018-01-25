@@ -1,0 +1,8 @@
+<map id="OpenEffectsBoxHW::init" name="OpenEffectsBoxHW::init">
+<area shape="rect" id="node2" href="$class_potentiometer.html#ab1c2e1513f98952487482eb48406f1bb" title="Potentiometer::init" alt="" coords="217,5,346,31"/>
+<area shape="rect" id="node3" href="$class_bat_switch.html#a144b8789518472a4d5dc19f09968148e" title="BatSwitch::init" alt="" coords="229,55,334,80"/>
+<area shape="rect" id="node4" href="$class_foot_switch.html#af9db72b8850c90fcd857aa97cdc6cc33" title="FootSwitch::init" alt="" coords="226,104,337,129"/>
+<area shape="rect" id="node5" href="$class_relay.html#af8403e742823980f606c09e9508cbf07" title="Relay::init" alt="" coords="242,153,322,179"/>
+<area shape="rect" id="node6" href="$class_pedal.html#aff27b41419b893be77fcdbbc7c1c623d" title="Pedal::init" alt="" coords="242,203,322,228"/>
+<area shape="rect" id="node7" href="$class_oled.html#a36f0818a7144c6983ae765a7a0659a70" title="Oled::init" alt="" coords="245,252,319,277"/>
+</map>

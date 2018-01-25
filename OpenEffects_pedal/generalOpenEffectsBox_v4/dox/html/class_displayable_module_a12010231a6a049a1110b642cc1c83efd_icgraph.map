@@ -1,0 +1,15 @@
+<map id="DisplayableModule::init" name="DisplayableModule::init">
+<area shape="rect" id="node2" href="$class_bitcrusher.html#a8d46a549db08c6c022c55f10b348647d" title="Bitcrusher::init" alt="" coords="215,5,321,31"/>
+<area shape="rect" id="node5" href="$class_chorus.html#a234b46541693909b60a21cf644bd5926" title="Chorus::init" alt="" coords="224,55,313,80"/>
+<area shape="rect" id="node6" href="$class_d_c.html#a767b3f22587703e7f59020d44872f432" title="DC::init" alt="" coords="236,104,301,129"/>
+<area shape="rect" id="node7" href="$class_delay_ext.html#aa7e84d74c1080b5473a7401a5042b305" title="DelayExt::init" alt="" coords="219,153,318,179"/>
+<area shape="rect" id="node8" href="$class_filter.html#acff0d2a488a223caa11d48a6147c7feb" title="Filter::init" alt="" coords="231,203,306,228"/>
+<area shape="rect" id="node9" href="$class_flange.html#a0b08351febfa39989acb6446c096346e" title="Flange::init" alt="" coords="225,252,312,277"/>
+<area shape="rect" id="node10" href="$class_mixer.html#ac6c290ada657f8325a59f37cafaf0c0c" title="Mixer::init" alt="" coords="229,301,308,327"/>
+<area shape="rect" id="node11" href="$class_mode0.html#a21802f200c6e3792ca5f8daf91ce910c" title="Mode0::init" alt="" coords="225,351,312,376"/>
+<area shape="rect" id="node12" href="$class_reverb.html#ae82272ebf02fe46091a72eb04132a1c6" title="Reverb::init" alt="" coords="224,400,313,425"/>
+<area shape="rect" id="node13" href="$class_sine.html#a14a59e91ed90f357c3d28bd9f0433ddb" title="Sine::init" alt="" coords="232,449,305,475"/>
+<area shape="rect" id="node14" href="$class_tonesweep.html#ae427b7379a9f769aa05aeca6ad77bdd5" title="Tonesweep::init" alt="" coords="212,499,325,524"/>
+<area shape="rect" id="node3" href="$class_open_effects_box.html#aea127362d5b00701ced70f20f728b60f" title="OpenEffectsBox::init" alt="" coords="373,252,515,277"/>
+<area shape="rect" id="node4" href="$general_open_effects_box__v4_8ino.html#a4fc01d736fe50cf5b977f755b675f11d" title="setup" alt="" coords="563,252,617,277"/>
+</map>

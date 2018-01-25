@@ -1,0 +1,77 @@
+\hypertarget{class_relay}{}\section{Relay Class Reference}
+\label{class_relay}\index{Relay@{Relay}}
+
+
+Wrapper for hardware interface -\/\+Relay-\/.  
+
+
+
+
+{\ttfamily \#include $<$Relay.\+h$>$}
+
+\subsection*{Public Member Functions}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{class_relay_a8c3f19e1e845315418003cd41d2a6a87}{Relay}} ()
+\item 
+void \mbox{\hyperlink{class_relay_af8403e742823980f606c09e9508cbf07}{init}} (int id, int pin)
+\item 
+void \mbox{\hyperlink{class_relay_ad503697efacdaeb980a9e580a3ae8def}{set\+Value}} (int val)
+\item 
+int \mbox{\hyperlink{class_relay_a79282f246d1314dbd8d1935dbe7dfe44}{get\+Value}} ()
+\end{DoxyCompactItemize}
+
+
+\subsection{Detailed Description}
+Wrapper for hardware interface -\/\+Relay-\/. 
+
+The relays in the Open\+Effects Project hardware select either direct pass-\/through of the signal ( relay not energized ) or routing the signal through the i2s chip ( relay energized ) where it is available to be modified by the firmware. There is one relay each for the R and L channels. The relays are not wired to the foot switches -\/ they are entirely under control of the firmware. 
+
+\subsection{Constructor \& Destructor Documentation}
+\mbox{\Hypertarget{class_relay_a8c3f19e1e845315418003cd41d2a6a87}\label{class_relay_a8c3f19e1e845315418003cd41d2a6a87}} 
+\index{Relay@{Relay}!Relay@{Relay}}
+\index{Relay@{Relay}!Relay@{Relay}}
+\subsubsection{\texorpdfstring{Relay()}{Relay()}}
+{\footnotesize\ttfamily Relay\+::\+Relay (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+
+
+\subsection{Member Function Documentation}
+\mbox{\Hypertarget{class_relay_a79282f246d1314dbd8d1935dbe7dfe44}\label{class_relay_a79282f246d1314dbd8d1935dbe7dfe44}} 
+\index{Relay@{Relay}!get\+Value@{get\+Value}}
+\index{get\+Value@{get\+Value}!Relay@{Relay}}
+\subsubsection{\texorpdfstring{get\+Value()}{getValue()}}
+{\footnotesize\ttfamily int Relay\+::get\+Value (\begin{DoxyParamCaption}{ }\end{DoxyParamCaption})}
+
+\mbox{\Hypertarget{class_relay_af8403e742823980f606c09e9508cbf07}\label{class_relay_af8403e742823980f606c09e9508cbf07}} 
+\index{Relay@{Relay}!init@{init}}
+\index{init@{init}!Relay@{Relay}}
+\subsubsection{\texorpdfstring{init()}{init()}}
+{\footnotesize\ttfamily void Relay\+::init (\begin{DoxyParamCaption}\item[{int}]{id,  }\item[{int}]{pin }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_relay_af8403e742823980f606c09e9508cbf07_icgraph}
+\end{center}
+\end{figure}
+\mbox{\Hypertarget{class_relay_ad503697efacdaeb980a9e580a3ae8def}\label{class_relay_ad503697efacdaeb980a9e580a3ae8def}} 
+\index{Relay@{Relay}!set\+Value@{set\+Value}}
+\index{set\+Value@{set\+Value}!Relay@{Relay}}
+\subsubsection{\texorpdfstring{set\+Value()}{setValue()}}
+{\footnotesize\ttfamily void Relay\+::set\+Value (\begin{DoxyParamCaption}\item[{int}]{val }\end{DoxyParamCaption})}
+
+Here is the caller graph for this function\+:\nopagebreak
+\begin{figure}[H]
+\begin{center}
+\leavevmode
+\includegraphics[width=350pt]{class_relay_ad503697efacdaeb980a9e580a3ae8def_icgraph}
+\end{center}
+\end{figure}
+
+
+The documentation for this class was generated from the following files\+:\begin{DoxyCompactItemize}
+\item 
+\mbox{\hyperlink{_relay_8h}{Relay.\+h}}\item 
+\mbox{\hyperlink{_relay_8cpp}{Relay.\+cpp}}\end{DoxyCompactItemize}

@@ -33,6 +33,19 @@ void Pedal::init ( int pedalID, int pin, int verbose ) {
 
 void Pedal::update () {
 
+  if ( analogRead ( _pin ) == 0 ) {
+    static bool notified = false;
+    if ( _verbose >= 18 && ! notified ) {
+      Serial.print ( "Pedal " ); Serial.print ( _id );
+      Serial.print ( " (pin " ); Serial.print ( _pin );
+      Serial.print ( ") value: " );
+      Serial.print ( _value );
+      Serial.println ( "; must be unplugged!" );
+    }
+    notified = true;
+    return;
+  }
+
   _value = read() * ( 1.0 - _alpha ) + _value * _alpha;
   
   if ( abs ( _value - _oldValue ) > _hysteresis ) {

@@ -27,58 +27,6 @@
 
 #define OpenEffectsBoxHW_VERBOSE_DEFAULT 12
 
-/* ======================================================================== //
-
-                           hardware definitions
-                           
-// ======================================================================== */
-
-/*
-
-                      N O T E S
-                      
-                      
-  I burned out my original OpenEffects board. It is now replaced, but I 
-  installed *momentary* switches to the bat switch locations. So now I can
-  digitally change states, but I need to have a debounced read of these
-  switches and maintain the resulting states.
-  Difficulty: the bat switches return analog values, which cannot be used to 
-  trigger an interrupt.
-        left     right    (switch)
-    L    GND      Vcc
-    C    Vcc/2    Vcc/2
-    R    Vcc      GND
-    
-  
-  I also installed the other bank of input/output jacks; the input is on the 
-  R and is 1/4" stereo; the output is on the L and is 1/4" stereo; the two
-  center jacks are for expression pedals. Note that the rightmost of these
-  is labeled Exp1 but goes to A11 on the Teensy, which is described in the 
-  schematic as being connected to CVInput2.
-  The expression pedals divide bewteen Vcc and GND and return a value
-  somewhere in between. The pinout of the 1/4" stereo jacks for these is
-    T - voltage variably divided by the effects pedal
-    R - 3V3
-    S - GND
-    
-*/
-
-
-
-
-
-/*
-
-  Observations:
-  Planned work:
-    √ create separate objects for knob, bat, foot switch, relay
-      create objects for ... ??? modes? incl submodes?  sets?
-  
-*/
-
-
-
-
 /* ------------------------------------------------------------------------ //
                               pin assignments                       
 // ------------------------------------------------------------------------ */
@@ -140,6 +88,67 @@ const int ledOnOff     = 2;
 const int ledBoost     = 1;
 const int VUfirstPixel = 3;
 const int nVUpixels = 7;
+
+/*! \brief The top-level wrapper for the OpenEffects Project hardware.
+
+  # Hardware Definitions
+
+  The hardware includes
+    pots
+    bat switches
+    stomp "pb" pushbuttons
+    relays
+    jacks for expression pedals
+    NeoPixels
+    an OLED graphics display
+    
+  This file is where the pin assignments are made. All of them.
+
+
+
+  ## N O T E S
+                      
+    I burned out my original OpenEffects board. It is now replaced, but I 
+    installed *momentary* switches to the bat switch locations. So now I can
+    digitally change states, but I need to have a debounced read of these
+    switches and maintain the resulting states.
+    Difficulty: the bat switches return analog values, which cannot be used to 
+    trigger an interrupt.
+    
+    Here are the voltages at the analog input pin for each of the 3 positions
+    ( L, C, and R ) of the two switches ( left and right )
+  
+    |        | left   | right    |
+    | :----: | :----: | :----:   |
+    | L      | GND    | Vcc      |
+    | C      | Vcc/2  | Vcc/2    |
+    | R      | Vcc    | GND      |
+
+    I also installed the other bank of input/output jacks; the input is on the 
+    R and is 1/4" stereo; the output is on the L and is 1/4" stereo; the two
+    center jacks are for expression pedals. Note that the rightmost of these
+    is labeled Exp1 but goes to A11 on the Teensy, which is described in the 
+    schematic as being connected to CVInput2.
+  
+  
+    __IMPORTANT:__ The output, incorporating both L and R channels, is *stereo*.
+    Using a 1/4" TS (mono) plug in this jack will short out the right channel,
+    and may cause damage to the electronics.
+  
+    The expression pedals divide bewteen Vcc and GND and return a value
+    somewhere in between. The pinout of the 1/4" stereo jacks for these is
+    - T - voltage variably divided by the effects pedal
+    - R - 3V3
+    - S - GND
+
+  ##Observations: <list of hacks I will find during alpha test...>
+
+  ##Planned work:
+     - create separate objects for knob, bat, foot switch, relay √ 
+     - create a method of reinitializing the settings, so we can
+       - create a method of creating and activating presets
+
+*/
 
 class OpenEffectsBoxHW {
   public:
