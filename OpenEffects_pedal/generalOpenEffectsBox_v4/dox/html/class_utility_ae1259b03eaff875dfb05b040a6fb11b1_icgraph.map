@@ -1,6 +1,0 @@
-<map id="Utility::expmap" name="Utility::expmap">
-<area shape="rect" id="node2" href="$class_filter.html#a9cdce58ac2fe0b8beb6d561ab3725041" title="Filter::notify" alt="" coords="181,5,271,31"/>
-<area shape="rect" id="node3" href="$class_flange.html#a10541758c108d92a73e96ed9f8f1377b" title="Flange::notify" alt="" coords="175,55,277,80"/>
-<area shape="rect" id="node4" href="$class_sine.html#a91e8327318758647ea3e0f856eb3eb60" title="Sine::notify" alt="" coords="182,104,270,129"/>
-<area shape="rect" id="node5" href="$class_tonesweep.html#a26d324fb0de4aac00a04e7e7e9e812c0" title="Tonesweep::notify" alt="" coords="162,153,290,179"/>
-</map>

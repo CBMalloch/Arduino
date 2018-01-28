@@ -1,9 +1,0 @@
-<map id="Flange::notify" name="Flange::notify">
-<area shape="rect" id="node2" href="$class_flange.html#a733bc8118f327fc4c31c896642ad49ad" title="Flange::setOffset" alt="" coords="168,5,290,31"/>
-<area shape="rect" id="node3" href="$class_utility.html#abee51df02bf586bd7d6bc36481152402" title="Utility::fmapc" alt="" coords="180,55,278,80"/>
-<area shape="rect" id="node6" href="$class_flange.html#a34ba641893065a297d5fe767a1fa2fc4" title="Flange::setDepth" alt="" coords="168,104,291,129"/>
-<area shape="rect" id="node7" href="$class_flange.html#af132f265ce1567691ffa2ce29bb512c6" title="Flange::setDelayFreq" alt="" coords="155,153,304,179"/>
-<area shape="rect" id="node8" href="$class_utility.html#ae1259b03eaff875dfb05b040a6fb11b1" title="Utility::expmap" alt="" coords="175,203,283,228"/>
-<area shape="rect" id="node4" href="$class_utility.html#af50f94cc1c9126f9f2334686158f617f" title="Utility::fconstrain" alt="" coords="352,31,471,56"/>
-<area shape="rect" id="node5" href="$class_utility.html#ad35eff6790f16f4afcd546cb5de861c2" title="Utility::fmap" alt="" coords="366,80,457,105"/>
-</map>

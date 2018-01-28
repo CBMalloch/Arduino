@@ -1,6 +1,0 @@
-<map id="Reverb::setReverbTime" name="Reverb::setReverbTime">
-<area shape="rect" id="node2" href="$class_reverb.html#ae82272ebf02fe46091a72eb04132a1c6" title="Reverb::init" alt="" coords="222,5,311,31"/>
-<area shape="rect" id="node5" href="$class_reverb.html#a0a4818faef8203311b3c31eb9d59c277" title="Reverb::notify" alt="" coords="215,55,319,80"/>
-<area shape="rect" id="node3" href="$class_open_effects_box.html#aea127362d5b00701ced70f20f728b60f" title="OpenEffectsBox::init" alt="" coords="367,5,508,31"/>
-<area shape="rect" id="node4" href="$general_open_effects_box__v4_8ino.html#a4fc01d736fe50cf5b977f755b675f11d" title="setup" alt="" coords="556,5,610,31"/>
-</map>

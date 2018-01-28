@@ -1,7 +1,0 @@
-<map id="Bitcrusher::notify" name="Bitcrusher::notify">
-<area shape="rect" id="node2" href="$class_utility.html#abee51df02bf586bd7d6bc36481152402" title="Utility::fmapc" alt="" coords="215,29,313,55"/>
-<area shape="rect" id="node5" href="$class_bitcrusher.html#a4c2ecf3d6fc604a9967685256a886503" title="Bitcrusher::setNBits" alt="" coords="195,79,333,104"/>
-<area shape="rect" id="node6" href="$class_bitcrusher.html#a0b50f63f1b533074ef8acd41714ae1d3" title="Bitcrusher::setSampleRate" alt="" coords="174,128,354,153"/>
-<area shape="rect" id="node3" href="$class_utility.html#af50f94cc1c9126f9f2334686158f617f" title="Utility::fconstrain" alt="" coords="402,5,521,31"/>
-<area shape="rect" id="node4" href="$class_utility.html#ad35eff6790f16f4afcd546cb5de861c2" title="Utility::fmap" alt="" coords="416,55,507,80"/>
-</map>

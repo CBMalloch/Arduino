@@ -1,7 +1,0 @@
-<map id="Sine::notify" name="Sine::notify">
-<area shape="rect" id="node2" href="$class_utility.html#abee51df02bf586bd7d6bc36481152402" title="Utility::fmapc" alt="" coords="160,29,258,55"/>
-<area shape="rect" id="node5" href="$class_utility.html#ae1259b03eaff875dfb05b040a6fb11b1" title="Utility::expmap" alt="" coords="154,79,263,104"/>
-<area shape="rect" id="node6" href="$class_sine.html#a9a82b09716b1f52440162af589f3fc56" title="Sine::setFrequency" alt="" coords="141,128,277,153"/>
-<area shape="rect" id="node3" href="$class_utility.html#af50f94cc1c9126f9f2334686158f617f" title="Utility::fconstrain" alt="" coords="325,5,444,31"/>
-<area shape="rect" id="node4" href="$class_utility.html#ad35eff6790f16f4afcd546cb5de861c2" title="Utility::fmap" alt="" coords="339,55,430,80"/>
-</map>

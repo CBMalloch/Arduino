@@ -1,6 +1,0 @@
-<map id="Reverb::notify" name="Reverb::notify">
-<area shape="rect" id="node2" href="$class_reverb.html#a6bc52d8dde1853a63a8e01e7d20a678e" title="Reverb::setReverbTime" alt="" coords="157,5,319,31"/>
-<area shape="rect" id="node3" href="$class_utility.html#abee51df02bf586bd7d6bc36481152402" title="Utility::fmapc" alt="" coords="189,55,287,80"/>
-<area shape="rect" id="node4" href="$class_utility.html#af50f94cc1c9126f9f2334686158f617f" title="Utility::fconstrain" alt="" coords="367,29,486,55"/>
-<area shape="rect" id="node5" href="$class_utility.html#ad35eff6790f16f4afcd546cb5de861c2" title="Utility::fmap" alt="" coords="381,79,472,104"/>
-</map>
