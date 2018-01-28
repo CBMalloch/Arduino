@@ -1,6 +1,0 @@
-<map id="Mixer::setGain" name="Mixer::setGain">
-<area shape="rect" id="node2" href="$class_mixer.html#ac6c290ada657f8325a59f37cafaf0c0c" title="Mixer::init" alt="" coords="192,5,271,31"/>
-<area shape="rect" id="node3" href="$class_mixer.html#a73177ee1e071909ef23ff2e913eb6cbc" title="Mixer::notify" alt="" coords="185,55,278,80"/>
-<area shape="rect" id="node4" href="$class_open_effects_box.html#aea127362d5b00701ced70f20f728b60f" title="OpenEffectsBox::init" alt="" coords="161,104,303,129"/>
-<area shape="rect" id="node5" href="$general_open_effects_box__v4_8ino.html#a4fc01d736fe50cf5b977f755b675f11d" title="setup" alt="" coords="351,104,404,129"/>
-</map>

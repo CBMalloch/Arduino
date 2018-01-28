@@ -1,6 +1,0 @@
-<map id="Flange::setDelayFreq" name="Flange::setDelayFreq">
-<area shape="rect" id="node2" href="$class_flange.html#a0b08351febfa39989acb6446c096346e" title="Flange::init" alt="" coords="210,5,296,31"/>
-<area shape="rect" id="node5" href="$class_flange.html#a10541758c108d92a73e96ed9f8f1377b" title="Flange::notify" alt="" coords="202,55,304,80"/>
-<area shape="rect" id="node3" href="$class_open_effects_box.html#aea127362d5b00701ced70f20f728b60f" title="OpenEffectsBox::init" alt="" coords="352,5,493,31"/>
-<area shape="rect" id="node4" href="$general_open_effects_box__v4_8ino.html#a4fc01d736fe50cf5b977f755b675f11d" title="setup" alt="" coords="541,5,595,31"/>
-</map>

@@ -1,5 +1,0 @@
-<map id="Mixer::init" name="Mixer::init">
-<area shape="rect" id="node2" href="$class_displayable_module.html#a12010231a6a049a1110b642cc1c83efd" title="DisplayableModule::init" alt="" coords="132,12,290,37"/>
-<area shape="rect" id="node4" href="$class_mixer.html#ab8ff46ce57c3c783de4cefbb6f86b1cc" title="Mixer::setGain" alt="" coords="157,61,265,87"/>
-<area shape="rect" id="node3" href="$class_displayable_module.html#a3c659ed0797811970d156ce342cdb187" title="DisplayableModule::\lsetVerbose" alt="" coords="338,5,480,44"/>
-</map>
