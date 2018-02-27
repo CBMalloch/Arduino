@@ -1,12 +1,17 @@
 #define PROGNAME  "testLoRa_receive"
-#define VERSION   "0.2.0"
-#define VERDATE   "2017-12-07"
+#define VERSION   "2.0.2"
+#define VERDATE   "2018-01-02"
 
 /*
   OLED display size is 128x64
   
   <https://learn.adafruit.com/adafruit-huzzah32-esp32-feather/using-with-arduino-ide>
   <https://github.com/espressif/arduino-esp32/blob/master/docs/arduino-ide/mac.md>
+  
+  Next steps:
+  	
+  	√ set up JSON parser to receive JSON packets
+  	o send the contents of the JSON packets to MQTT
 
 */
 
@@ -15,12 +20,24 @@
 #include <U8x8lib.h>
 #include <WiFi.h>
 #include <WiFiUDP.h>
-#include <cbmNetworkInfo.h>
+#include <PubSubClient.h>
+#include <WiFiClient.h>
 #include <TimeLib.h>
+#include <ArduinoJson.h>
+
+#include <cbmNetworkInfo.h>
+
+// ***************************************
+// ***************************************
+
+#define VERBOSE 12
 
 #define BAUDRATE 115200
-#define VERBOSE 12
 #define LORA_FREQ_BAND 433E6
+#define NHISTOGRAMBINS 32
+
+// ***************************************
+// ***************************************
 
 const int pdLoRa_SS  = 18;    // CS chip select
 const int pdLoRa_RST = 14;    // reset
@@ -39,8 +56,15 @@ const int pdBlink = 25;    // LED - not 13!
 String packetText;
 String packetRSSI;
 
-const int bufLen = 255;
+const int intervalBinSizes [ 3 ] = { 5, 5, 1 };
+int intervalCounts [ 3 ] [ NHISTOGRAMBINS ];
+#define LEAVE_SPACE "\n\n\n\n\n\n"
+
+// LoRa packet size is one byte, so packet size limit is 255
+const int bufLen = 256;
 char strBuf [ bufLen ];
+
+const int lineLen = 80;  // for line breaks
 
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8( U8X8_SCL, U8X8_SDA, U8X8_RST );
 
@@ -61,12 +85,28 @@ const int timeZone = -5;  // Eastern Standard Time (USA)
 //const int timeZone = -8;  // Pacific Standard Time (USA)
 //const int timeZone = -7;  // Pacific Daylight Time (USA)
 
+/*
+	home/temperature/solar_panel ==> home/temperature/air/outside/solar_panel
+	home/system_status/solar_panel/azimuth_deg
+	home/system_status/solar_panel/elevation_deg
+	home/system_status/solar_panel_monitor/supply_v
+*/
+
 cbmNetworkInfo network;
+WiFiClient conn_TCP;
+PubSubClient conn_MQTT ( conn_TCP );
 WiFiUDP conn_UDP;
 
-const int timeStringBufLen = 25;
+const int timeStringBufLen = 30;
 char timeStringBuffer [ timeStringBufLen ];
 
+void connect( void );
+int sendIt ( const char * topic, char * value, const char * name );
+// void broadcastString ( char buffer[] );
+// void handle_UDP_conversation ();
+// int readAndInterpretCommandString ( char * theString );
+// int interpretNewCommandString ( char * theTopic, char * thePayload );
+// 
 void setup () {
 
   #ifdef BAUDRATE
@@ -84,10 +124,13 @@ void setup () {
   u8x8.drawString( 0, 1, "LoRa Receiver" );
   
   LoRa_init();
-    // for security reasons, the network settings are stored in a private library
+
+  // ************************* set up networking ******************************
+  
+  // for security reasons, the network settings are stored in a private library
   network.init ( WIFI_LOCALE );
   
-  if ( ! strncmp ( network.chipName, "unknown", 12 ) ) {
+  if ( ! strncmp ( network.chipName, "unknown", CBM_NI_CHIPNAME_STRLEN ) ) {
     network.describeESP ( network.chipName );
   }
 
@@ -96,19 +139,29 @@ void setup () {
   yield ();
   
   // WiFi.disconnect ();
+  // DON'T FORGET THE LAST ARGUMENT: DNS!!!
+  // ESP does not follow same order as arduino, dns is at the end
+  // see https://github.com/esp8266/Arduino/blob/master/libraries/ESP8266WiFi/src/ESP8266WiFiSTA.h#L42
   WiFi.config ( network.ip, network.gw, network.mask, network.dns );
   WiFi.begin ( network.ssid, network.password );
   
-  while ( WiFi.status() != WL_CONNECTED ) {
-    Serial.print ( "." );
-    delay ( 500 );  // implicitly yields but may not pet the nice doggy
-  }
-  
-  if ( Serial && VERBOSE >= 4 ) {
-    Serial.print ( "WiFi connected as " );
-    network.printIP ( network.ip );
-    Serial.println ();
-  }
+  if ( Serial ) {
+		int nDots = 0;
+		while ( WiFi.status() != WL_CONNECTED ) {
+			Serial.print ( "." );
+			if ( nDots++ >= lineLen ) {
+				Serial.println ();
+				nDots = 0;
+			}
+			delay ( 500 );  // implicitly yields but may not pet the nice doggy
+		}
+	
+		if ( VERBOSE >= 4 ) {
+			Serial.print ( "WiFi connected as " );
+			network.printIP ( network.ip );
+			Serial.println ();
+		}
+	}
   delay ( 50 );
   
   conn_UDP.begin ( port_UDP );
@@ -118,13 +171,28 @@ void setup () {
   
   setSyncProvider ( getNtpTime );
   setSyncInterval ( 60 * 60 );  // seconds
-
   
+  // conn_MQTT.setCallback ( handleReceivedMQTTMessage );
+  conn_MQTT.setServer ( CBM_MQTT_SERVER, CBM_MQTT_SERVERPORT );
+  connect ();
+  
+  yield ();
+
+  // clear all the interval bins
+  
+  for ( int i = 0; i < 3; i++ ) {
+    for  ( int j = 0; j < NHISTOGRAMBINS; j++ ) {
+      intervalCounts [ i ] [ j ] = 0;
+    }
+  }
+    
   timeStamp ( timeStringBuffer );
   if ( Serial && VERBOSE >= 4 ) {
     Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
     // leave some blank lines for packet display
-    Serial.printf ( "Started at %s\n\n\n\n\n", timeStringBuffer );
+    Serial.printf ( "Started at %s\n", timeStringBuffer );
+    Serial.print ( LEAVE_SPACE );
+
   }
   u8x8.drawString( 0, 1, PROGNAME );
   u8x8.drawString( 0, 2, "v" VERSION " cbm" );
@@ -137,7 +205,7 @@ void setup () {
 void loop() {
 
   static int nGoodDumps = 0;
-  const unsigned long stallTimeout_ms = 1UL * 60UL * 1000UL;
+  const unsigned long stallTimeout_ms = 10UL * 60UL * 1000UL;
   static unsigned long lastStallResolvedAt_ms = 0UL;
   static bool goodDumpRequested = true;
   static int nBadDumps = 0;
@@ -147,7 +215,20 @@ void loop() {
   const unsigned long blinkOnTime_ms = 5UL;
   const unsigned long blinkOffTime_ms = 45UL;
   const unsigned long packetBlinkDelay_ms = 1000UL;
+  
+  static unsigned long lastReceiptAt_ms [ 3 ] = { 0UL, 0UL, 0UL };
           
+  // Ensure the connection to the MQTT server is alive (this will make the first
+  // connection and automatically reconnect when disconnected).  See the MQTT_connect
+  // function definition further below.
+      
+  conn_MQTT.loop();
+  delay ( 10 );  // fix some issues with WiFi stability
+
+  if ( !conn_MQTT.connected () ) connect ();
+
+  yield ();
+  
   timeStamp ( timeStringBuffer );
 
   // try to parse packet
@@ -180,7 +261,7 @@ void loop() {
                        Bad packet
       */
         
-      if ( Serial && VERBOSE >= 1 ) {
+      if ( Serial && VERBOSE >= 15 ) {
         /*
           For better debugging, we're going to eliminate most lines sent by the receiver
           to the laptop. We choose to display only the most recent line received from each 
@@ -240,7 +321,7 @@ void loop() {
           }
         }
         // leave some blank lines for packet display
-        Serial.print ( "'\n\n\n\n\n" );
+        Serial.print ( LEAVE_SPACE );
         // and stay there
       }
       u8x8.drawString ( 0, 4, "XXXXXXXXXXXX" );
@@ -259,16 +340,104 @@ void loop() {
     u8x8.clearLine ( 4 );
     u8x8.drawString ( 0, 4, timeStringBuffer+5 );
     
-    int bc = packetText.toInt();  // converts as much of string as is numeric
-    char currentid [10];
-    snprintf ( currentid, 10, "%6d", bc );
+    
+    // concept proven.
+    
+    
+    char cJSONindicator;
+    int bc;
+		float bat;
+		int programmedSleepDuration_ms = 0;
+    	
+		const size_t jsonBufferSize = 
+				JSON_ARRAY_SIZE(15) 
+			+ JSON_OBJECT_SIZE(2) 
+			+ JSON_OBJECT_SIZE(3) 
+			+ JSON_OBJECT_SIZE(8);
+			
+		{  // scope for JSON object
+			DynamicJsonBuffer jsonBuffer(jsonBufferSize);
+			// note: <buf>.parse... whacks the string if it doesn't have to copy it
+			char* strBuf2 = jsonBuffer.strdup(strBuf);
+			JsonObject& root = jsonBuffer.parseObject ( strBuf2 );
+		
+			// since we copied it and didn't give the orig to the parser, strBuf is still good 
+		
+			if ( root.success () ) {
+			
+				const int tbufLen = 60;
+				char strTBuf [ tbufLen ];
+				const int nbufLen = 14;
+				char strNBuf [ nbufLen ];
+
+				// object was OK JSON
+				cJSONindicator = '+';
+				bc = root["packetSN"];
+				bat = root["vSupp"];
+				
+				programmedSleepDuration_ms = root [ "sleepsTotal_ms" ];  // returns 0 or NULL if it's not present
+				
+				// send data to Mosquitto
+				
+				/*
+				
+				+ 2018-02-04 18:11:07: received: (252) '{
+					"devID":		"LoRa32u4 1",
+					"packetSN":	13723,
+					"progID":		{"name":"solar_tracker_LoRa_tracker",					
+					"ver":			"2.2.18",					
+					"verDate":	"2018-01-13"},					
+					"vSupp":		3.896774,					
+					"tChip":		6.320634,					
+					"accel":		[0.167908,0.146179,1.028931],					
+					"mag":			[-87.71423,-495.2222,-166.4675],					
+					"heading":	186.0881}';
+				 RSSI  -79; SNR 14.75
+				
+				*/
+				
+				snprintf ( strTBuf, tbufLen, "home/temperature/air/outside/solar_panel" );
+  			snprintf ( strNBuf, nbufLen, "%6.2f", (double) root["tChip"] * 1.8 + 32.0 );
+  			sendIt ( strTBuf, strNBuf, (char *) "temperature of MPU9250 chip" );
+
+				snprintf ( strTBuf, tbufLen, "home/system_status/solar_panel/azimuth_deg" );
+  			snprintf ( strNBuf, nbufLen, "%4.2f", (double) root["heading"] );
+				sendIt ( strTBuf, strNBuf, (char *) "heading degrees" );
+				
+				/*
+					data not present in current string...
+				snprintf ( strTBuf, tbufLen, "home/system_status/solar_panel/pitch_deg" );
+  			snprintf ( strNBuf, nbufLen, "%4.2f", (double) root["tilt"]["pitch"] );
+				sendIt ( strTBuf, strNBuf, (char *) "pitch degrees" );
+				snprintf ( strTBuf, tbufLen, "home/system_status/solar_panel/roll_deg" );
+  			snprintf ( strNBuf, nbufLen, "%4.2f", (double) root["tilt"]["roll"] );
+				sendIt ( strTBuf, strNBuf, (char *) "roll degrees" );
+				*/
+	
+				snprintf ( strTBuf, tbufLen, "home/system_status/solar_panel_monitor/supply_v" );
+				snprintf ( strNBuf, nbufLen, "%4.3f", (double) root["vSupp"] );
+				sendIt ( strTBuf, strNBuf, (char *) "supply voltage" );
+				
+				snprintf ( strTBuf, tbufLen, "home/system_status/solar_panel_monitor/packet_SN" );
+				snprintf ( strNBuf, nbufLen, "%u", (unsigned int) root["packetSN"] );
+				sendIt ( strTBuf, strNBuf, (char *) "packet ID" );
+
+			} else {
+				
+				cJSONindicator = '-';
+				bc = packetText.toInt();  // converts as much of string as is numeric
+				int batIndex = packetText.indexOf("bat: ") + 5;
+				bat = packetText.substring ( batIndex ).toFloat();
+				// int bat = packetText.indexOf("bat: ");
+			}
+    }
+    
+    char currentID [10];
+    snprintf ( currentID, 10, "%6d", bc );
     u8x8.clearLine ( 5 );
     u8x8.drawString ( 0, 5, "R: " );
-    u8x8.drawString ( 3, 5, currentid );
+    u8x8.drawString ( 3, 5, currentID );
     
-    int batIndex = packetText.indexOf("bat: ") + 5;
-    float bat = packetText.substring ( batIndex ).toFloat();
-    // int bat = packetText.indexOf("bat: ");
     char currentbat [10];
     snprintf ( currentbat, 10, "%4.2f", bat );
     u8x8.clearLine ( 6 );
@@ -281,24 +450,71 @@ void loop() {
     
     if ( Serial && VERBOSE >= 8 ) {
       // char *strstr(const char *haystack, const char *needle);
+      int deviceIndex = 2;
       char * pLoRa = strstr ( strBuf, "LoRa32u4" );
-      int linesToGoUp = 3;
       if ( pLoRa != NULL ) {
         
         char cNum = pLoRa [ 9 ];
         // Serial.print ( "LoRa number: " ); Serial.println ( cNum );
         
         // LoRa 0 up 2 lines; LoRa 1 up 1 line
-        linesToGoUp = cNum == '0' ? 2 : 1;
+        deviceIndex = cNum == '0' ? 1 : 0;
       }
       
-      for ( int i = 0; i < linesToGoUp; i++ ) Serial.print ( "\x1b[1F" );   // go up
+      // for ( int i = 0; i < 2 * deviceIndex + 1; i++ ) Serial.print ( "\x1b[1F" );   // go up
 
-      Serial.print ( "\x1b[2K" );   // erase this line
-      Serial.printf ( "%s: received: (%d) '%s'", timeStringBuffer, cp, strBuf );
+      // Serial.print ( "\x1b[2K" );   // erase this line
+      Serial.printf ( "%c %s: received: (%d) '%s'", 
+      	cJSONindicator, timeStringBuffer, packetSize, strBuf );
       Serial.printf ( "; RSSI %4d; SNR %5.2f", LoRa.packetRssi(), LoRa.packetSnr() );
       
-      for ( int i = 0; i < linesToGoUp; i++ ) Serial.print ( "\n" );   // go back down
+      unsigned long timeSinceLastMessage_ms = millis() - lastReceiptAt_ms [ deviceIndex ];
+      int histoIndex = timeSinceLastMessage_ms / 1000 / intervalBinSizes [ deviceIndex ];
+      if ( histoIndex >= NHISTOGRAMBINS ) histoIndex = NHISTOGRAMBINS - 1;
+      intervalCounts [ deviceIndex ] [ histoIndex ]++;
+      lastReceiptAt_ms [ deviceIndex ] = millis();
+      
+      Serial.print ( "\n" );
+      if ( programmedSleepDuration_ms ) {
+      	Serial.print ( "    Sleeps: " );
+      	while ( programmedSleepDuration_ms > 0 ) {
+					int intervalIndex = -1;
+					int oneSleep_ms = 0;
+
+					if ( programmedSleepDuration_ms >= 8000 ) {
+						oneSleep_ms = 8000;
+					} else if ( programmedSleepDuration_ms >= 4000 ) {
+						oneSleep_ms = 4000;
+					} else if ( programmedSleepDuration_ms >= 2000 ) {
+						oneSleep_ms = 2000;
+					} else if ( programmedSleepDuration_ms >= 1000 ) {
+						oneSleep_ms = 1000;
+					} else if ( programmedSleepDuration_ms >= 500 ) {
+						oneSleep_ms = 500;
+					} else if ( programmedSleepDuration_ms >= 250 ) {
+						oneSleep_ms = 250;
+					} else if ( programmedSleepDuration_ms >= 128 ) {
+						oneSleep_ms = 128;
+					} else if ( programmedSleepDuration_ms >= 64 ) {
+						oneSleep_ms = 64;
+					} else if ( programmedSleepDuration_ms >= 32 ) {
+						oneSleep_ms = 32;
+					} else if ( programmedSleepDuration_ms >= 16 ) {
+						oneSleep_ms = 16;
+					} 
+					Serial.printf ( "%d", oneSleep_ms );
+					programmedSleepDuration_ms -= oneSleep_ms;
+					if ( programmedSleepDuration_ms ) Serial.print ( ", " );
+      	}
+      } else {
+				for ( int i = 0; i < NHISTOGRAMBINS; i++ ) {
+					Serial.printf ( "%6d", intervalCounts [ deviceIndex ] [ i ] );
+				}
+      }
+      // Serial.print ( "\r" );
+      
+      // for ( int i = 0; i < 2 * deviceIndex; i++ ) Serial.print ( "\n" );   // go back down
+      Serial.print ( "\n" );
       
     }
     
@@ -309,18 +525,19 @@ void loop() {
     
     lastPacketAt_ms = millis();
     
-    if ( ( ( millis() - lastStallResolvedAt_ms ) > 15000UL ) && goodDumpRequested ) {
-    
-      /*
-                        Dump regs while all good
-      */
-    
-      nGoodDumps++;
-      Serial.printf ( "\nDump %d of registers while all good:\n", nGoodDumps );
-      LoRa.dumpRegisters ( Serial );
-      Serial.printf ( "End of dump %d of registers while all good\n\n\n\n\n", nGoodDumps );
-      goodDumpRequested = false;
-    }
+		if ( 0 && ( ( millis() - lastStallResolvedAt_ms ) > 15000UL ) && goodDumpRequested ) {
+	
+			/*
+												Dump regs while all good
+			*/
+	
+			nGoodDumps++;
+			Serial.printf ( "\nDump %d of registers while all good:\n", nGoodDumps );
+			LoRa.dumpRegisters ( Serial );
+			Serial.printf ( "End of dump %d of registers while all good\n", nGoodDumps );
+			Serial.print ( LEAVE_SPACE );
+			goodDumpRequested = false;
+		}
   }  // received a packet
   
   if ( Serial 
@@ -338,7 +555,8 @@ void loop() {
     Serial.printf ( "\n%s: Ack! Lost periodic receipt of messages!\n", timeStringBuffer );
     Serial.printf ( "Post-stall dump %d of registers:\n", nBadDumps );
     LoRa.dumpRegisters ( Serial );
-    Serial.printf ( "End of post-stall dump %d of registers\n\n\n\n\n", nBadDumps );
+    Serial.printf ( "End of post-stall dump %d of registers\n", nBadDumps );
+    Serial.print ( LEAVE_SPACE );
     lastStallResolvedAt_ms = millis();
     goodDumpRequested = true;
     LoRa.idle();  // try this rather than re-initing
@@ -380,8 +598,8 @@ void timeStamp ( char ts [] ) {
 
 bool checkPacketIsValid ( char *strBuf ) {
   return ( 
-             ( strlen ( strBuf ) < 100 )
-          && ( strstr ( strBuf, "bat:" )   != NULL )
+                (		 ( strstr ( strBuf, "bat:"     )   != NULL )
+          				|| ( strstr ( strBuf, "LoRa32u4" )   != NULL ) )
          );
 }
 
@@ -460,3 +678,114 @@ void sendNTPpacket(IPAddress &address)
   conn_UDP.write(packetBuffer, NTP_PACKET_SIZE);
   conn_UDP.endPacket();
 }
+
+/*----------- MQTT code ----------*/
+
+void connect () {
+  
+  unsigned long startTime_ms = millis();
+  static bool newConnection = true;
+  int nDots;
+  bool printed;
+  
+  printed = false;
+  nDots = 0;
+  while ( WiFi.status() != WL_CONNECTED ) {
+    if ( VERBOSE > 4 && ! printed ) { 
+      Serial.print ( "\nChecking wifi...\n" );
+      printed = true;
+      newConnection = true;
+    }
+    Serial.print ( "." );
+    if ( nDots++ >= lineLen ) {
+      Serial.println ();
+      nDots = 0;
+    }
+    delay ( 1000 );
+  }
+  if ( newConnection && VERBOSE > 4 ) {
+    Serial.print ( "\n  WiFi connected as " ); 
+    Serial.print ( WiFi.localIP() );
+    Serial.print (" in ");
+    Serial.print ( millis() - startTime_ms );
+    Serial.println ( " ms" );    
+  }
+  
+  startTime_ms = millis();
+  printed = false;
+  nDots = 0;
+  while ( ! conn_MQTT.connected ( ) ) {
+    conn_MQTT.connect ( "cbm_solar-panel_client" );  // wants client ID
+    if ( VERBOSE > 4 && ! printed ) { 
+      Serial.print ( "  Checking MQTT ( status: " );
+      Serial.print ( conn_MQTT.state () );
+      Serial.print ( " )...\n" );
+      /*
+        -4 : MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time
+        -3 : MQTT_CONNECTION_LOST - the network connection was broken
+        -2 : MQTT_CONNECT_FAILED - the network connection failed
+        -1 : MQTT_DISCONNECTED - the client is disconnected cleanly
+         0 : MQTT_CONNECTED - the cient is connected
+         1 : MQTT_CONNECT_BAD_PROTOCOL - the server doesn't support the requested version of MQTT
+         2 : MQTT_CONNECT_BAD_CLIENT_ID - the server rejected the client identifier
+         3 : MQTT_CONNECT_UNAVAILABLE - the server was unable to accept the connection
+         4 : MQTT_CONNECT_BAD_CREDENTIALS - the username/password were rejected
+         5 : MQTT_CONNECT_UNAUTHORIZED - the client was not authorized to connect
+      */
+      printed = true;
+      newConnection = true;
+    }
+    Serial.print( "." );
+    if ( nDots++ >= lineLen ) {
+      Serial.println ();
+      nDots = 0;
+    }
+    delay( 1000 );
+  }
+  
+  if ( newConnection ) {
+    if ( VERBOSE > 4 ) {
+      Serial.print ("\n  MQTT connected in ");
+      Serial.print ( millis() - startTime_ms );
+      Serial.println ( " ms" );
+    }
+    /*
+    conn_MQTT.subscribe ( MQTT_FEED );  // topic[, QoS]
+    if ( VERBOSE > 4 ) {
+      Serial.print ( "  Subscribed to MQTT feed '" );
+      Serial.print ( MQTT_FEED );
+      Serial.println ( "'" );
+    }
+    */
+  }
+  // client.unsubscribe("/example");
+  newConnection = false;
+}
+
+int sendIt ( const char * topic, char * value, const char * name ) {
+  
+  int length = strlen ( value );
+  if ( length < 1 ) {
+    if ( VERBOSE >= 10 ) {
+      Serial.print ( "\nNot sending null payload " );
+      Serial.println ( name );
+    }
+    return 0;
+  }
+  
+  if ( VERBOSE >= 10 ) {
+    Serial.print( "\nSending " );
+    Serial.print ( topic );
+    Serial.print ( " ( name = " );
+    Serial.print ( name );
+    Serial.print ( " ): " );
+    Serial.print ( value );
+    Serial.print ( " ... " );
+  }
+  
+  bool success = conn_MQTT.publish ( topic, value );
+  if ( VERBOSE >= 10 ) Serial.println ( success ? "OK!" : "Failed" );
+  
+  return success ? length : -1;
+};
+

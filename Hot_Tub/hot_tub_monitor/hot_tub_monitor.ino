@@ -1,11 +1,13 @@
-#define VERSION "2.2.0"
-#define VERDATE "2013-12-14"
+#define VERSION "2.4.1"
+#define VERDATE "2016-09-11"
 #define PROGMONIKER "HTM"
 
 /*
 
   NOTE v2.1.2, with correct firstloop temperature reading, not yet deployed!
-  
+  2014-03-23 2.3.0 lowering I2C clock/bit rate
+  2016-09-09 2.4.0 added POST on display
+    
   Functions:
     1) display time and hot-tub temperature
     2) serve as MODBUS/RTU slave to receive time from, provide the hot tub temperature to a master downstairs
@@ -55,7 +57,7 @@
 // 2 disables watchdog timer
 // 5 Modbus becomes verbose
 // 10 artificial time setting
-#define VERBOSE 1
+#define VERBOSE_HTM 1
 
 // regular serial port talks to motor controller
 #define BAUDRATE 115200
@@ -63,11 +65,14 @@
 // it appears strongly that SoftwareSerial can't go 115200, but maybe will do 57600.
 #define BAUDRATE485 57600
 
+// hot tub is slave 0x01
 // waterbed is slave 0x02
 #define SLAVE_ADDRESS 0x01
 
 #define TEMPERATURE_READING_INTERVAL_ms      10000L
 #define TEMP_READING_TIMEOUT_ms               1000L
+#define DS75_INIT_INTERVAL_ms             86400000L    
+//                                                    24 * 60 * 60 * 1000
 #define LIGHT_READING_INTERVAL_ms               20L
 #define LIGHT_READING_SMOOTHING_HALF_LIFE_s    5.0
 
@@ -75,9 +80,8 @@
 // is then 1 - exp(log(0.5) / nPeriodsOfHalfLife)
 // if we want half life of LIGHT_READING_SMOOTHING_HALF_LIFE_s sec, 
 // then that's LIGHT_READING_SMOOTHING_HALF_LIFE_s * 1000.0 / LIGHT_READING_INTERVAL_ms periods
-float light_EWMA_alpha = 1.0 - exp ( log ( 0.5 ) 
-                         * float ( LIGHT_READING_INTERVAL_ms )
-                         / ( LIGHT_READING_SMOOTHING_HALF_LIFE_s * 1000.0 ) );
+// but can't set here because of exp and log functions; set in init
+float light_EWMA_alpha;
 
 
 #define HOT_TUB_THERMOMETER_ADDRESS        0x04
@@ -85,7 +89,7 @@ float light_EWMA_alpha = 1.0 - exp ( log ( 0.5 )
   
 #define DISPLAY_DURATION_ms 2000
 
-// pin definitions
+// pin definitions 
 
 #define pdRS485RX         6
 #define pdRS485TX         7
@@ -176,10 +180,10 @@ short regs[nRegs];
 int device;
 // Wire will shift L 1; last bit (R/~W) will be added 
 #define deviceBaseAddress 0x09
-#define deviceAddress(device) ((deviceBaseAddress << 3) + device)
+#define deviceAddress(device) ( ( deviceBaseAddress << 3 ) + device )
 
 // resolution setting for each digital thermometer
-int CResolutions[] = {0, 0, 0, 0, 2, 2, 0, 0}; 
+int CResolutions[] = { 0, 0, 0, 0, 2, 2, 0, 0 }; 
 /*
      value   bits res    degC res    degF res    conversion time ms
       0          9          1/2        0.9             150
@@ -188,16 +192,25 @@ int CResolutions[] = {0, 0, 0, 0, 2, 2, 0, 0};
       3         12          1/16       0.1125         1200
 */
 
-int conversionTimes_ms[8];
-
 void displayNumber ( int num, int decimalOnDigit = 0 );
+void reinitDS75s ();
+void displayInit ();
 
 
 void setup() {
+  
+  // alpha is the weight of the new reading;
+  // is then 1 - exp(log(0.5) / nPeriodsOfHalfLife)
+  // if we want half life of LIGHT_READING_SMOOTHING_HALF_LIFE_s sec, 
+  // then that's LIGHT_READING_SMOOTHING_HALF_LIFE_s * 1000.0 / LIGHT_READING_INTERVAL_ms periods
+  light_EWMA_alpha = 1.0 - exp ( log ( 0.5 ) 
+                           * float ( LIGHT_READING_INTERVAL_ms )
+                           / ( LIGHT_READING_SMOOTHING_HALF_LIFE_s * 1000.0 ) );
+
 
   Serial.begin ( BAUDRATE );
   MAX485.begin ( BAUDRATE485 );
-  
+  delay ( 200 );
   
   // initialize SPI and numeric display
   
@@ -207,38 +220,31 @@ void setup() {
   SPI.setDataMode ( SPI_MODE0 );
   SPI.setClockDivider ( SPI_CLOCK_DIV4 );
   
-  displayWrite ( 0x0c, 0x00 );  // normal operation -> shutdown mode
-  delay ( 20 );
-  displayWrite ( 0x0c, 0x01 );  // shutdown mode -> normal operation
-  delay ( 20 );
+  delay ( 200 );
   
-  // displayWrite ( 0x0f, 0x01 );  // display test
-  // delay ( 1000 );
-  // displayWrite ( 0x0f, 0x00 );  // turn off display test
-  
-  displayWrite ( 0x09, 0x1f );  // decode(code B) first 4 characters
-  displayWrite ( 0x0a, 0x08 );  // display brightness
-  displayWrite ( 0x0b, 0x07 );  // display all characters (digit 7 will be colon etc)
-  
+  displayInit ();
+  displayPOST ();
+     
+    // #define debugDelay 2000
+    // displayNumber ( 7701 );
+    // delay ( debugDelay );
+
   // initialize MODBUS
 
   mb.Init ( SLAVE_ADDRESS, nCoils, coils, nRegs, regs, MODBUS_port );
-  if ( VERBOSE >= 5 ) {
+  if ( VERBOSE_HTM >= 5 ) {
     mb.Set_Verbose ( ( Stream * ) &Serial, 10 );
   }
   
+    // displayNumber ( 7702 );
+    // delay ( debugDelay );
   
   // initialize I2C and thermometer
     
   Wire.begin();        // join i2c bus (address optional for master)
-
-  initDS75 ( HOT_TUB_THERMOMETER_ADDRESS );
-  initDS75 ( LOCAL_THERMOMETER_ADDRESS );
   
-  for ( int i = 0; i < 8; i++ ) {
-    conversionTimes_ms [ i ] = 150 << CResolutions [ i ];
-  }
-
+  reinitDS75s ();
+  
   // initialize digital IO
   
   nPinDefs = sizeof ( pinDefs ) / sizeof ( pinDefs [ 0 ] );
@@ -254,10 +260,12 @@ void setup() {
     }
   }
   
-  
+    // displayNumber ( 7704 );
+    // delay ( debugDelay );
+
   // report
 
-  #if VERBOSE > 0
+  #if VERBOSE_HTM > 0
     Serial.print ( F ( "\n\n\n" ) );
     Serial.print ( PROGMONIKER );
     Serial.print ( F ( ": Hot Tub Monitor v" ) );
@@ -265,46 +273,59 @@ void setup() {
     Serial.print ( F ( " (" ) );
     Serial.print ( VERDATE );
     Serial.print ( F ( ")\n  at address 0x" ) ); 
-    Serial.print (SLAVE_ADDRESS, HEX); 
+    Serial.print (SLAVE_ADDRESS, HEX);
+    
+    Serial.print ( F ( "; i2c clock reg: " ) );
+    Serial.print ( TWBR );
+    
     Serial.print ( F (" ready with verbosity ") );
-    Serial.println ( VERBOSE );
+    Serial.println ( VERBOSE_HTM );
     
-    // Serial.print ( "\n  Hot tub DS75." ); Serial.println ( HOT_TUB_THERMOMETER_ADDRESS );
-    // Serial.print ( "  Ambient DS75." ); Serial.println ( LOCAL_THERMOMETER_ADDRESS );
+    // Serial.print ( F (  "\n  Hot tub DS75."  ) ); Serial.println ( HOT_TUB_THERMOMETER_ADDRESS );
+    // Serial.print ( F (  "  Ambient DS75."  ) ); Serial.println ( LOCAL_THERMOMETER_ADDRESS );
     
-    // Serial.print ( "\n  EWMA time " ); 
+    // Serial.print ( F (  "\n  EWMA time "  ) ); 
     // Serial.print ( LIGHT_READING_SMOOTHING_HALF_LIFE_s );
-    // Serial.print ( " sec; at " );
+    // Serial.print ( F ( " sec; at " ) );
     // Serial.print ( LIGHT_READING_INTERVAL_ms );
-    // Serial.print ( " ms per loop, alpha is " );
+    // Serial.print ( F (  " ms per loop, alpha is "  ) );
     // Serial.println ( light_EWMA_alpha );
   #endif
   
-  #if VERBOSE <= 1
+  #if VERBOSE_HTM <= 1
     setAndStartWatchdogTimer ( 9 );
   #endif
   
-  setFloatRegValue ( regs, nRegs, REGHOTTUBTEMP,  -273.15 );
-  setFloatRegValue ( regs, nRegs, REGAMBIENTTEMP, -273.15 );
+    // displayNumber ( 7705 );
+    // delay ( debugDelay );
+
+  
+  setRegValue ( regs, nRegs, REGHOTTUBTEMP, (float) -273.15 );
+  setRegValue ( regs, nRegs, REGAMBIENTTEMP, (float) -273.15 );
+  
+    // wdt_reset();
+    // displayNumber ( 7706 );
+    // delay ( debugDelay );
+
   
 }
  
 // <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> 
 
-ISR(WDT_vect) { 
-  // heh, heh
-  asm("jmp 0");
-};
+// ISR(WDT_vect) { 
+  // asm("jmp 0");
+// };
 
 // <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> 
   
 void loop () {
 
   static unsigned long lastDisplayChangedAt_ms = 0;
-  static unsigned long lastBlinkToggleAt_ms = 0;
+  // static unsigned long lastBlinkToggleAt_ms = 0;
   static unsigned long lastTempRequestAt_ms = 0, 
-                       temp_should_be_good_at_ms = 0;
+                       requestedAt_ms = 0;
   static unsigned long lastLightReadingAt_ms = 0;
+  static unsigned long lastDS75InitAt_ms = 0;
   static int displayMode = -1;  // 0 displaying temperature; 1 displaying time
   int mb_status;
   static float tHotTub_degF, tAmbient_degF;
@@ -312,18 +333,30 @@ void loop () {
   
   static unsigned char firstLoopP = 1;
   
-  #if VERBOSE <= 1
+  // if ( firstLoopP ) {
+    // wdt_reset();
+    // displayNumber ( 7734 );
+    // delay ( debugDelay );
+  // }
+  
+  // periodically reinitialize the DS75s to make sure they're reading at full resolution
+  if ( ( millis() - lastDS75InitAt_ms ) > DS75_INIT_INTERVAL_ms ) {
+    reinitDS75s ();
+    lastDS75InitAt_ms = millis();
+  }
+  
+  #if VERBOSE_HTM <= 1
     wdt_reset();
   #endif
   
   // for testing
-  if ( VERBOSE >= 10 ) {
-    unsigned long mins = millis() / 60000;
-    int hours = mins / 60;
-    mins = mins - 60 * hours;
-    hours %= 24;
-    setIntRegValue ( regs, nRegs, REGTIME, hours * 100 + mins );
-  }
+  // if ( VERBOSE_HTM >= 10 ) {
+    // unsigned long mins = millis() / 60000;
+    // int hours = mins / 60;
+    // mins = mins - 60 * hours;
+    // hours %= 24;
+    // setRegValue ( regs, nRegs, REGTIME, hours * 100 + mins );
+  // }
   
   mb_status = mb.Execute ();
   
@@ -337,9 +370,9 @@ void loop () {
     } else {
       light = light_EWMA_alpha * lightReading + ( 1 - light_EWMA_alpha ) * light;
     }
-    setFloatRegValue ( regs, nRegs, REGAMBIENTLIGHT,  light );
-    // Serial.print ( "Amb: " ); Serial.print ( lightReading );
-    // Serial.print ( "  EWMA: " ); Serial.println ( light );
+    setRegValue ( regs, nRegs, REGAMBIENTLIGHT,  light );
+    // Serial.print ( F (  "Amb: "  ) ); Serial.print ( lightReading );
+    // Serial.print ( F (  "  EWMA: "  ) ); Serial.println ( light );
 
     // brightness values may range from 0 to 15
     byte display_brightness;
@@ -347,43 +380,52 @@ void loop () {
     // display_brightness = int ( light / 20.0 + 0.5 );
     // if ( display_brightness > 15 ) display_brightness = 15;
     display_brightness = constrain ( map ( light, 20, 300, 0, 15 ), 0, 15 );
-    setShortRegValue ( regs, nRegs, REGLEDBRIGHTNESS,  display_brightness );
+    setRegValue ( regs, nRegs, REGLEDBRIGHTNESS,  display_brightness );
     
     displayWrite ( 0x0a, display_brightness );  // display brightness can be 0x00 to 0x0f
     
-    // Serial.print ( "Light reading: " ); Serial.print ( lightReading );
-    // Serial.print ( "; EWMA: " ); Serial.print ( light );
-    // Serial.print ( "; brightness: " ); Serial.println ( display_brightness );
+    // Serial.print ( F (  "Light reading: "  ) ); Serial.print ( lightReading );
+    // Serial.print ( F ( "; EWMA: " ) ); Serial.print ( light );
+    // Serial.print ( F ("; brightness: " ) ); Serial.println ( display_brightness );
     
     lastLightReadingAt_ms = millis();
   }
 
+  
+  
+  
+  
+  
   // the temperature measurement process requires several times through the loop. To 
   // follow it to completion, we should always enter if temperatureMode is nonzero.
+  // Note that DS75s convert continuously after power-up - the conversion time is simply a lag in their readings,
+  //   not a time that one has to wait upon trying to read.
   if ( ( ( millis() - lastTempRequestAt_ms ) > TEMPERATURE_READING_INTERVAL_ms )
-      || firstLoopP || temperatureMode != 0 ) {
+      || ( firstLoopP && millis() > 1500 ) || temperatureMode != 0 ) {
     float t_degF;
+    // static int nReadAttempts;
     digitalWrite ( pdSTATUSLED, 1 );
   
     switch ( temperatureMode ) {
       case 0:
         // call for hot tub temperature
-        Serial.print ( "Mem: " ); Serial.println ( availableMemory () );
-        Serial.println ( "Call HT temp" );
+        Serial.print ( F (  "Mem: "  ) ); Serial.println ( availableMemory () );
+        // Serial.println ( "Call HT temp" );
+        // nReadAttempts = 0;
         init_DS75_read ( HOT_TUB_THERMOMETER_ADDRESS );
-        temp_should_be_good_at_ms = millis() + conversionTimes_ms [ HOT_TUB_THERMOMETER_ADDRESS ];
+        requestedAt_ms = millis();
         temperatureMode++;
         break;
         
       case 1:
-        // get hot tub temperature if it should be ready
-        if ( millis() <= temp_should_be_good_at_ms ) {
-          // don't expect it to be ready yet
-          break;
-        }
-        if ( ( millis() - temp_should_be_good_at_ms ) < TEMP_READING_TIMEOUT_ms ) {
+        // get hot tub temperature
+        if ( ( millis() - requestedAt_ms ) < TEMP_READING_TIMEOUT_ms ) {
           // keep trying to read
-          Serial.println ( "Read HT temp" );
+          // if ( nReadAttempts++ ) {
+            // Serial.print ( F (".") );
+          // } else {
+            // Serial.print ( F ("Read HT temp") );
+          // }
           t_degF = c2f ( read_DS75_degC ( ) );
           if ( t_degF > -400.0 ) {
             // got an OK reading
@@ -394,7 +436,7 @@ void loop () {
                      fbuf);
             sendMessage (strBuf);
             
-            setFloatRegValue ( regs, nRegs, REGHOTTUBTEMP,  tHotTub_degF );
+            setRegValue ( regs, nRegs, REGHOTTUBTEMP,  tHotTub_degF );
             
             temperatureMode++;
             break;
@@ -403,26 +445,23 @@ void loop () {
           }
         } else {
           // done trying to read. Wah!
-          Serial.print ( "Hot tub temp timeout!\n" );
+          Serial.print ( F ( "\nHot tub temp timeout!\n" ) );
           temperatureMode++;
         }
         break;
         
       case 2:
+        // Serial.println ();
         // call for ambient temperature
         // Serial.println ( "Call ambient temp" );
         init_DS75_read ( LOCAL_THERMOMETER_ADDRESS );
-        temp_should_be_good_at_ms = millis() + conversionTimes_ms [ LOCAL_THERMOMETER_ADDRESS ];
+        requestedAt_ms = millis();
         temperatureMode++;
         break;
         
       case 3:
-        // get ambient temperature if it should be ready
-        if ( millis() <= temp_should_be_good_at_ms ) {
-          // don't expect it to be ready yet
-          break;
-        }
-        if ( ( millis() - temp_should_be_good_at_ms ) < TEMP_READING_TIMEOUT_ms ) {
+        // get ambient temperature
+        if ( ( millis() - requestedAt_ms ) < TEMP_READING_TIMEOUT_ms ) {
           // keep trying to read
           // Serial.println ( "Read ambient temp" );
           t_degF = c2f ( read_DS75_degC ( ) );
@@ -435,7 +474,7 @@ void loop () {
                      fbuf);
             sendMessage (strBuf);
             
-            setFloatRegValue ( regs, nRegs, REGAMBIENTTEMP,  tAmbient_degF );
+            setRegValue ( regs, nRegs, REGAMBIENTTEMP,  tAmbient_degF );
             
             temperatureMode++;
             break;
@@ -444,7 +483,7 @@ void loop () {
           }
         } else {
           // done trying to read. Wah!
-          Serial.print ( "Ambient temp timeout!\n" );
+          Serial.print ( F ( "Ambient temp timeout!\n" ) );
           temperatureMode++;
         }
         break;
@@ -570,10 +609,10 @@ void displayNumber ( int num, int decimalOnDigit ) {
     rightmost_digit = absNum - ( remaining_digits * 10 );
     /*
       Serial.print ( d ); 
-      if ( decimalOnDigit & ( 0x00000001 << d ) ) Serial.print ( "*" );
-      Serial.print ( ": " );
-      Serial.print ( absNum ); Serial.print ( "  " ); 
-      Serial.print ( remaining_digits ); Serial.print ( " -> " ); 
+      if ( decimalOnDigit & ( 0x00000001 << d ) ) Serial.print ( F (  "*"  ) );
+      Serial.print ( F (  ": "  ) );
+      Serial.print ( absNum ); Serial.print ( F (  "  "  ) ); 
+      Serial.print ( remaining_digits ); Serial.print ( F (  " -> "  ) ); 
       Serial.println ( rightmost_digit );
     */
     // add the decimal point if it belongs to this digit
@@ -621,6 +660,68 @@ void displayNumber ( int num, int decimalOnDigit ) {
   }
 }
 
+void displayPOST () {
+  
+  // POST for display
+  //  note: register 1 corresponds to digit 0; so 2 to 1, etc.
+  
+  displayBlank ();
+  
+  displayWrite ( 0x09, 0x00 );  // turn off character decoding
+  
+  for ( int i = 0; i < 2; i++ ) {
+    for ( int digit = 0; digit < 4; digit++ ) {
+      for ( int segment = 0; segment <= 8; segment++ ) {
+        displayWrite ( digit + 1, 0x80 >> segment );  // last iteration sends 0, blanking
+        delay ( 50 );
+      }
+    }
+  }
+
+  // return display to normal
+  
+  displayWrite ( 0x09, 0x0f );  // decode (code B) first 4 characters
+
+}
+
+void displayBlank () {
+  
+  displayWrite ( 0x09, 0x00 );  // turn off character decoding
+  
+  // blank the display
+  for ( int digit = 0; digit < 7; digit++ ) {
+    displayWrite ( digit + 1, 0x00 );          // e.g. register 1 is digit 0
+  }
+
+  displayWrite ( 0x09, 0x0f );  // decode (code B) first 4 characters
+  
+}
+
+void displayInit () {
+  
+  /*
+    on power-up:
+      display is blanked
+      control regs are reset
+      in shutdown mode
+  */
+
+  delay ( 100 );
+  // displayWrite ( 0x0c, 0x00 );  // normal operation -> shutdown mode
+  // delay ( 10 );
+  displayWrite ( 0x0c, 0x01 );  // shutdown mode -> normal operation (250us typ)
+  delay ( 10 );
+  
+  displayWrite ( 0x0f, 0x01 );  // display test
+  delay ( 100 );
+  displayWrite ( 0x0f, 0x00 );  // turn off display test
+  
+  displayWrite ( 0x09, 0x0f );  // decode (code B) first 4 characters
+  displayWrite ( 0x0a, 0x08 );  // display brightness
+  displayWrite ( 0x0b, 0x07 );  // display all characters (digit 7 will be colon etc)
+    
+}
+
 void displayWrite ( byte address, byte value) {
   /*
       16-bits sent with each sending
@@ -646,11 +747,26 @@ void displayWrite ( byte address, byte value) {
 // <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <>        subroutines for temperature sensor          <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> 
 // <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> <> 
 
+void reinitDS75s () {
+  
+  // slow the i2c clock rate to 10kHz 
+  //  cannot - TWBR is a byte, so 255 -> 510 -> 526 -> 16M/526 = 30419Hz
+  // #define TWI_FREQ 32000L
+  // TWBR = constrain ( ( ( F_CPU / TWI_FREQ ) - 16 ) / 2, 1, 255 );
+
+  initDS75 ( HOT_TUB_THERMOMETER_ADDRESS );
+  initDS75 ( LOCAL_THERMOMETER_ADDRESS );
+  
+  // displayNumber ( 7703 );
+  // delay ( debugDelay );
+
+}
+
 void initDS75 ( int device_pin_address ) {
   // set register 0 (temperature) for reading
   int TRegPtr = 0x00;
   int CRegPtr = 0x01;
-  int CFaultTolerance = 0;
+  // int CFaultTolerance = 0;
   int CPolarity = 0;
   int CThermostatMode = 0;
   int CShutdown = 0;
@@ -659,16 +775,16 @@ void initDS75 ( int device_pin_address ) {
   
   dA = deviceAddress ( device_pin_address );
   CResolution = CResolutions [ device_pin_address ];
-  ConfigValue = (CResolution      & 0x03) << 5 
-              | (CPolarity        & 0x01) << 2
-              | (CThermostatMode  & 0x01) << 1
-              | (CShutdown        & 0x01) << 0;
+  ConfigValue = ( CResolution      & 0x03 ) << 5 
+              | ( CPolarity        & 0x01 ) << 2
+              | ( CThermostatMode  & 0x01 ) << 1
+              | ( CShutdown        & 0x01 ) << 0;
                   
-  Wire.beginTransmission(dA); Wire.write(CRegPtr); Wire.write(ConfigValue); Wire.endTransmission();
-  Wire.beginTransmission(dA); Wire.write(TRegPtr); Wire.endTransmission();
+  Wire.beginTransmission( dA ); Wire.write( CRegPtr ); Wire.write( ConfigValue ); Wire.endTransmission();
+  Wire.beginTransmission( dA ); Wire.write( TRegPtr ); Wire.endTransmission();
 }
   
-float init_DS75_read ( int device_pin_address ) {
+void init_DS75_read ( int device_pin_address ) {
   Wire.requestFrom ( deviceAddress ( device_pin_address ), 2, true);
 }
   
@@ -676,18 +792,17 @@ float read_DS75_degC () {
 
   byte c1, c2;                    // the two words received from the DS75
   int c;                          // word comprising c1 and c2
-  int	t1, t2; 										// int part and 1e3 times fract part degF
   float degC = -273.15;           // temp in degC
   
   if ( Wire.available() >= 2 ) {
     c1 = Wire.read();
     c2 = Wire.read();
     c = c1 << 8 | c2;
-    if (c & 0x8000) {
+    if ( c & 0x8000 ) {
       // negative number...
-      degC = - ( (-c >> 8) + 0.0625 * ((-c >> 4) & 0x000f) );
+      degC = - ( ( -c >> 8 ) + 0.0625 * ( ( -c >> 4 ) & 0x000f ) );
     } else {
-      degC = (c >> 8) + 0.0625 * ((c >> 4) & 0x000f);
+      degC = ( c >> 8 ) + 0.0625 * ( ( c >> 4 ) & 0x000f );
     }
   }
   
@@ -704,8 +819,8 @@ float c2f ( float degC ) {
 
 void sendMessage (char msg[]) {
   char smBuf[42];
-  snprintf (smBuf, 40, "[%s %7lu: %s]\n", PROGMONIKER, millis(), msg);
-  Serial.print (smBuf);
+  snprintf ( smBuf, 40, "[%s %7lu: %s]\n", PROGMONIKER, millis(), msg );
+  Serial.print ( smBuf );
   // Serial.print ( msg );
 }
 
@@ -730,7 +845,7 @@ void setAndStartWatchdogTimer ( byte scaler ) {
       
       Valid values from 0 to 9
       
-      also use 
+      also *don't* use ( software reset *fails* to clear the registers! Lack of defined ISR causes *hardware* reset )
       
           ISR(WDT_vect) { 
             // heh, heh - restarts program, but doesn't hard-reset processor
@@ -742,7 +857,7 @@ void setAndStartWatchdogTimer ( byte scaler ) {
 
   */
   
-  // Serial.print ( "Scaler: 0x" ); Serial.println ( scaler, HEX );
+  // Serial.print ( F (  "Scaler: 0x"  ) ); Serial.println ( scaler, HEX );
   
   byte WDTCSR_nextValue = ( 1 << WDIE )                             // bit 6
                         | ( 0 << WDE  )                             // bit 3
@@ -751,7 +866,7 @@ void setAndStartWatchdogTimer ( byte scaler ) {
                         | ( ( ( scaler >> 1 ) & 0x01 ) << WDP1 )    // bit 1
                         | ( ( ( scaler >> 0 ) & 0x01 ) << WDP0 );   // bit 0
                                 
-  // Serial.print ( "Next value for WDTCSR: 0x" ); Serial.println ( WDTCSR_nextValue, HEX );
+  // Serial.print ( F (  "Next value for WDTCSR: 0x"  ) ); Serial.println ( WDTCSR_nextValue, HEX );
   
   cli();  // disable interrupts by clearing the global interrupt mask
   
@@ -800,7 +915,7 @@ int availableMemory () {
            // fbuf);
   // sendMessage (strBuf);
   
-  // setFloatRegValue ( regs, nRegs, modbus_register,  t_degF );
+  // setRegValue ( regs, nRegs, modbus_register,  t_degF );
   
   // return ( t_degF );
   

@@ -85,6 +85,7 @@ void setup () {
   
   Serial.begin ( BAUDRATE );
   while ( !Serial && millis () < 2000 );
+  Serial.printf ( "Serial now alive at %lu ms\n", millis() );
   
   //Print the wakeup reason for ESP32
   print_wakeup_reason();
@@ -123,6 +124,8 @@ void setup () {
     u8x8.drawString( 0, 3, VERDATE );
   #endif
   delay ( 100 );
+
+  Serial.printf ( "Leaving setup at %lu ms\n", millis() );
 
 }
 

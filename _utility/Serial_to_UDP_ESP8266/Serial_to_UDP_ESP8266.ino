@@ -1,7 +1,10 @@
+#define PROGNAME "Serial_to_UDP_ESP8266"
+#define VERSION  "2.3.0"
+#define VERDATE  "2017-04-30"
+
 /* 
   Serial to UDP via ESP8266
   Charles B. Malloch, PhD
-  2016-02-12
   
   Program to replace chunks of my home control system, specifically 
   the XBee-to-Toshiba-Windows2K-to-UDP bits.
@@ -42,9 +45,11 @@
 
 #define BAUDRATE    115200
 #define VERBOSE          2
+// locales include M5, CBMM5, CBMDATACOL, CBMDDWRT, CBMDDWRT3, CBMDDWRT3GUEST,
+//   CBMBELKIN, CBM_RASPI_MOSQUITTO
 // need to use CBMDDWRT3 for my own network access
 // can use CBMM5 or CBMDDWRT3GUEST for Sparkfun etc.
-#define WIFI_LOCALE CBMDDWRT3
+#define WIFI_LOCALE CBMDATACOL
 const unsigned int port_UDP = 9240;
 // either define ( to enable ) or undef
 #define DO_BROADCAST
@@ -56,10 +61,6 @@ const unsigned int port_UDP = 9240;
 #define pdThrobber      13
 
 cbmNetworkInfo Network;
-
-#define WLAN_PASS       password
-#define WLAN_SSID       ssid
-
 WiFiUDP conn_UDP;
 
 void handleSerialInput ();
@@ -90,10 +91,13 @@ void setup () {
   }
 
   // Connect to WiFi access point.
-  Serial.print ("\nConnecting to "); Serial.println ( Network.ssid );
+  Serial.print ( "\nESP8266 device '" );
+  Serial.print ( Network.chipName );
+  Serial.print ( "' connecting to " ); 
+  Serial.println ( Network.ssid );
   yield ();
   
-  WiFi.config ( Network.ip, Network.gw, Network.mask );
+  WiFi.config ( Network.ip, Network.gw, Network.mask, Network.dns );
   WiFi.begin ( Network.ssid, Network.password );
   
   while ( WiFi.status() != WL_CONNECTED ) {
@@ -109,7 +113,7 @@ void setup () {
   Serial.print ( "; will use USB port " ); Serial.println ( port_UDP );
   yield ();
    
-  Serial.println ( F ( "[Serial_to_UDP_ESP8266 v2.2.0 2016-03-09]" ) );
+  Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
   
   yield ();
   
