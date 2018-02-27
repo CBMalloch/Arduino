@@ -49,7 +49,7 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=320,81
 
 const int bufLen = 3 + 1;
 char strBuf [ bufLen ];
-// void noteName ( char * strName, int cents, float f );
+// void noteDetails ( char * pNoteNameString, int cents, float f );
 
 //---------------------------------------------------------------------------------------
 
@@ -63,17 +63,17 @@ void setup() {
   
   if ( 0 ) {
     int cents;
-    noteName ( strBuf, &cents, 440.0 );  // A4
+    noteDetails ( strBuf, &cents, 440.0 );  // A4
     Serial.printf ( "A4: %s + %d cents\n", strBuf, cents );
-    noteName ( strBuf, &cents, 220.0 );  // A3
+    noteDetails ( strBuf, &cents, 220.0 );  // A3
     Serial.printf ( "A3: %s + %d cents\n", strBuf, cents );
-    noteName ( strBuf, &cents, 110.0 * halfSteps [ 2 ] );  // B2
+    noteDetails ( strBuf, &cents, 110.0 * halfSteps [ 2 ] );  // B2
     Serial.printf ( "B2: %s + %d cents\n", strBuf, cents );
-    noteName ( strBuf, &cents, 880.0 * halfSteps [ 11 ] );  // G#6
+    noteDetails ( strBuf, &cents, 880.0 * halfSteps [ 11 ] );  // G#6
     Serial.printf ( "Ab6: %s + %d cents\n", strBuf, cents );
-    noteName ( strBuf, &cents, 890.25 );  // ??
+    noteDetails ( strBuf, &cents, 890.25 );  // ??
     Serial.printf ( "A5, a little sharp: %s + %d cents\n", strBuf, cents );
-    noteName ( strBuf, &cents, 860.0 );  // ??
+    noteDetails ( strBuf, &cents, 860.0 );  // ??
     Serial.printf ( "A5, a little flat: %s + %d cents\n", strBuf, cents );
     while ( 1 );
   }
@@ -125,7 +125,7 @@ void loop () {
     }
     if ( 1 ) {
       int cents;
-      noteName ( strBuf, &cents, noteFreq );
+      noteDetails ( strBuf, &cents, noteFreq );
       Serial.printf("noteFreq: %3s + %d cents ( %3.2fHz ) p=%.2f\n", strBuf, cents, noteFreq, noteProb);
     }
   } else {
@@ -146,7 +146,7 @@ void loop () {
 
 }
 
-void noteName ( char *strName, int *cents, float f ) {
+void noteDetails ( char *pNoteNameString, int *pNoteCents, float f ) {
   const int VERBOSE = 0;
   const double halfStep = exp ( log ( 2.0 ) / 12.0 );
   const char noteNames [ 12 ] [ 3 ] = { "A", "Bb", "B", "C", "C#", "D", 
@@ -163,16 +163,16 @@ void noteName ( char *strName, int *cents, float f ) {
   remainder -= 12 * baseOctave;
   halfSteps = round ( remainder );
   fcents = ( remainder - ( float ) halfSteps ) * 100.0;
-  *cents = round ( fcents );
+  *pNoteCents = round ( fcents );
   
-  snprintf ( *strName, 4, "%s%d", 
+  snprintf ( pNoteNameString, 4, "%s%d", 
               noteNames [ halfSteps ], baseOctave + octaveNumbers [ halfSteps ] );
   
   if ( VERBOSE >= 4 ) {
     Serial.printf ( "f: %2.1f\nfromA440: %2.2f\nbaseOctave: %2d\nhalf-steps: %2d\n",
                   f, fromA440, baseOctave, halfSteps );
     Serial.printf ( "fcents: %2.1f\n", fcents );
-    Serial.printf ( "Note name: %s\n", strName );
+    Serial.printf ( "Note name: %s\n", pNoteNameString );
   }
   
   return;

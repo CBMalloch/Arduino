@@ -10,7 +10,7 @@ long yl;
 */
 
 const int labelLen = 20;
-char label [ labelLen ] = "LoRa32u4 0";
+char label [ labelLen ] = "LoRa32u4 1";
 const int baseAdd = 0x00;
 
 void setup() {
@@ -43,10 +43,7 @@ void setup() {
 	Serial.println("---");
 	*/
 	
-	for ( int i = 0; i < strlen ( label ); i++ ) {
-	  Serial.print ( (char) EEPROM.read ( baseAdd + i ) );
-	}
-	for ( int i = strlen ( label ); i < labelLen; i++ ) {
+	for ( int i = 0; i < labelLen; i++ ) {
 	  Serial.print ( (char) EEPROM.read ( baseAdd + i ) );
 	}
 	Serial.println ();
@@ -55,14 +52,19 @@ void setup() {
 	  EEPROM.write ( baseAdd + i, label [ i ] );
 	}
 	for ( int i = strlen ( label ); i < labelLen; i++ ) {
-	  EEPROM.write ( baseAdd + i, 0x20 );
+	  EEPROM.write ( baseAdd + i, 0x00 );
 	}
 	
-	for ( int i = 0; i < strlen ( label ); i++ ) {
+	for ( int i = 0; i < labelLen; i++ ) {
 	  Serial.print ( (char) EEPROM.read ( baseAdd + i ) );
 	}
-	for ( int i = strlen ( label ); i < labelLen; i++ ) {
-	  Serial.print ( (char) EEPROM.read ( baseAdd + i ) );
+	Serial.println ();
+	
+	for ( int i = 0; i < labelLen; i++ ) {
+	  int c = EEPROM.read ( baseAdd + i );
+	  if ( c < 16 ) Serial.print ( "0" );
+	  Serial.print ( c, HEX);
+	  Serial.print ( " " );
 	}
 	Serial.println ();
 	
