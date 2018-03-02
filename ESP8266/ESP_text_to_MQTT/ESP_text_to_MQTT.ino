@@ -1,45 +1,51 @@
 #define PROGNAME  "ESP_text_to_MQTT"
-#define VERSION   "0.1.0"
-#define VERDATE   "2018-02-27"
+#define VERSION   "0.1.1"
+#define VERDATE   "2018-02-28"
 
 /*
   to be loaded onto ESP-01
   receive text commands to connect to network and then to send data to MQTT server
+  NOTE: the ESP-01 is a 3.3V device, intolerant of 5V
   
-  all commands and responses will be JSON
+  all commands and responses are JSON
   see <http://arduinojson.org>
     			
-	>	{ "command": "connect",
-		  "networkSSID": "blah_blah",
-      "networkPW": "more blah",
-      "MQTTuserID": "whoever",
-      "MQTTuserPW": "whatever"
-		}
-	<	{ "connectionResult": "OK" }
-	<	{ "connectionResult": "failed" }
-		e.g. { "command": "connect", "networkSSID": "cbm_IoT_MQTT", "networkPW": "cbmLaunch",
-           "MQTTuserID": "cbmalloch", "MQTTuserPW": "" }
+  implemented:
+    >	{ "command": "connect",
+        "networkSSID": "blah_blah",
+        "networkPW": "more blah",
+        "MQTThost": "<url_or_IP>",
+        "MQTTuserID": "whoever",
+        "MQTTuserPW": "whatever"
+      }
+    <	{ "connectionResult": "OK",
+        "ip": "<assigned_ip_address>" }
+    <	{ "connectionResult": "failed" }
+      e.g. { "command": "connect", "networkSSID": "cbm_IoT_MQTT", "networkPW": "SECRET",
+             "MQTTuserID": "cbmalloch", "MQTTuserPW": "" }
 
-  > { "command": "chipID" }
-  < { "chipID_hex": <hex string> }
+    > { "command": "send",
+        "topic": "<topic_string>",
+        "value": <float>|<string>
+      }
+    
+    > { "command": "subscribe",
+        "topic": "<topic_string>",
+        "QOS": 0|1|2
+      }
+    
+    < { "topic": "<topic_string>",
+        "value": <float>|<string>
+      }
+    
+  pending:
+  
+    > { "command": "chipID" }
+    < { "chipID_hex": <hex string> }
 
-  > { "command": "retain",
-      "value": 0|1
-    }
-    
-  > { "command": "send",
-      "topic": "<topic_string>",
-      "value": <float>|<string>
-    }
-    
-  > { "command": "subscribe",
-      "topic": "<topic_string>",
-      "QOS": 0|1|2
-    }
-    
-  < { "topic": "<topic_string>",
-      "value": <float>|<string>
-    }
+    > { "command": "retain",
+        "value": 0|1
+      }
     
     
     
@@ -49,17 +55,21 @@
     setup
     loop
       
-      waits for input from serial-connected device
+      accepts input from serial-connected device (host)
       calls handleSerialInput
         gathers serial input
         calls handleString
           may call
             networkConnect
       waits something from MQTT
-      <will call something>
+        sends it on to host
     
   
-  
+ Plans:
+    add a "tick" option
+    add options for QOS, retained values
+
+
   0.0.1 2018-02-26 cbm cloned from backup_indicator_feed_to_Mosquitto
                        
 */
@@ -73,7 +83,7 @@
 // ***************************************
 // ***************************************
 
-#define BAUDRATE       115200
+// #define BAUDRATE       115200
 #define VERBOSE            10
 
 const unsigned long sendDataToCloudInterval_ms =  10UL * 1000UL;
@@ -92,11 +102,16 @@ PubSubClient conn_MQTT ( conn_TCP );
 
 uint32_t chipID;
 
+char mqtt_host [ 50 ] = "third_base";
+char mqtt_clientID [ 50 ] = "whatever";
+char mqtt_userID [ 50 ] = "nobody";
+char mqtt_userPW [ 50 ] = "nothing";
 int mqtt_qos = 0;
 int mqtt_retain = 0;
 int nSendings = 0;
 
-void MQTTconnect( void );
+int networkConnect ( const char ssid [], const char networkPW [] );
+int MQTTconnect( void );
 void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length );
 bool handleSerialInput ( void );
 bool handleString ( char strBuffer[] );  // broadcasts if there's a change
@@ -115,14 +130,41 @@ const size_t pBufLen = 128;
 char pBuf [ pBufLen ];
 int strBufPtr = 0;
 
+long BAUDRATE = 115200L;
+
 void setup ( void ) {
   
-  Serial.begin ( BAUDRATE );
-  while ( !Serial && ( millis() < 10000 ) );
+  #if false
+    // first feeble attempt at autobaud
+  
+    const int nBaudrates = 4;
+    const long baudrates [ nBaudrates ] = { 115200, 57600, 19200, 9600 };
+    while ( BAUDRATE == 0L ) {
+      for ( int i = 0; i < nBaudrates; i++ ) {
+        Serial.begin ( baudrates [ i ] );
+        // delay ( 2 );
+        if ( Serial.available () ) Serial.print ( Serial.peek() );
+        if ( Serial.available () && Serial.read() == '.' ) {
+          BAUDRATE = baudrates [ i ];
+          break;
+        }  // got a good character
+        Serial.print ( i ); delay ( 300 );
+      }  // 
+    }
+    Serial.print ( "Detected baud rate: " ); Serial.println ( BAUDRATE );
+  #else
+    Serial.begin ( BAUDRATE );
+    while ( !Serial && ( millis() < 10000 ) );
+  #endif
+  
   
   Serial.print ( "\n\n" );
   Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
-    
+  
+  // generate random client ID value
+  randomSeed ( analogRead(0) + analogRead(3) + millis() );
+  snprintf ( mqtt_clientID, 50, "ESP_text_to_MQTT_%ld", random ( 2147483647L ) );
+
 }
 
 void loop () {
@@ -137,7 +179,11 @@ void loop () {
     return;
   }
   
-  if ( ! conn_MQTT.connected() ) MQTTconnect ();
+  if ( ! conn_MQTT.connected() ) {
+    if ( MQTTconnect () != 1 ) {
+      return;
+    }
+  }
   yield();
  
   handleSerialInput();
@@ -145,57 +191,6 @@ void loop () {
   yield();
   delay ( 10 );
  
-}
-
-void MQTTconnect () {
-  
-  unsigned long startTime_ms = millis();
-  static bool newConnection = true;
-  bool printed;
-  
-  printed = false;
-  while ( WiFi.status() != WL_CONNECTED ) {
-    if ( VERBOSE > 4 && ! printed ) { 
-      Serial.print ( "\nChecking wifi..." );
-      printed = true;
-      newConnection = true;
-    }
-    Serial.print ( "." );
-    delay ( 1000 );
-  }
-  if ( newConnection && VERBOSE > 4 ) {
-    Serial.print ( "\n  WiFi reconnected as " ); 
-    Serial.print ( WiFi.localIP() );
-    Serial.print (" in ");
-    Serial.print ( millis() - startTime_ms );
-    Serial.println ( " ms" );    
-  }
-  
-  startTime_ms = millis();
-  printed = false;
-  while ( ! conn_MQTT.connected ( ) ) {
-    conn_MQTT.connect ( "" );  // wants client ID
-    if ( VERBOSE > 4 && ! printed ) { 
-      Serial.print ( "  Checking MQTT ( status: " );
-      Serial.print ( conn_MQTT.state () );
-      Serial.print ( ")..." );
-      printed = true;
-      newConnection = true;
-    }
-    Serial.print( "." );
-    delay( 1000 );
-  }
-  
-  if ( newConnection ) {
-    if ( VERBOSE > 4 ) {
-      Serial.print ("\n  MQTT connected in ");
-      Serial.print ( millis() - startTime_ms );
-      Serial.println ( " ms" );
-    }
-    // conn_MQTT.subscribe ( MQTT_FEED );
-  }
-  // conn_MQTT.unsubscribe("/example");
-  newConnection = false;
 }
 
 bool handleSerialInput() {
@@ -235,6 +230,7 @@ bool handleSerialInput() {
         handleString ( strBuf );
         // clear the buffer
         strBufPtr = 0;
+        strBuf [ 0 ] = '\0';
       } else if ( strBuf [ strBufPtr ] == '\n' ) {  // 0x0a
         // ignore LF
       } else {
@@ -280,13 +276,18 @@ bool handleString ( char strBuffer[] ) {
     // handle whatever it was
     const char* cmd = root [ "command" ];
     if ( ! strcmp ( cmd, "connect" ) ) {
+      strncpy ( mqtt_host, (const char *) root [ "MQTThost" ], 50 );
+      conn_MQTT.setServer ( mqtt_host, 1883 );
+      strncpy ( mqtt_userID, (const char *) root [ "MQTTuserID" ], 50 );
+      strncpy ( mqtt_userPW, (const char *) root [ "MQTTuserPW" ], 50 );
+      
       int result = networkConnect ( 
               (const char *) root [ "networkSSID" ],
-              (const char *) root [ "networkPW" ],
-              (const char *) root [ "MQTTuserID" ],
-              (const char *) root [ "MQTTuserPW" ] );
+              (const char *) root [ "networkPW" ] );
       if ( result == 1 ) {
-        Serial.println ( "{ \"connectionResult\": \"OK\" }" );
+        Serial.printf ( "{ \"connectionResult\": \"OK\", \"ssid\": \"%d.%d.%d.%d\" }\n",
+                        WiFi.localIP() [ 0 ], WiFi.localIP() [ 1 ], WiFi.localIP() [ 2 ], WiFi.localIP() [ 3 ] );
+          
         return ( true );
       } else {
         Serial.printf ( "{ \"connectionResult\": \"failed %d\" }\n", result );
@@ -324,9 +325,21 @@ bool handleString ( char strBuffer[] ) {
 
 }
 
-int networkConnect ( const char ssid [], const char networkPW [], const char user [], const char userPW [] ) {
+int networkConnect ( const char ssid [], const char networkPW [] ) {
+
+  /*
+    Return codes:
+        1 -> OK
+    -1000 ->
+    -1001 -> Network timeout
+    -1002 -> No networks found
+  */
 
   if ( VERBOSE >= 2 ) {
+    Serial.print ( " Chip ID: " ); Serial.print ( ESP.getChipId () );
+    Serial.print ( " ( 0x" ); Serial.print ( ESP.getChipId (), HEX );
+    Serial.print ( " ); " ); // Serial.println ();
+    
     byte macAddress [ 6 ];
     WiFi.macAddress ( macAddress );
     Serial.print ( "MAC address: " );
@@ -350,9 +363,14 @@ int networkConnect ( const char ssid [], const char networkPW [], const char use
   yield ();
   
   /*
+  Serial.println ( "Available networks:" );
+  if ( ! listNetworks() ) return -1002;
+  */
+  
+  /*
   
     0 : WL_IDLE_STATUS when Wi-Fi is in process of changing between statuses
-    1 : WL_NO_SSID_AVAILin case configured SSID cannot be reached
+    1 : WL_NO_SSID_AVAIL in case configured SSID cannot be reached
     3 : WL_CONNECTED after successful connection is established
     4 : WL_CONNECT_FAILED if password is incorrect
     6 : WL_DISCONNECTED if module is not configured in station mode
@@ -360,30 +378,129 @@ int networkConnect ( const char ssid [], const char networkPW [], const char use
   */
   
   int nDots = 0;
-  if ( 1 || WiFi.status() != WL_CONNECTED ) {
-    WiFi.disconnect();
+  if ( WiFi.status() != WL_CONNECTED ) {
+    // WiFi.disconnect();
+    // delay ( 1000 );
     WiFi.begin ( ssid, networkPW );
+    #define DNS_IS_WORKING false
+    #if DNS_IS_WORKING
+      // we'd like to be able to use DNS
+      // NOPE WiFi.setDNS ( "172.16.68.3", "9.9.9.9" );
+      // maybe now 
+      IPAddress dns1 = { 172, 16, 68, 3 };
+      IPAddress dns2 = { 9, 9, 9, 9 };
+      WiFi.config ( WiFi.localIP(), WiFi.gatewayIP(), WiFi.subnetMask(), dns1, dns2 );
+    #endif
+    delay ( 250 );
   }
   while ( WiFi.status() != WL_CONNECTED ) {
     Serial.print ( WiFi.status() );
     if ( ++nDots % 80 == 0 ) Serial.print ( "\n" );
     yield();
     delay ( 500 );  // implicitly yields but may not pet the nice doggy
-    if ( nDots > 160 ) {
-      Serial.print ( "\nTimeout!\n" );
+    if ( nDots >= 160 ) {
+      Serial.println ( "networkConnect: connection timeout!" );
       return ( -1001 );
     }
   }
     
-  if ( VERBOSE >= 8 ) Serial.printf ( "\nConnected with RSS %d.\n", WiFi.RSSI() );
+  if ( VERBOSE >= 8 ) Serial.printf ( "\nConnected; RSS: %d.\n", WiFi.RSSI() );
 
   conn_MQTT.setCallback ( handleReceivedMQTTMessage );
-  // assumption that the server is running on the gateway machine
-  conn_MQTT.setServer ( WiFi.gatewayIP(), 1883 );
-  MQTTconnect ();
+  conn_MQTT.disconnect ();
+  int MQTT_ok = MQTTconnect ();
+  if ( MQTT_ok != 1 ) {
+    return MQTT_ok;
+  }
   
   yield ();
   
+  return 1;
+}
+
+int MQTTconnect () {
+
+  /*
+    Return values:
+          1: OK
+      -1011: WiFi reconnection timeout
+      -1012: MQTT timeout
+  */
+  
+  unsigned long startTime_ms = millis();
+  static bool newConnection = true;
+  bool printed;
+  
+  int nDots;
+  
+  printed = false;
+  nDots = 0;
+  while ( WiFi.status() != WL_CONNECTED ) {
+    if ( VERBOSE > 4 && ! printed ) { 
+      Serial.print ( "\nChecking wifi..." );
+      printed = true;
+      newConnection = true;
+    }
+    Serial.print ( "." );
+    if ( ++nDots % 80 == 0 ) Serial.print ( "\n" );
+    if ( nDots >= 25 ) {
+      newConnection = true;
+      Serial.println ( "MQTTconnect: network reconnection timeout!" );
+      return -1011;
+    }
+    delay ( 1000 );
+  }
+  if ( newConnection && VERBOSE > 4 ) {
+    Serial.print ( "\n  WiFi reconnected as " ); 
+    Serial.print ( WiFi.localIP() );
+    Serial.print (" in ");
+    Serial.print ( millis() - startTime_ms );
+    Serial.println ( " ms" );    
+  }
+  
+  startTime_ms = millis();
+  printed = false;
+  nDots = 0;
+  while ( ! conn_MQTT.connected ( ) ) {
+    conn_MQTT.connect ( mqtt_clientID, mqtt_userID, mqtt_userPW );
+    if ( VERBOSE > 4 && ! printed ) { 
+      Serial.print ( "\n  MQTTconnect: connecting to " ); Serial.print ( mqtt_host );
+      Serial.print ( " as '"); Serial.print ( mqtt_clientID );
+      if ( VERBOSE >= 8 ) {
+        Serial.print ( "' user '" );
+        Serial.print ( mqtt_userID );
+        Serial.print ( "' / '" );
+        Serial.print ( mqtt_userPW );
+        Serial.println ( "'" );
+      }
+      Serial.println ();
+
+      Serial.print ( "  Checking MQTT ( status: " );
+      Serial.print ( conn_MQTT.state () );
+      Serial.print ( " ) ..." );
+      printed = true;
+      newConnection = true;
+    }
+    Serial.print( "." );
+    if ( ++nDots % 80 == 0 ) Serial.print ( "\n  " );
+    if ( nDots >= 25 ) {
+      newConnection = true;
+      Serial.println ( "MQTTconnect: connection timeout!" );
+      return -1012;
+    }
+    delay( 1000 );
+  }
+  
+  if ( newConnection ) {
+    if ( VERBOSE > 4 ) {
+      Serial.print ("\n  MQTT connected in ");
+      Serial.print ( millis() - startTime_ms );
+      Serial.println ( " ms" );
+    }
+    // conn_MQTT.subscribe ( MQTT_FEED );
+  }
+  // conn_MQTT.unsubscribe("/example");
+  newConnection = false;
   return 1;
 }
 
@@ -444,4 +561,47 @@ void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int leng
   // for connected computer:
   Serial.println ( myBuf );
   
+}
+
+int listNetworks() {
+  // scan for nearby networks:
+  Serial.println("** Scan Networks **");
+  int numSsid = WiFi.scanNetworks();
+  if (numSsid == -1) {
+    Serial.println("Couldn't get a wifi connection");
+    while (true);
+  }
+
+  // print the list of networks seen:
+  Serial.print("Number of available networks: ");
+  Serial.println(numSsid);
+
+  // print the network number and name for each network found:
+  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+    Serial.print(thisNet);
+    Serial.print(") ");
+    Serial.print(WiFi.SSID(thisNet));
+    Serial.print("\tSignal: ");
+    Serial.print(WiFi.RSSI(thisNet));
+    Serial.print(" dBm");
+    Serial.print("\tEncryption: ");
+    switch (WiFi.encryptionType(thisNet)) {
+      case ENC_TYPE_WEP:
+        Serial.println("WEP");
+        break;
+      case ENC_TYPE_TKIP:
+        Serial.println("WPA");
+        break;
+      case ENC_TYPE_CCMP:
+        Serial.println("WPA2");
+        break;
+      case ENC_TYPE_NONE:
+        Serial.println("None");
+        break;
+      case ENC_TYPE_AUTO:
+        Serial.println("Auto");
+        break;
+    }
+  }
+  return numSsid;
 }

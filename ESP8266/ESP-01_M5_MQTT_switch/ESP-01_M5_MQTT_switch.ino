@@ -1,6 +1,6 @@
 #define PROGNAME "ESP-01_M5_MQTT_switch"
-#define VERSION  "0.0.1"
-#define VERDATE  "2018-02-24"
+#define VERSION  "0.1.0"
+#define VERDATE  "2018-02-28"
 
 /*
     ESP-01_M5_MQTT_switch.ino
@@ -25,19 +25,25 @@
 // ***************************************
 
 const int BAUDRATE = 115200;
+
+// ---------------------------------------
+// ---------------------------------------
+
 // need to use CBMDDWRT3 for my own network access
 // CBMDATACOL for other use
 // can use CBMM5 or CBMDDWRT3GUEST for Sparkfun etc.
-#define atM5 false
 
-// ***************************************
-// ***************************************
+#define atM5 false
 
 #if atM5
   #define WIFI_LOCALE M5
 #else
-  #define WIFI_LOCALE CBMDATACOL
+  #define WIFI_LOCALE CBMIoT
 #endif
+
+// ---------------------------------------
+// ---------------------------------------
+
 const int VERBOSE = 10;
 
 const char * MQTT_FEED = "cbmalloch/feeds/onoff";
@@ -69,7 +75,7 @@ WiFiClient conn_TCP;
   #define MQTT_SERVER      "192.168.5.1"
   // "M5_IoT_MQTT"
 #else
-  #define MQTT_SERVER      "mosquitto"
+  #define MQTT_SERVER      "192.168.5.1"
 #endif
 #define MQTT_SERVERPORT  1883
 // 14714
