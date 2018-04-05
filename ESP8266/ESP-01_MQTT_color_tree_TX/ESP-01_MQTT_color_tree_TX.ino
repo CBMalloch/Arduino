@@ -1,6 +1,6 @@
 #define PROGNAME "ESP-01_MQTT_color_tree_TX"
-#define VERSION  "0.1.1"
-#define VERDATE  "2018-03-31"
+#define VERSION  "0.2.0"
+#define VERDATE  "2018-04-05"
 
 /*
     ESP-01_MQTT_color_tree_TX.ino
@@ -26,7 +26,24 @@
     This means that the Arduino IDE needs to be on the IoT network in order 
     to push an update...
     
+    OTA is currently working at my house, but I haven't tried it at M5. It 
+    requires the developer to be co-located on a LAN (since the MQTT server doesn't
+    pass through to the Internet). Thus you must be on the M5_IoT_MQTT network.
+    
+    If you want to compile this program and you're not me, you don't have my
+    network credentials "cbmNetworkInfo". So you need to change
+      #define COMPILE_USING_CBMNETWORKINFO
+    to
+      #undef COMPILE_USING_CBMNETWORKINFO
+    and to change <super secret password> to something that will work at M5
+    == I refuse to put anything on my GitHub that contains any password ==
+    
 */
+
+#define COMPILE_USING_CBMNETWORKINFO
+#ifdef COMPILE_USING_CBMNETWORKINFO
+  #include <cbmNetworkInfo.h>
+#endif
 
 #undef ALLOW_OTA
 #ifdef ALLOW_OTA
@@ -44,7 +61,6 @@
 
 #include <Adafruit_NeoPixel.h>
 
-#include <cbmNetworkInfo.h>
 
 // ***************************************
 // ***************************************
@@ -69,7 +85,7 @@ const char * MQTT_FEED = "cbmalloch/tree";
 const int            pdBlueLED     =   1;
 const int            pdWS2812      =   3;
 
-const unsigned short nPixels       =  64;
+const unsigned short nPixels       =  100;
 
 // ***************************************
 // ***************************************
@@ -78,10 +94,12 @@ int colorDotLocation = -1;
 unsigned long colorDotColors [] = { 0x080808, 0x202020, 0x208020, 0x202020, 0x080808 };
 unsigned long lastPositionCommandAt_ms = 0UL;
 unsigned long pointerDuration_ms = 5000UL;
-unsigned long rainbowTick_ms = 5UL;
+unsigned long rainbowTick_ms = 20UL;
 
-int WIFI_LOCALE;
-cbmNetworkInfo Network;
+#ifdef COMPILE_USING_CBMNETWORKINFO
+  int WIFI_LOCALE;
+  cbmNetworkInfo Network;
+#endif
 
 #define WLAN_PASS       password
 #define WLAN_SSID       ssid
@@ -95,8 +113,15 @@ WiFiClient conn_TCP;
 
 char * MQTT_SERVER = "192.168.5.1"; 
 #define MQTT_SERVERPORT  1883
-#define MQTT_USERNAME    CBM_MQTT_USERNAME
-#define MQTT_KEY         CBM_MQTT_KEY
+#ifdef COMPILE_USING_CBMNETWORKINFO
+  int WIFI_LOCALE;
+  cbmNetworkInfo Network;
+  #define MQTT_USERNAME    CBM_MQTT_USERNAME
+  #define MQTT_KEY         CBM_MQTT_KEY
+#else
+  #define MQTT_USERNAME    "Random_M5_User"
+  #define MQTT_KEY         "m5launch"
+#endif
 
 PubSubClient conn_MQTT ( conn_TCP );
 
@@ -159,23 +184,26 @@ void setup() {
   
   /**************************** Connect to network ****************************/
   
-  if ( weAreAtM5 () ) {
-    WIFI_LOCALE =  M5;
-  } else {
-    WIFI_LOCALE =  HOME_WIFI_LOCALE;
-    if ( HOME_WIFI_LOCALE != CBMIoT ) MQTT_SERVER = "mosquitto";
-  }
-    
-  // for security reasons, the network settings are stored in a private library
-  Network.init ( WIFI_LOCALE );
-
-  // Connect to WiFi access point.
-  Serial.print ("\nConnecting to "); Serial.println ( Network.ssid );
-  yield ();
+  #ifdef COMPILE_USING_CBMNETWORKINFO
+    if ( weAreAtM5 () ) {
+      WIFI_LOCALE =  M5;
+    } else {
+      WIFI_LOCALE =  HOME_WIFI_LOCALE;
+      if ( HOME_WIFI_LOCALE != CBMIoT ) MQTT_SERVER = "mosquitto";
+    }
+    // for security reasons, the network settings are stored in a private library
+    Network.init ( WIFI_LOCALE );
   
-  WiFi.config ( Network.ip, Network.gw, Network.mask, Network.dns );
-  WiFi.begin ( Network.ssid, Network.password );
-
+    // Connect to WiFi access point.
+    Serial.print ("\nConnecting to "); Serial.println ( Network.ssid );
+    yield ();
+  
+    WiFi.config ( Network.ip, Network.gw, Network.mask, Network.dns );
+    WiFi.begin ( Network.ssid, Network.password );
+  #else
+    WiFi.begin ( "M5_IoT_MQTT", <super-secret-password> );  
+  #endif
+    
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
     delay(500);  // implicitly yields but may not pet the nice doggy
