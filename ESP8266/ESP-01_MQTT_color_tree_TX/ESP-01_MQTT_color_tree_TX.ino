@@ -1,5 +1,5 @@
 #define PROGNAME "ESP-01_MQTT_color_tree_TX"
-#define VERSION  "0.2.1"
+#define VERSION  "0.2.2"
 #define VERDATE  "2018-04-06"
 
 /*
@@ -46,11 +46,9 @@
   In the absence of the include, cbmnetworkinfo_h will remain undefined
   and this will eliminate Chuck-only aspects of the program
 */
-// #include <cbmNetworkInfo.h>
+#include <cbmNetworkInfo.h>
 
-
-
-#undef ALLOW_OTA
+#define ALLOW_OTA
 #ifdef ALLOW_OTA
   #include <ArduinoOTA.h>
 #endif
@@ -244,7 +242,7 @@ void setup() {
     ArduinoOTA.setHostname ( (const char *) hostName );
 
     // No authentication by default
-    ArduinoOTA.setPassword ( (const char *) "cbmLaunch" );
+    ArduinoOTA.setPassword ( (const char *) CBM_OTA_KEY );
 
     ArduinoOTA.onStart([]() {
       Serial.println("Start");
@@ -291,8 +289,14 @@ void setup() {
     pinMode ( pdBlueLED, OUTPUT );  
     pinMode ( pdWS2812,  OUTPUT );
   
+    if ( ! weAreAtM5 ) strip.setBrightness(64);
     for ( int i = 0; i < 10; i++ ) {
       digitalWrite ( pdBlueLED, 1 - digitalRead ( pdBlueLED ) );
+      const int wh [] = { 0x000000, 0x100000, 0x101000, 0x001000, 0x001010, 0x000010 };
+      for ( int j = 0; j < nPixels; j++ ) {
+        strip.setPixelColor ( j, wh [ ( j + i ) % 6 ] );
+      }
+      strip.show();
       delay ( 200 );
     }
   #endif
