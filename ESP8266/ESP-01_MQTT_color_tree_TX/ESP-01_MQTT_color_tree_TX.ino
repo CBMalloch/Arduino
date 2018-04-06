@@ -1,6 +1,6 @@
 #define PROGNAME "ESP-01_MQTT_color_tree_TX"
-#define VERSION  "0.2.0"
-#define VERDATE  "2018-04-05"
+#define VERSION  "0.2.1"
+#define VERDATE  "2018-04-06"
 
 /*
     ESP-01_MQTT_color_tree_TX.ino
@@ -40,10 +40,15 @@
     
 */
 
-#define COMPILE_USING_CBMNETWORKINFO
-#ifdef COMPILE_USING_CBMNETWORKINFO
-  #include <cbmNetworkInfo.h>
-#endif
+
+/* 
+  For users other than Chuck, comment out the following #include.
+  In the absence of the include, cbmnetworkinfo_h will remain undefined
+  and this will eliminate Chuck-only aspects of the program
+*/
+// #include <cbmNetworkInfo.h>
+
+
 
 #undef ALLOW_OTA
 #ifdef ALLOW_OTA
@@ -96,7 +101,7 @@ unsigned long lastPositionCommandAt_ms = 0UL;
 unsigned long pointerDuration_ms = 5000UL;
 unsigned long rainbowTick_ms = 20UL;
 
-#ifdef COMPILE_USING_CBMNETWORKINFO
+#ifdef cbmnetworkinfo_h
   int WIFI_LOCALE;
   cbmNetworkInfo Network;
 #endif
@@ -113,9 +118,7 @@ WiFiClient conn_TCP;
 
 char * MQTT_SERVER = "192.168.5.1"; 
 #define MQTT_SERVERPORT  1883
-#ifdef COMPILE_USING_CBMNETWORKINFO
-  int WIFI_LOCALE;
-  cbmNetworkInfo Network;
+#ifdef cbmnetworkinfo_h
   #define MQTT_USERNAME    CBM_MQTT_USERNAME
   #define MQTT_KEY         CBM_MQTT_KEY
 #else
@@ -184,7 +187,7 @@ void setup() {
   
   /**************************** Connect to network ****************************/
   
-  #ifdef COMPILE_USING_CBMNETWORKINFO
+  #ifdef cbmnetworkinfo_h
     if ( weAreAtM5 () ) {
       WIFI_LOCALE =  M5;
     } else {
