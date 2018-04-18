@@ -1,6 +1,6 @@
 #define PROGNAME  "testLoRa_receive"
-#define VERSION   "2.0.2"
-#define VERDATE   "2018-01-02"
+#define VERSION   "2.0.3"
+#define VERDATE   "2018-03-29"
 
 /*
   OLED display size is 128x64
@@ -15,6 +15,7 @@
 
 */
 
+#include <ArduinoJson.h>
 #include <SPI.h>
 #include <LoRa.h>
 #include <U8x8lib.h>
@@ -23,7 +24,6 @@
 #include <PubSubClient.h>
 #include <WiFiClient.h>
 #include <TimeLib.h>
-#include <ArduinoJson.h>
 
 #include <cbmNetworkInfo.h>
 
@@ -80,8 +80,8 @@ IPAddress timeServer ( 17, 253, 14, 125 ); // time.apple.com
 
 
 //const int timeZone = 1;     // Central European Time
-const int timeZone = -5;  // Eastern Standard Time (USA)
-//const int timeZone = -4;  // Eastern Daylight Time (USA)
+//const int timeZone = -5;  // Eastern Standard Time (USA)
+const int timeZone = -4;  // Eastern Daylight Time (USA)
 //const int timeZone = -8;  // Pacific Standard Time (USA)
 //const int timeZone = -7;  // Pacific Daylight Time (USA)
 
@@ -106,13 +106,15 @@ int sendIt ( const char * topic, char * value, const char * name );
 // void handle_UDP_conversation ();
 // int readAndInterpretCommandString ( char * theString );
 // int interpretNewCommandString ( char * theTopic, char * thePayload );
-// 
+
 void setup () {
 
   #ifdef BAUDRATE
     Serial.begin ( BAUDRATE );
     while ( !Serial && millis () < 2000 );
   #endif
+  
+  Serial.print ( "    \n" );  // sidestep Guru Meditation Error !!!????!!!
   
   pinMode ( pdBlink, OUTPUT );
   digitalWrite ( pdBlink, 0 );
@@ -214,7 +216,7 @@ void loop() {
   static unsigned long lastPacketAt_ms = 0UL;
   const unsigned long blinkOnTime_ms = 5UL;
   const unsigned long blinkOffTime_ms = 45UL;
-  const unsigned long packetBlinkDelay_ms = 1000UL;
+  const unsigned long packetBlinkDelay_ms = 3 * 60 * 1000UL;
   
   static unsigned long lastReceiptAt_ms [ 3 ] = { 0UL, 0UL, 0UL };
           
@@ -358,7 +360,7 @@ void loop() {
 		{  // scope for JSON object
 			DynamicJsonBuffer jsonBuffer(jsonBufferSize);
 			// note: <buf>.parse... whacks the string if it doesn't have to copy it
-			char* strBuf2 = jsonBuffer.strdup(strBuf);
+			const char * strBuf2 = jsonBuffer.strdup(strBuf);
 			JsonObject& root = jsonBuffer.parseObject ( strBuf2 );
 		
 			// since we copied it and didn't give the orig to the parser, strBuf is still good 

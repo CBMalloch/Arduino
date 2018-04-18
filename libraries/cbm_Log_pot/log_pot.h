@@ -19,9 +19,9 @@
 class Log_pot
 {
 	public:
-		Log_pot();
+		Log_pot ();
 		Log_pot ( double fifty_pct_value );
-		void init( double fifty_pct_value );
+		void init( double fifty_pct_value = 0.2 );
 
     double value ( double x );
 	

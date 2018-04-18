@@ -1,6 +1,6 @@
 #define PROGNAME "MOD-1016_AS3935_lightning_sensor.ino"
-#define VERSION "0.2.8"
-#define VERDATE "2017-09-19"
+#define VERSION "0.3.2"
+#define VERDATE "2018-04-05"
 
 /*
   Doesn't work as is. I'm trying the AS3935_demo program, and it appears to read registers OK
@@ -20,9 +20,18 @@
     When should they be called?
   Add a real-time clock to this setup, then hard-wire it; move it to an ESP so can 
     query a timeserver?
+    
+  v0.3.0 removed dumping registers unless VERBOSE or actual lightning detected
+  
 */
 
+//************************
+//************************
+
 #define VERBOSE 4
+
+//************************
+//************************
 
 #include <AsyncDelay.h>
 #include <SoftWire.h>
@@ -33,6 +42,7 @@
 #endif
 
 const unsigned long BAUDRATE = 115200;
+const int tabColumn = 40;
 
 const uint8_t i2cAddr = 0x03;
 const int piSensor = 2;
@@ -57,7 +67,7 @@ uint8_t count = 0;
 
 AS3935 as3935;
 bool ledState = true;
-AsyncDelay d;
+AsyncDelay asyncDelay;
 char states [ ] [ 6 ] = { "Off", "PwrUp", "Init1", "Init2", "Listn", "WaitR", "Cal" };
 
 
@@ -116,7 +126,10 @@ void displayRegs () {
 
   as3935.readRegister ( 2 , val );
   Serial.print ( "  Clear statistics ( 1 ): " ); Serial.println ( ( val >> 6 ) & 0x01, HEX );
-  Serial.print ( "  Minimum number of lightning ( 0 ): " ); Serial.println ( ( val >> 4 ) & 0x03, HEX );
+  int num = ( ( val >> 4 ) & 0x03 );
+  int nums [] = { 1, 5, 9, 16 };
+  Serial.print ( "  Minimum reportable strikes/min ( 0 ): " ); Serial.print ( num ); 
+    Serial.print ( " => " ); Serial.println ( nums [ num ] );
   Serial.print ( "  Spike rejection ( 2 ): " ); Serial.println ( ( val >> 0 ) & 0x0f, HEX );
 
   as3935.readRegister ( 3 , val );
@@ -134,31 +147,17 @@ void displayRegs () {
   energy <<= 8;
   as3935.readRegister ( 4 , val );
   energy |= ( val & 0xff );
-  if ( energy > 0 ) for ( int i = 0; i < 30; i++ ) Serial.print ( " " );
+  if ( energy > 0 ) for ( int i = 0; i < tabColumn; i++ ) Serial.print ( " " );
   Serial.print ( "  Energy of the single lightning: " ); Serial.println ( energy );
   
   if ( energy > 0 ) {
     as3935.readRegister ( 7 , val );
     val = ( val >> 0 ) & 0x3f;
-    if ( val < 0x3f ) for ( int i = 0; i < 30; i++ ) Serial.print ( " " );
+    if ( val < 0x3f ) for ( int i = 0; i < tabColumn; i++ ) Serial.print ( " " );
     Serial.print ( "  Distance estimate, km ( 63 ): " );
     Serial.print ( val );
   }
   Serial.println ();
-
-  /*
-    AS3935 software state
-      stateOff = 0,
-      statePoweringUp = 1, // first 2ms wait after power applied
-      stateInitialising1 = 2,
-      stateInitialising2 = 3,
-      stateListening = 4,
-      stateWaitingForResult = 5,
-      stateCalibrate = 6,
-  */
-
-  Serial.print ( "  State: " );
-  Serial.println ( states [ as3935.getState() ] );
 
   /*
     // no referent!
@@ -183,20 +182,31 @@ void setup () {
   as3935.start();
   
   // delay ( 20 );
-  d.start(1000, AsyncDelay::MILLIS);
-  while ( ! d.isExpired() ) as3935.process();
+  asyncDelay.start(1000, AsyncDelay::MILLIS);
+  while ( ! asyncDelay.isExpired() ) as3935.process();
   
   as3935.setNoiseFloor(0);
   delay ( 20 );
   // as3935.calibrate();
   // delay ( 20 );
+  // set bit 5 of interrupt mask register to ignore disturbance events
+  as3935.setRegisterBit ( 0x03, 5, 1 );
+  delay ( 20 );
+  
+  // set threshold number of strikes within 1 minute 
+  // 0x00 -> 1; 0x01 -> 5; 0x02 -> 9; 0x03 -> 16 in bits 5-4 of register 2
+  as3935.setRegisterBit ( 0x02, 5, 0 );
+  delay ( 20 );
+  as3935.setRegisterBit ( 0x02, 4, 1 );
+  delay ( 20 );
+  
   
   pinMode ( pdLED, OUTPUT );
   digitalWrite ( pdLED, ledState );
   
   pinMode ( piSensor, INPUT );
   attachInterrupt ( intSensor, ISR_lightning_sensor, RISING );
-  d.start (1000, AsyncDelay::MILLIS);
+  asyncDelay.start (1000, AsyncDelay::MILLIS);
   
   #if VERBOSE >= 2
   
@@ -220,9 +230,20 @@ void loop () {
   int distanceEstimate = -1;
   static int oldState = -1;
   
+  /*
+    AS3935 software state
+      stateOff = 0,
+      statePoweringUp = 1, // first 2ms wait after power applied
+      stateInitialising1 = 2,
+      stateInitialising2 = 3,
+      stateListening = 4,
+      stateWaitingForResult = 5,
+      stateCalibrate = 6,
+  */
   int state = as3935.getState();
   if ( state != oldState ) {
-    Serial.print ( "  State: " );
+    for ( int i = 0; i < tabColumn; i++ ) Serial.print ( " " );
+    Serial.print ( "===> new state: " );
     Serial.println ( states [ as3935.getState() ] );
     oldState = state;
   }
@@ -249,17 +270,18 @@ void loop () {
     
     Serial.print ( "\n\n---------- triggered ----------\n" );
 
-    displayRegs ( );
-    
     interruptFlags = as3935.getInterruptFlags ();
     switch ( interruptFlags ) {
       case 0x01:
+        if ( VERBOSE >= 10 ) displayRegs ( );
         Serial.print ( "Noise" );
         break;
       case 0x04:
+        if ( VERBOSE >= 10 ) displayRegs ( );
         Serial.print ( "Disturber" );
         break;
       case 0x08:
+        displayRegs ( );
         distanceEstimate = as3935.getDistance();
         Serial.print ( "Lightning at distance " );
         Serial.print ( distanceEstimate );
@@ -268,6 +290,7 @@ void loop () {
       case -1:
         break;
       default:
+        if ( VERBOSE >= 20 ) displayRegs ( );
         Serial.print ( "Something else" );
         break;
     }
@@ -279,7 +302,7 @@ void loop () {
   }
 
 
-  if (d.isExpired()) {
+  if (asyncDelay.isExpired()) {
     ledState = ! ledState;
     digitalWrite ( pdLED, ledState );
     
@@ -287,7 +310,7 @@ void loop () {
       count = 0;
       // displayRegs ();
     }
-    d.start(1000, AsyncDelay::MILLIS);
+    asyncDelay.start(1000, AsyncDelay::MILLIS);
   }
   
 }

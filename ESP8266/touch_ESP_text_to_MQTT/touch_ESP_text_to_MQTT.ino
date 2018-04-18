@@ -1,5 +1,5 @@
 #define PROGNAME  "touch_ESP_text_to_MQTT"
-#define VERSION   "0.2.0"
+#define VERSION   "0.2.1"
 #define VERDATE   "2018-03-02"
 
 // ***************************************
@@ -13,6 +13,8 @@
 #include <cbmNetworkInfo.h>
 
 #define BAUDRATE       115200
+#define VERBOSE             4
+#define atM5             true
 
 // ---------------------------------------
 // ---------------------------------------
@@ -23,13 +25,10 @@
 
 // Note: we will detect if at M5
 
-#define WIFI_LOCALE CBMDATACOL
+#define WIFI_LOCALE cbmIoT
 
 // ---------------------------------------
 // ---------------------------------------
-
-#define VERBOSE            10
-#define atM5            false
 
 const int nTouchPins = 6;
 const int pTouches [ nTouchPins ] = { 23, 22, 18, 17, 16, 15 };
@@ -43,6 +42,8 @@ const int pdEspTX = 11;
 const int pdLED  = 13;
 
 /************************* MQTT Setup *********************************/
+
+cbmNetworkInfo Network;
 
 // values hidden for security reasons
 char MQTT_SERVER []   = "mosquitto";
@@ -68,6 +69,9 @@ void setup ( void ) {
   
   Serial.begin ( BAUDRATE );
   while ( !Serial && ( millis() < 10000 ) );
+  
+  // for security reasons, the network settings are stored in a private library
+  Network.init ( WIFI_LOCALE );
   
   const int iterLimit = 100;
   for ( int j = 0; j < iterLimit; j++ ) {
@@ -111,7 +115,7 @@ void setup ( void ) {
         if ( strBufPtr > 5 && strBuf [ strBufPtr ] == '\r' ) {  // 0x0d
           // append terminating null
           strBuf [ ++strBufPtr ] = '\0';
-          Serial.print ( "\n<< " ); Serial.println ( strBuf );
+          Serial.print ( "<< " ); Serial.println ( strBuf );
           // clear the buffer
           strBufPtr = 0;
         } else if ( strBuf [ strBufPtr ] == '\n' ) {  // 0x0a
@@ -127,9 +131,10 @@ void setup ( void ) {
 
   snprintf ( strBuf, bufLen, 
     "{ \"command\": \"connect\", \"networkSSID\": \"%s\", \"networkPW\": \"%s\", "
-    "\"MQTThost\": \"%s\", \"MQTTuserID\": \"cbmalloch\", \"MQTTuserPW\": \"\" }\n", 
-    atM5 ? "M5_IoT_MQTT" : "cbm_IoT_MQTT", atM5 ? "m5launch" : "cbmLaunch", atM5 ? "192.168.5.1" : "192.168.5.1" );
-  Serial.print ( ">> " ); Serial.println ( strBuf );
+    "\"MQTThost\": \"%s\", \"MQTTuserID\": \"cbmalloch\", \"MQTTuserPW\": \"\" }", 
+    atM5 ? "M5_IoT_MQTT" : Network.ssid, atM5 ? "m5launch" : Network.password, 
+    atM5 ? "192.168.5.1" : "192.168.5.1" );
+  Serial.println ( ">> " ); Serial.println ( strBuf );
   esp.println ( strBuf );
   
   lastIncomingCharacterAt_ms = millis();
@@ -153,7 +158,7 @@ void setup ( void ) {
         if ( strBufPtr > 5 && strBuf [ strBufPtr ] == '\r' ) {  // 0x0d
           // append terminating null
           strBuf [ ++strBufPtr ] = '\0';
-          Serial.print ( "\n<< " ); Serial.println ( strBuf );
+          Serial.print ( "<< " ); Serial.println ( strBuf );
           // clear the buffer
           strBuf [ 0 ] = '\0';
           strBufPtr = 0;
@@ -176,7 +181,10 @@ void loop () {
   const unsigned long readInterval_ms = 20UL;
   
   static unsigned long lastSendAt_ms = 0UL;
-  const unsigned long refractoryPeriod_ms = 200UL; 
+  const unsigned long refractoryPeriod_ms = 200UL;
+  
+  float colorComponents [ 3 ] = { 0.0, 0.0, 0.0 };
+  float alpha = 0.9;
     
   static int readStatus = 0;
   
@@ -195,36 +203,46 @@ void loop () {
       unsigned long avg = 0;
       const int iterLimit = 20;
       for ( int j = 0; j < iterLimit; j++ ) {
-        int val = touchRead ( pTouches [ i ] ) - touchIdleValues [ i ] - 1;
+        int val = touchRead ( pTouches [ i ] ) - touchIdleValues [ i ];
         if ( val < 0 ) val = 0;
         avg += val;
       }
       avg /= iterLimit;
-      if ( avg > 255 ) avg = 255;
+      if ( avg < 0 ) avg = 0;
       touchValues [ i ] = avg;
-      if ( i != 0 ) Serial.print ( " : " );
-      Serial.print ( touchValues [ i ] ); 
+      if ( VERBOSE >= 5 ) {
+        if ( i != 0 ) Serial.print ( " : " );
+        Serial.print ( touchValues [ i ] ); 
+      }
     }
-    Serial.println ();
+    if ( VERBOSE >= 5 ) Serial.println ();
+    
+    // at this point, 0 <= avg < 1024
+    // actually will occupy less than half that range, due to high idle values
   
     if ( readStatus == 0 ) {
-      static int oldLedColor = 0;
-      unsigned long color = ( ( ( ( touchValues [ 0 ] & 0xff ) << 8 ) + ( touchValues [ 1 ] & 0xff ) ) << 8 ) + ( touchValues [ 2 ] & 0xff );
-      if ( color != oldLedColor ) {
-        snprintf ( strBuf, bufLen, "{ \"command\": \"send\", \"topic\": \"cbmalloch/feeds/onoff\", \"value\": \"0x%06lX\" }\n", color );
+      static unsigned long oldLedColor = 0UL;
+      int color [ 3 ];
+      // EWMA smoothing of each color component
+      for ( int j = 0; j < 3; j++ ) {
+        colorComponents [ j ] = alpha * colorComponents [ j ] + ( 1.0 - alpha ) * touchValues [ j ];
+        color [ j ] = constrain ( map ( int ( colorComponents [ j ] ), 0, 512, 0, 256 ), 0, 256 );
+      }
+        
+      unsigned long ledColor = ( color [ 0 ] << 16 ) + ( color [ 1 ] << 8 ) + color [ 2 ];
+      if ( ledColor != oldLedColor ) {
+        snprintf ( strBuf, bufLen, "{ \"command\": \"send\", \"topic\": \"cbmalloch/feeds/onoff\", \"value\": \"0x%06lX\" }", ledColor );
         Serial.print ( ">> " ); Serial.println ( strBuf );
         esp.println ( strBuf );
-        oldLedColor = color;
+        oldLedColor = ledColor;
         lastSendAt_ms = millis();
       }
     } else {
-      bool x = ( touchValues [ 3 ] > 64 ) xor ( touchValues [ 5 ] > 64 );
-      bool tog = ( touchValues [ 4 ] > 64 );
+      bool ledState = ( touchValues [ 3 ] > 64 ) xor ( touchValues [ 4 ] > 64 ) xor ( touchValues [ 5 ] > 64 );
       static int oldLedState = 0;
-      int ledState = ( ! ( x == tog ) ) ? 1 : 0 ;
       if ( ledState != oldLedState ) {
-        snprintf ( strBuf, bufLen, "{ \"command\": \"send\", \"topic\": \"cbmalloch/feeds/onoff\", \"value\": \"%d\" }\n", ledState ? 1 : 0 );
-        Serial.print ( ">> " ); Serial.println ( strBuf );
+        snprintf ( strBuf, bufLen, "{ \"command\": \"send\", \"topic\": \"cbmalloch/feeds/onoff\", \"value\": \"%d\" }", ledState ? 1 : 0 );
+        Serial.println ( ">> " ); Serial.println ( strBuf );
         esp.println ( strBuf );
         oldLedState = ledState;
         lastSendAt_ms = millis();
@@ -257,7 +275,7 @@ void loop () {
           if ( strBufPtr > 5 && strBuf [ strBufPtr ] == '\r' ) {  // 0x0d
             // append terminating null
             strBuf [ ++strBufPtr ] = '\0';
-            Serial.print ( "\n<< " ); Serial.println ( strBuf );
+            Serial.print ( "<< " ); Serial.println ( strBuf );
           
             // char *strstr(const char *haystack, const char *needle);
             if ( strstr ( strBuf, (const char *) "0 ... Failed" ) ) {

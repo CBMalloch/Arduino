@@ -1,5 +1,5 @@
 #define PROGNAME "motion_MQTT"
-#define VERSION  "0.1.0"
+#define VERSION  "0.1.1"
 #define VERDATE  "2018-04-06"
 
 /*
@@ -55,9 +55,9 @@
 // ***************************************
 // ***************************************
 
-const int BAUDRATE = 115200;
-const int VERBOSE = 10;
-#define HOME_WIFI_LOCALE ( 1 ? CBMDDWRT3 : CBMIoT )
+const int BAUDRATE         = 115200;
+const int VERBOSE          = 10;
+#define   HOME_WIFI_LOCALE ( 1 ? CBMDDWRT3 : CBMIoT )
 
 // ---------------------------------------
 // ---------------------------------------
@@ -71,6 +71,8 @@ const char * MQTT_FEED = "cbmalloch/tree";
 // ***************************************
 // ***************************************
 
+// const int            pdLED0        =    4;  // GPIO2; n'existe pas
+const int            pdLED         =    0;  // GPIO16
 const int            paMotion      =   A0;
 float                scaleFactor   =  0.0;
 
@@ -126,6 +128,8 @@ void setup() {
     delay ( 20 );
   }
     
+  pinMode ( pdLED, OUTPUT );
+
   /**************************** Connect to network ****************************/
   
   #ifdef cbmnetworkinfo_h
@@ -215,7 +219,7 @@ void setup() {
     
   #endif
 
-  /************************** Report successful init **************************/
+  /************************** Report successful init **************************/  
   
   scaleFactor = atM5 ? 100.0 : 16;
 
@@ -229,14 +233,17 @@ void setup() {
 void loop() {
   
   const unsigned long readInterval_ms = 500UL;
-  static unsigned long lastReadAt_ms = 0UL;
+  static unsigned long lastReadAt_ms  = 0UL;
   
-  int counts;
-  const float alphaLong = 0.9999;
-  const float alphaShort = 0.98;
-  static float mean = 610.0;     // empirically measured value
-  static float current = 610.0;  // empirically measured value
-  const float countsHysteresis = 10.0;
+  static unsigned long lastBlinkAt_ms = 0UL;
+  const unsigned long blinkDelay_ms   = 500UL;
+          
+  int counts;  
+  const float alphaLong               = 0.999;
+  const float alphaShort              = 0.96;
+  static float mean                   = 6110.0; // empirically measured value
+  static float current                = 611.0;  // empirically measured value
+  const float countsHysteresis        = 10.0;
   
 
   // server.handleClient();
@@ -250,25 +257,27 @@ void loop() {
   if ( !conn_MQTT.connected () ) connect ();
   
   counts = analogRead ( paMotion );
-  mean = ( 1.0 - alphaLong ) * counts + alphaLong * mean;
+  mean = ( 1.0 - alphaLong ) * float ( counts ) + alphaLong * mean;
   // current = ( 1.0 - alphaShort ) * fabs ( counts - mean ) + alphaShort * current;
   current = ( 1.0 - alphaShort ) * ( counts - mean ) + alphaShort * current;
   float sensorValue = current;
   if ( ( millis() - lastReadAt_ms ) > readInterval_ms ) {
+  
     if ( abs ( current ) >= countsHysteresis ) {
-      
-      Serial.printf ( "counts: %d; sensorValue: %f; mean: %f \n", counts, sensorValue, mean );
-      
       const int bufLen = 12;
       char strBuf [ bufLen ];
-      int dotPosition = int ( ( sensorValue / 100.0 + 0.5 ) * scaleFactor );
+      int dotPosition = int ( ( sensorValue / 100.0 + 0.5 ) * scaleFactor / 2.0 );
       snprintf ( strBuf, bufLen, "%d", dotPosition );
       sendIt ( MQTT_FEED, strBuf );
-
-    } else {
-      Serial.print ( "." );
     }
+    
+    Serial.printf ( "counts: %d; sensorValue: %2.0f; mean: %2.2f \n", counts, sensorValue, mean );
     lastReadAt_ms = millis();
+  }
+
+  if ( ( millis() - lastBlinkAt_ms ) > blinkDelay_ms ) {
+    digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
+    lastBlinkAt_ms = millis();
   }
 
 

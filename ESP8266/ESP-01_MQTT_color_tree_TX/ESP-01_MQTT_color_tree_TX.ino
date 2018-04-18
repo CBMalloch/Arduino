@@ -1,6 +1,6 @@
 #define PROGNAME "ESP-01_MQTT_color_tree_TX"
-#define VERSION  "0.2.2"
-#define VERDATE  "2018-04-06"
+#define VERSION  "1.0.1"
+#define VERDATE  "2018-04-16"
 
 /*
     ESP-01_MQTT_color_tree_TX.ino
@@ -12,7 +12,7 @@
     
     Interesting to use TX = GPIO1 after wresting it away from Serial
     
-    With version 2, I'm starting to use OTA update
+    With version 0.2, I'm starting to use OTA update
     Note: Error[1]: Begin Failed -> not enough room on device for new sketch 
       along with old one!
     This admittedly simple sketch takes 258787 byte, or 51% of a 
@@ -29,6 +29,13 @@
     OTA is currently working at my house, but I haven't tried it at M5. It 
     requires the developer to be co-located on a LAN (since the MQTT server doesn't
     pass through to the Internet). Thus you must be on the M5_IoT_MQTT network.
+    
+    
+    With version 0.3, I've now replaced the standard color wheel with an
+    HSV-space color spiral; the hues rotate through 360 degrees 5 times in 
+    on large cycle; each 360 degrees gets 15% greater saturation
+    
+    ===========================================================================
     
     If you want to compile this program and you're not me, you don't have my
     network credentials "cbmNetworkInfo". So you need to change
@@ -55,10 +62,10 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <PubSubClient.h>
+#include <ESP8266WebServer.h>
 // see https://tttapa.github.io/ESP8266/Chap08%20-%20mDNS.html
-// #include <ESP8266WebServer.h>
 // ESP8266mDNS is multicast DNS - responds to <whatever>.local
-// #include <ESP8266mDNS.h>
+#include <ESP8266mDNS.h>
 // ESP8266WiFiMulti looks at multiple access points and chooses the strongest
 // #include <ESP8266WiFiMulti.h>
 
@@ -75,17 +82,24 @@ const int VERBOSE = 10;
 // ---------------------------------------
 // ---------------------------------------
 
-const char * MQTT_FEED = "cbmalloch/tree";
+const char * MQTT_FEED = "cbmalloch/tree/#";
 
 // define ( to enable ) or undef
-#undef DEBUG_ESP
 #undef SERIAL_DEBUG 
 
 // ***************************************
 // ***************************************
 
+/*
+  Blue onboard LED is inverse logic, connected as:
+    ESP-01:          GPIO1 = TX
+    Adafruit Huzzah: GPIO2
+*/
+const int pdConnecting    = 1;
+#define INVERSE_LOGIC_ON    0
+#define INVERSE_LOGIC_OFF   1
+
 // GPIO pins: 0 = GPIO0; 1 = GPIO1 = TX; 2 = GPIO2; 3 = GPIO3 = RX
-const int            pdBlueLED     =   1;
 const int            pdWS2812      =   3;
 
 const unsigned short nPixels       =  100;
@@ -98,21 +112,23 @@ unsigned long colorDotColors [] = { 0x080808, 0x202020, 0x208020, 0x202020, 0x08
 unsigned long lastPositionCommandAt_ms = 0UL;
 unsigned long pointerDuration_ms = 5000UL;
 unsigned long rainbowTick_ms = 20UL;
+int progressionMode = 0;                  // hue, saturation | value
+int progressionNonvaryingParameter = 25;  //   thus, value
 
 #ifdef cbmnetworkinfo_h
   int WIFI_LOCALE;
   cbmNetworkInfo Network;
 #endif
+// Create an ESP8266 WiFiClient class to connect to the MQTT server.
+WiFiClient conn_TCP;
+ESP8266WebServer htmlServer ( 80 );
+PubSubClient conn_MQTT ( conn_TCP );
 
 #define WLAN_PASS       password
 #define WLAN_SSID       ssid
 
-// Create an ESP8266 WiFiClient class to connect to the MQTT server.
-WiFiClient conn_TCP;
 
-
-// /************************* MQTT Setup *********************************/
-// 
+/***************************** MQTT Setup *************************************/
 
 char * MQTT_SERVER = "192.168.5.1"; 
 #define MQTT_SERVERPORT  1883
@@ -124,26 +140,18 @@ char * MQTT_SERVER = "192.168.5.1";
   #define MQTT_KEY         "m5launch"
 #endif
 
-PubSubClient conn_MQTT ( conn_TCP );
-
 // ***************************************
+
+const size_t pBufLen = 128;
+char pBuf [ pBufLen ];
+const int htmlMessageLen = 1024;
+char htmlMessage [htmlMessageLen];
 
 // magic juju to return array size
 // see http://forum.arduino.cc/index.php?topic=157398.0
 template< typename T, size_t N > size_t ArraySize (T (&) [N]){ return N; }
 
-void connect( void );
-void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length );
-int interpretNewCommandString ( char * theTopic, char * thePayload );
-bool weAreAtM5 ();
-
-// void newColor ( unsigned long theColor );
-void showColors ();
-void pointer ( int location );
-uint32_t Wheel(byte WheelPos);
-void setColor ( int n, unsigned long theColor );
-
-/************************* WS2812 Setup *********************************/
+/****************************** WS2812 Setup **********************************/
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -170,6 +178,22 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel ( nPixels, ( uint8_t ) pdWS2812, NEO
     http://husstechlabs.com/support/tutorials/bi-directional-level-shifter/
 */
 
+void connect( void );
+void htmlResponse_root ();
+void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length );
+int interpretNewCommandString ( char * theTopic, char * thePayload );
+bool weAreAtM5 ();
+
+// void newColor ( unsigned long theColor );
+void showColors ();
+void pointer ( int location );
+uint32_t Wheel(byte WheelPos);
+uint32_t HSVWheel ( int major, int minor );
+uint32_t newHSVWheel ( int x, int t );
+void setColor ( int n, unsigned long theColor );
+unsigned long hsv_to_rgb ( float h, float s, float v );
+
+/******************************************************************************/
 
 void setup() {
   
@@ -180,16 +204,18 @@ void setup() {
   }
   
   // delay grabbing pins until we're done with Serial...
-  // pinMode ( pdBlueLED, OUTPUT );  
+  // pinMode ( pdConnecting, OUTPUT );  
   // pinMode ( pdWS2812,  OUTPUT );
   
-  /**************************** Connect to network ****************************/
+  /****************************** WiFi Setup **********************************/
   
   #ifdef cbmnetworkinfo_h
     if ( weAreAtM5 () ) {
-      WIFI_LOCALE =  M5;
+      WIFI_LOCALE = M5;
+      if ( VERBOSE >= 5 ) Serial.printf ( "At M5; WIFI_LOCALE = \"%d\"\n", WIFI_LOCALE );
     } else {
       WIFI_LOCALE =  HOME_WIFI_LOCALE;
+      if ( VERBOSE >= 5 ) Serial.printf ( "Not at M5; WIFI_LOCALE = \"%d\"\n", WIFI_LOCALE );
       if ( HOME_WIFI_LOCALE != CBMIoT ) MQTT_SERVER = "mosquitto";
     }
     // for security reasons, the network settings are stored in a private library
@@ -203,14 +229,15 @@ void setup() {
     WiFi.begin ( Network.ssid, Network.password );
   #else
     WiFi.begin ( "M5_IoT_MQTT", <super-secret-password> );  
+    if ( VERBOSE >= 5 ) Serial.printf ( "No cbmNetworkInfo; WIFI_LOCALE = \"%d\"\n", WIFI_LOCALE );
   #endif
     
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
-    delay(500);  // implicitly yields but may not pet the nice doggy
+    delay ( 500 );  // implicitly yields but may not pet the nice doggy
   }
   Serial.println();
-  if ( VERBOSE >= 15 ) WiFi.printDiag(Serial);
+  if ( VERBOSE >= 15 ) WiFi.printDiag ( Serial );
 
   if ( VERBOSE >= 15 ) {
     Serial.println ( "WiFi connected with IP address: " );
@@ -270,6 +297,18 @@ void setup() {
     
   #endif
 
+  /**************************** HTML Server Setup *****************************/
+
+  htmlServer.on ( "/", htmlResponse_root );
+  htmlServer.begin ();
+
+  /**************************** MDNS Server Setup *****************************/
+
+  if (!MDNS.begin ( PROGNAME ) ) {             // Start the mDNS responder for <PROGNAME>.local
+    Serial.println("Error setting up MDNS responder!");
+  }
+  Serial.printf ( "mDNS responder '%s.local' started", PROGNAME );
+  
   /************************** Report successful init **************************/
 
   Serial.println();
@@ -277,8 +316,11 @@ void setup() {
   
   if ( VERBOSE >= 15 ) conn_MQTT.publish ( MQTT_FEED, "elephant" );
   
+  /******************************* GPIO Setup *********************************/
+  
   #ifndef SERIAL_DEBUG
-    /********************** Prepare to reuse serial TX pin **********************/
+  
+    /********************* Prepare to reuse serial TX pin *********************/
 
     Serial.println ( "Stopping serial output" );
     delay ( 500 );
@@ -286,23 +328,26 @@ void setup() {
   
     // (finally) take control of desired GPIO pins
   
-    pinMode ( pdBlueLED, OUTPUT );  
+    pinMode ( pdConnecting, OUTPUT );  
     pinMode ( pdWS2812,  OUTPUT );
   
-    if ( ! weAreAtM5 ) strip.setBrightness(64);
+    if ( ! weAreAtM5 () ) strip.setBrightness ( 32 );
     for ( int i = 0; i < 10; i++ ) {
-      digitalWrite ( pdBlueLED, 1 - digitalRead ( pdBlueLED ) );
-      const int wh [] = { 0x000000, 0x100000, 0x101000, 0x001000, 0x001010, 0x000010 };
+      digitalWrite ( pdConnecting, 1 - digitalRead ( pdConnecting ) );
+      const unsigned long wh [] = { 0x000000, 0x100000, 0x101000, 0x001000, 0x001010, 0x000010 };
       for ( int j = 0; j < nPixels; j++ ) {
         strip.setPixelColor ( j, wh [ ( j + i ) % 6 ] );
       }
       strip.show();
       delay ( 200 );
     }
+    digitalWrite ( pdConnecting, INVERSE_LOGIC_OFF );
   #endif
 }
 
 void loop() {
+
+  htmlServer.handleClient();  
 
   // server.handleClient();
   #ifdef ALLOW_OTA
@@ -320,8 +365,79 @@ void loop() {
   yield ();
 }
 
-//*************************
-//*************************
+// *****************************************************************************
+// ********************************** WiFi *************************************
+// *****************************************************************************
+
+void connect () {
+  
+  unsigned long startTime_ms = millis();
+  static bool newConnection = true;
+  bool printed;
+  
+  digitalWrite ( pdConnecting, INVERSE_LOGIC_ON );
+  
+  printed = false;
+  while ( WiFi.status() != WL_CONNECTED ) {
+    if ( VERBOSE > 4 && ! printed ) { 
+      Serial.print ( "\nChecking wifi..." );
+      printed = true;
+      newConnection = true;
+    }
+    Serial.print ( "." );
+    delay ( 1000 );
+  }
+  if ( newConnection && VERBOSE > 4 ) {
+    Serial.print ( "\n  WiFi connected as " ); 
+    Serial.print ( WiFi.localIP() );
+    Serial.print (" in ");
+    Serial.print ( millis() - startTime_ms );
+    Serial.println ( " ms" );    
+  }
+  
+  startTime_ms = millis();
+  printed = false;
+  char mqttClientID [ 50 ];
+  randomSeed(analogRead(0));
+  snprintf ( mqttClientID, 50, "%s_%d", PROGNAME, random ( 100 ) );
+  while ( ! conn_MQTT.connected ( ) ) {
+    conn_MQTT.connect ( mqttClientID, MQTT_USERNAME, MQTT_KEY );  // first arg is client ID; required
+    if ( VERBOSE > 4 && ! printed ) { 
+      // Serial.print ( "  MQTT client ID: \"" ); Serial.print ( mqttClientID ); Serial.println ( "\"" );
+      // Serial.print ( "  MQTT user: \"" ); Serial.print ( MQTT_USERNAME ); Serial.println ( "\"" );
+      // Serial.print ( "  MQTT key: \"" ); Serial.print ( MQTT_KEY ); Serial.println ( "\"" );
+      Serial.print ( "  Checking MQTT ( status: " );
+      Serial.print ( conn_MQTT.state () );
+      Serial.print ( " )..." );
+      printed = true;
+      newConnection = true;
+    }
+    Serial.print( "." );
+    delay( 1000 );
+  }
+  
+  if ( newConnection ) {
+    if ( VERBOSE > 4 ) {
+      Serial.print ("\n  MQTT connected in ");
+      Serial.print ( millis() - startTime_ms );
+      Serial.println ( " ms" );
+    }
+    conn_MQTT.subscribe ( MQTT_FEED );
+    if (  VERBOSE > 4 ) {
+      Serial.printf ( "  and subscribed to %s as %s\n", MQTT_FEED, mqttClientID );
+      Serial.println ( MQTT_FEED );
+    }
+  }
+  // client.unsubscribe("/example");
+  newConnection = false;
+  
+  digitalWrite ( pdConnecting, INVERSE_LOGIC_OFF );
+
+}
+
+// *****************************************************************************
+// ********************************** MQTT *************************************
+// *****************************************************************************
 
 void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length ) {
 
@@ -364,8 +480,6 @@ void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int leng
   
 }
 
-//*************************
-
 int interpretNewCommandString ( char * theTopic, char * thePayload ) {
   
   int retVal = -1;
@@ -379,22 +493,47 @@ int interpretNewCommandString ( char * theTopic, char * thePayload ) {
   Serial.print ( "theTopic: \"" ); Serial.print ( theTopic ); Serial.println ( "\"" );
   
   if ( strncmp ( theTopic, goodPrefix, lenPrefix ) ) return ( -1 );
-  // char * theRest = theTopic + lenPrefix;
+  char * theRest = theTopic + lenPrefix;
+  
+  /*
+    Accepted items:
+      cbmalloch/tree: ON, OFF - turns on or off the blue LED on the ESP-01
+      cbmalloch/tree: 0xrrggbb or #rrggbb - sets first LED to that color ( for a few seconds )
+      cbmalloch/tree: <integer> - sets "pointer" to the designated LED, for a few seconds
+      
+      cbmalloch/tree/mode: 
+        0 - x-t is hue, step through saturations; set will set value
+        1 - x-t is hue, step through values; set will set saturation
+        2 - x-t is saturation, step through hues; set will set value
+        3 - x-t is saturation, step through values; set will set hue
+        4 - x-t is value, step through hues; set will set saturation
+        5 - x-t is value, step through saturations; set will set hue
+      cbmalloch/tree/set: <integer> 
+        hue [0,360) degrees
+        saturation, value [0,100] percent
+  */
   
   // interpret thePayload ( "ON", "OFF", 0xrrggbb, or number (pointer) )
   
-  if ( ! strncmp ( thePayload, "ON", 2 ) && ( strlen ( thePayload ) == 2 ) ) {
-    digitalWrite ( pdBlueLED, 1 );
+  if ( ! strncmp ( theRest, "/mode", 6 ) ) {
+    // set the progression mode
+    progressionMode = atoi ( thePayload );
     #ifdef SERIAL_DEBUG
-      Serial.println ( "pdBlueLED ON" );
+      Serial.print ( "Mode " ); Serial.println ( progressionMode );
     #endif
-    retVal = 1;
-  } else if ( ! strncmp ( thePayload, "OFF", 3 ) && ( strlen ( thePayload ) == 3 ) ) {
-    digitalWrite ( pdBlueLED, 0 );
+    pointer ( progressionMode );    
+    lastPositionCommandAt_ms = millis() - 3000UL;
+    retVal = 0;
+  } else if ( ! strncmp ( theRest, "/set", 5 ) ) {
+    // set the nonvarying parameter for the progression
+    progressionNonvaryingParameter = atoi ( thePayload );
     #ifdef SERIAL_DEBUG
-      Serial.println ( "pdBlueLED OFF" );
+      Serial.print ( "Set " ); Serial.println ( progressionNonvaryingParameter );
     #endif
     retVal = 0;
+  } else if ( strlen ( theRest ) > 0 ) {
+    // any other "theRest" is invalid; don't test payloads
+    retVal = -1;
   } else if ( ! strncmp ( thePayload, "0x", 2 ) && ( strlen ( thePayload ) == 8 ) ) {
     // it's a hex string
     unsigned long theColor = strtoul ( thePayload + 2, NULL, 16 );  // it's hex, starting in char 2
@@ -415,29 +554,35 @@ int interpretNewCommandString ( char * theTopic, char * thePayload ) {
     lastPositionCommandAt_ms = millis();
     retVal = 0;
   } else {
-    Serial.print ( "Unknown message: " ); Serial.println ( thePayload );
+    Serial.printf ( "Unknown message: \"%s\" (%d chars)\n", thePayload, strlen ( thePayload ) );
     retVal = -2;
   }
 
   return ( retVal );
 }
 
+// *****************************************************************************
+// ********************************* WS2812 ************************************
+// *****************************************************************************
+
 void showColors () {
-  const int nCycles = 1;
+  const int nCycles = 3;
   unsigned long timeSincePositionCommand_ms = millis() - lastPositionCommandAt_ms;
   if ( timeSincePositionCommand_ms < pointerDuration_ms ) return;
   // offset rainbow by ticks
   int offset = timeSincePositionCommand_ms / rainbowTick_ms;
   for ( int i = 0; i < nPixels; i++ ) {
     byte wheelPos = ( i * nCycles + offset ) & 0x00ff;
-    strip.setPixelColor ( i, Wheel ( wheelPos ) );
+    // strip.setPixelColor ( i, Wheel ( wheelPos ) );
+    // within_display, display_number
+    strip.setPixelColor ( i, newHSVWheel ( i * nCycles, offset ) );
   }
   strip.show();
 }
 
-// Input a value 0 to 255 to get a color value.
-// The colours are a transition r - g - b - back to r.
 uint32_t Wheel(byte WheelPos) {
+  // Input a value 0 to 255 to get a color value.
+  // The colours are a transition r - g - b - back to r.
   WheelPos = 255 - WheelPos;
   if(WheelPos < 85) {
     return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
@@ -450,6 +595,147 @@ uint32_t Wheel(byte WheelPos) {
   return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
 }
 
+uint32_t HSVWheel ( int x, int t ) {
+  // Rotate through hues (0-360), saturations (0-1), and values (0-1)
+  // single-valued function of x - t, so that a later t moves the pattern
+  // to larger x
+  
+  // large cycle goes through 5 small cycles
+  // each small cycle is one revolution around the hue direction
+  // each successive small cycle increases the saturation by 15%
+  // from 25% to 100%
+  
+  // t is ms; one large cycle should take 30s = 30e3 ms 
+  // actually, t is rainbowTicks, which are set for 20ms
+  // so one large cycle should take 1e3 ticks
+  const float time_scale = 1.0 / 1e3;
+  // x is in pixels; one small cycle should take 100 pixels, 
+  // so one large cycle takes 500 pixels
+  // changing to 100 pixels
+  const float x_scale = 1.0 / 100.0;
+  // 1/5 (small cycle) should go 360 deg
+  const float hue_slope = 5.0 * 360.0;
+  const float saturation_slope = 0.15;
+  const float saturation_int = 0.25;
+  const float value_int = 220.0 / 256.0;
+  
+  // constrain to [ 0, 1 )
+  float z = fmod ( float ( x ) * x_scale - float ( t ) * time_scale, 1.0 );
+  if ( z < 0 ) z += 1.0;
+  
+  // f ( z ) = ( r, theta ) is to be a spiral in HSV space
+  
+  // angle is hue
+  float hue = fmod ( z * hue_slope, 360.0 );
+
+  float saturation = fmod ( z * saturation_slope + saturation_int, 1.0 );
+  #ifdef SERIAL_DEBUG
+    if ( VERBOSE >= 10 ) Serial.printf ( "z: %5.3f => ( hue = %5.1f, saturation = %5.2f )  :  ", 
+      z, hue, saturation );
+  #endif
+
+
+  float value = value_int;
+    
+  return ( hsv_to_rgb ( hue, saturation, value ) );
+}
+
+uint32_t newHSVWheel ( int x, int t ) {
+  /*
+  Rotate through hues (0-360), saturations (0-1), and values (0-1)
+  single-valued function of x - t, so that a later t moves the pattern
+  to larger x
+  
+  large cycle goes through 5 small cycles
+  each small cycle is once through the first dimension
+  each successive small cycle increases the second dimension by 15%
+  from 25% to 100% or by 60deg from 0deg to 300deg
+  */
+  
+  const int smallCyclesInLargeCycle = 5;
+  const int smallCycleSteps = smallCyclesInLargeCycle - 1;
+  const float cycleRatio = 1.0 / float ( smallCyclesInLargeCycle );
+  const float msInSmallCycle = 1000.0;
+  // small cycle should tick this fast
+  // units value / time;  1/smallCyclesInLargeCycle  /  msInSmallCycle
+  //  1 * 1/6 / ( 1000 / 20 ) -> 1/300 or so
+  const float smallCycleTimeScale = 1.0 * cycleRatio / ( msInSmallCycle / float ( rainbowTick_ms ) );// / 10.0;
+  
+  // small cycle should be this many pixels
+  const float smallCyclePixelScale = 1.0 / 100.0 / smallCyclesInLargeCycle;
+  
+  // small cycle should go 360 deg
+  const float hue_slope = 360.0;
+  const float hue_int = 0.0;
+  const float saturation_slope = 1.0;
+  const float saturation_int = 0.25;
+  const float value_slope = 1.0;
+  const float value_int = 0.25;
+  
+  // we see 35 or 36 change in t between minor-cycle calls
+  
+  // constrain to [ 0, 1 )
+  // first term [0, 100) * 0.01; second term could be big - t changes by order of 35
+  // want second term to be on order of 1e-3
+  float z = fmod ( float ( x ) * smallCyclePixelScale - float ( t ) * smallCycleTimeScale, 1.0 );
+  if ( z < 0 ) z += 1.0;
+  
+  float hue, saturation, value;
+  
+  // f ( z ) = ( r, theta ) is to be a spiral in HSV space
+  switch ( progressionMode ) {
+    case 0:
+      // hue, saturation | value
+      hue = fmod ( z * hue_slope * smallCyclesInLargeCycle + hue_int, 360.0 );
+      saturation = fmod ( z * saturation_slope + saturation_int, 1.0 );
+      value = progressionNonvaryingParameter / 100.0;
+      break;
+    case 1:
+      // hue, value | saturation 
+      hue = fmod ( z * hue_slope * smallCyclesInLargeCycle + hue_int, 360.0 );
+      value = fmod ( z * value_slope + value_int, 1.0 );
+      saturation = progressionNonvaryingParameter / 100.0;
+      break;
+    case 2:
+      // saturation, hue | value 
+      saturation = fmod ( z * saturation_slope * smallCyclesInLargeCycle + saturation_int, 1.0 );
+      hue = fmod ( z * hue_slope + hue_int, 360.0 );
+      value = progressionNonvaryingParameter / 100.0;
+      break;
+    case 3:
+      // saturation, value | hue
+      saturation = fmod ( z * saturation_slope * smallCyclesInLargeCycle + saturation_int, 1.0 );
+      value = fmod ( z * value_slope + value_int, 1.0 );
+      hue = progressionNonvaryingParameter * 360.0 / 100.0;
+      break;
+    case 4:
+      // value, hue | saturation
+      value = fmod ( z * value_slope * smallCyclesInLargeCycle + value_int, 1.0 );
+      hue = fmod ( z * hue_slope + hue_int, 360.0 );
+      saturation = progressionNonvaryingParameter / 100.0;
+      break;
+    case 5:
+      // value, saturation | hue
+      value = fmod ( z * value_slope * smallCyclesInLargeCycle + value_int, 1.0 );
+      saturation = fmod ( z * saturation_slope + saturation_int, 1.0 );
+      hue = progressionNonvaryingParameter * 360.0 / 100.0;
+      break;
+    default:
+      break;
+  }
+  
+  #ifdef SERIAL_DEBUG
+    if ( 1 ||  ( x == 0 ) ) {
+      if ( VERBOSE >= 10 ) {
+        Serial.printf ( "(x,t): ( %3d, %6d ); z: %5.3f; progMode: %1d; hsv: ( %5.1f, %5.3f, %5.3f )  : ", 
+          x, t, z, progressionMode, hue, saturation, value );
+        if ( VERBOSE < 20 ) Serial.println ();
+      }
+    }
+  #endif
+    
+  return ( hsv_to_rgb ( hue, saturation, value ) );
+}
 
 void pointer ( int loc ) {
   if ( VERBOSE >= 10 ) {
@@ -481,66 +767,156 @@ void setColor ( int n, unsigned long theColor ) {
 }
 
 // ******************************************************************************
-// ******************************************************************************
 
-void connect () {
+/* 
+  adapted from <https://stackoverflow.com/questions/3018313/algorithm-to-convert-rgb-to-hsv-and-hsv-to-rgb-in-range-0-255-for-both/>
+  math adapted from: http://www.rapidtables.com/convert/color/rgb-to-hsl.htm     
+  reasonably optimized for speed, without going crazy 
+*/
+
+// void hsv_to_rgb ( float h, float s, float v, int *r_r, int *r_g, int *r_b ) {
+unsigned long hsv_to_rgb ( float h, float s, float v ) {
+  // 0-359, 0-1, 0-1
+  h = fmod (h, 360.0);
+  s = constrain (s, 0.0, 1.0);
+  v = constrain (v, 0.0, 1.0);
   
-  unsigned long startTime_ms = millis();
-  static bool newConnection = true;
-  bool printed;
+  // HSL note: V = 1 - | 2*L - 1 |
+  float c = v * s;
+  float x = c * (1 - fabsf (fmod ((h / 60.0), 2) - 1));
+  float m = v - c;
   
-  printed = false;
-  while ( WiFi.status() != WL_CONNECTED ) {
-    if ( VERBOSE > 4 && ! printed ) { 
-      Serial.print ( "\nChecking wifi..." );
-      printed = true;
-      newConnection = true;
-    }
-    Serial.print ( "." );
-    delay ( 1000 );
+  float rp, gp, bp;
+
+  switch ( int ( h / 60 ) ) {
+    case 0:
+      rp = c;
+      gp = x;
+      bp = 0;
+    break;
+
+    case 1:
+      rp = x;
+      gp = c;
+      bp = 0;
+    break;
+
+    case 2:
+      rp = 0;
+      gp = c;
+      bp = x;
+    break;
+
+    case 3:
+      rp = 0;
+      gp = x;
+      bp = c;
+    break;
+
+    case 4:
+      rp = x;
+      gp = 0;
+      bp = c;
+    break;
+
+    default: // case 5:
+      rp = c;
+      gp = 0;
+      bp = x;
+    break;
   }
-  if ( newConnection && VERBOSE > 4 ) {
-    Serial.print ( "\n  WiFi connected as " ); 
-    Serial.print ( WiFi.localIP() );
-    Serial.print (" in ");
-    Serial.print ( millis() - startTime_ms );
-    Serial.println ( " ms" );    
-  }
+
+  int r = int ( ( rp + m ) * 256.0 ) & 255;
+  int g = int ( ( gp + m ) * 256.0 ) & 255;
+  int b = int ( ( bp + m ) * 256.0 ) & 255;
   
-  startTime_ms = millis();
-  printed = false;
-  while ( ! conn_MQTT.connected ( ) ) {
-    conn_MQTT.connect ( "cbm_MQTT_Client_Arduino_M5_MQTT_color_tree_TX", MQTT_USERNAME, MQTT_KEY );  // first arg is client ID; required
-    if ( VERBOSE > 4 && ! printed ) { 
-      // Serial.print ( "  MQTT user: \"" ); Serial.print ( MQTT_USERNAME ); Serial.println ( "\"" );
-      // Serial.print ( "  MQTT key: \"" ); Serial.print ( MQTT_KEY ); Serial.println ( "\"" );
-      Serial.print ( "  Checking MQTT ( status: " );
-      Serial.print ( conn_MQTT.state () );
-      Serial.print ( " )..." );
-      printed = true;
-      newConnection = true;
-    }
-    Serial.print( "." );
-    delay( 1000 );
-  }
+  // *r_g = (gp + m) * 255;
+  // *r_b = (bp + m) * 255;
+
+  #ifdef SERIAL_DEBUG
+    if ( VERBOSE >= 20 ) Serial.printf ( 
+        "hsv = %5.1f, %5.3f, %4.2f ( via %5.3f, %5.3f, %5.3f with m = %5.3f )"
+        " ---> rgb = %d, %d, %d\n", 
+      h, s, v, 
+      rp, gp, bp,  m,
+      r, g, b);
+  #endif
   
-  if ( newConnection ) {
-    if ( VERBOSE > 4 ) {
-      Serial.print ("\n  MQTT connected in ");
-      Serial.print ( millis() - startTime_ms );
-      Serial.println ( " ms" );
-    }
-    conn_MQTT.subscribe ( MQTT_FEED );
-    if (  VERBOSE > 4 ) {
-      Serial.print ( "  and subscribed to " );
-      Serial.println ( MQTT_FEED );
-    }
-  }
-  // client.unsubscribe("/example");
-  newConnection = false;
+  return ( ( r << 16 ) + ( g << 8 ) + ( b << 0 ) );
 }
 
-// ******************************************************************************
+// *****************************************************************************
+// ********************************** HTML *************************************
+// *****************************************************************************
+
+void htmlResponse_root () {
+
+  htmlMessage [ 0 ] = '\0';
+
+  strncat ( htmlMessage, "<!DOCTYPE html>\n", htmlMessageLen );
+  strncat ( htmlMessage, "  <html>\n", htmlMessageLen );
+  strncat ( htmlMessage, "    <head>\n", htmlMessageLen );
+  strncat ( htmlMessage, "      <h1>Status: Color Tree</h1>\n", htmlMessageLen );
+  snprintf ( pBuf, pBufLen, "      <h2>    %s v%s %s cbm</h2>\n",
+                PROGNAME, VERSION, VERDATE );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  IPAddress ip = WiFi.localIP();
+  snprintf ( pBuf, pBufLen, "      <h3>    Running on %s at %u.%u.%u.%u / %s.local</h3>\n",
+                Network.chipName, ip[0], ip[1], ip[2], ip[3], PROGNAME );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  strncat ( htmlMessage, "    </head>\n", htmlMessageLen );
+  strncat ( htmlMessage, "    <body>\n", htmlMessageLen );
+  
+  if ( ( millis() - lastPositionCommandAt_ms ) < pointerDuration_ms ) {
+    snprintf ( pBuf, pBufLen, "Indicator dot at pixel %d<br>\n",
+                colorDotLocation );
+  } else {
+
+    switch ( progressionMode ) {
+      case 0:
+        snprintf ( pBuf, pBufLen, "%s<br>\n",
+                    "0 - x-t is hue, step through saturations; set will set value" );
+        break;
+      case 1:
+        snprintf ( pBuf, pBufLen, "%s<br>\n",
+                    "1 - x-t is hue, step through values; set will set saturation" );
+        break;
+      case 2:
+        snprintf ( pBuf, pBufLen, "%s<br>\n",
+                    "2 - x-t is saturation, step through hues; set will set value" );
+        break;
+      case 3:
+        snprintf ( pBuf, pBufLen, "%s<br>\n",
+                    "3 - x-t is saturation, step through values; set will set hue" );
+        break;
+      case 4:
+        snprintf ( pBuf, pBufLen, "%s<br>\n",
+                    "4 - x-t is value, step through hues; set will set saturation" );
+        break;
+      case 5:
+        snprintf ( pBuf, pBufLen, "%s<br>\n",
+                    "5 - x-t is value, step through saturations; set will set hue" );
+        break;
+      default:
+        snprintf ( pBuf, pBufLen, "Unexpected progression mode %d<br>\n",
+                    progressionMode );
+        
+    }
+  }
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  
+  // snprintf ( pBuf, pBufLen, "<br><br>Len so far %d<br>", strlen ( htmlMessage ) );
+  // strncat ( htmlMessage, pBuf, htmlMessageLen );
+   
+  strncat ( htmlMessage, "    </body>\n", htmlMessageLen );
+  strncat ( htmlMessage, "  </html>\n", htmlMessageLen );
+
+  htmlServer.send ( 200, "text/html", htmlMessage );
+}
+
+// *****************************************************************************
+// ********************************** util *************************************
+// *****************************************************************************
 
 bool weAreAtM5 () {
   bool atM5 = false;
