@@ -1,14 +1,16 @@
 #define PROGNAME "ESP-01_M5_MQTT_switch"
-#define VERSION  "0.1.0"
-#define VERDATE  "2018-02-28"
+#define VERSION  "0.2.0"
+#define VERDATE  "2018-03-24"
 
 /*
     ESP-01_M5_MQTT_switch.ino
     2018-02-24
     Charles B. Malloch, PhD
 
-    Program to drive an ESP-01 output pin using MQTT, via a 5LN01SP
-    N-channel 1.5V MOSFET, to drive a 5V string of WS2812 3-color LEDs
+    Program to drive 2 ESP-01 output pins using MQTT.
+    One pin drives a simple LED with 3.3V,
+    and the other drives, via a 5LN01SP N-channel 1.5V MOSFET, 
+      a 5V string of WS2812 3-color LEDs
     
 */
 
@@ -25,21 +27,22 @@
 // ***************************************
 
 const int BAUDRATE = 115200;
-
-// ---------------------------------------
-// ---------------------------------------
-
-// need to use CBMDDWRT3 for my own network access
-// CBMDATACOL for other use
-// can use CBMM5 or CBMDDWRT3GUEST for Sparkfun etc.
-
-#define atM5 false
-
-#if atM5
-  #define WIFI_LOCALE M5
-#else
-  #define WIFI_LOCALE CBMIoT
-#endif
+// #define atM5 true
+// 
+// // ---------------------------------------
+// // ---------------------------------------
+// 
+// // need to use CBMDDWRT3 for my own network access
+// // CBMDATACOL for other use
+// // can use CBMM5 or CBMDDWRT3GUEST for Sparkfun etc.
+// 
+// 
+// #if atM5
+//   #define WIFI_LOCALE M5
+// #else
+//   #define WIFI_LOCALE CBMIoT
+// #endif
+int WIFI_LOCALE;
 
 // ---------------------------------------
 // ---------------------------------------
@@ -69,27 +72,32 @@ cbmNetworkInfo Network;
 // Create an ESP8266 WiFiClient class to connect to the MQTT server.
 WiFiClient conn_TCP;
 
-/************************* MQTT Setup *********************************/
+// /************************* MQTT Setup *********************************/
+// 
+// #if atM5
+//   #define MQTT_SERVER      "192.168.5.1"
+//   // "M5_IoT_MQTT"
+// #else
+//   #define MQTT_SERVER      "192.168.5.1"
+// #endif
+// #define MQTT_SERVERPORT  1883
+// // 14714
+// #define MQTT_USERNAME    CBM_MQTT_USERNAME
+// // cmq_username
+// #define MQTT_KEY         CBM_MQTT_KEY
+// // cmq_key
 
-#if atM5
-  #define MQTT_SERVER      "192.168.5.1"
-  // "M5_IoT_MQTT"
-#else
-  #define MQTT_SERVER      "192.168.5.1"
-#endif
+#define MQTT_SERVER      "192.168.5.1"
 #define MQTT_SERVERPORT  1883
-// 14714
 #define MQTT_USERNAME    CBM_MQTT_USERNAME
-// cmq_username
 #define MQTT_KEY         CBM_MQTT_KEY
-// cmq_key
 
 PubSubClient conn_MQTT ( conn_TCP );
 
 void connect( void );
 void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length );
 int interpretNewCommandString ( char * theTopic, char * thePayload );
-
+bool weAreAtM5 ();
 
 /************************* WS2812 Setup *********************************/
 
@@ -130,6 +138,8 @@ void setup() {
   pinMode ( pdControl, OUTPUT );
   pinMode ( pdWS2812,  OUTPUT );
   
+  WIFI_LOCALE = weAreAtM5 () ? M5 : CBMIoT;
+    
   // for security reasons, the network settings are stored in a private library
   Network.init ( WIFI_LOCALE );
 
@@ -260,7 +270,8 @@ int interpretNewCommandString ( char * theTopic, char * thePayload ) {
   return ( retVal );
 }
 
-//*************************
+// ******************************************************************************
+// ******************************************************************************
 
 void connect () {
   
@@ -315,3 +326,63 @@ void connect () {
   newConnection = false;
 }
 
+// ******************************************************************************
+
+bool weAreAtM5 () {
+  bool atM5 = false;
+  const int VERBOSE = 2;
+  // scan for nearby networks:
+  if ( VERBOSE >= 5 ) Serial.println ( "** Scan Networks **" );
+  int numSsid = WiFi.scanNetworks();
+  if (numSsid == -1) {
+    Serial.println ( "No wifi connection" );
+    return ( -1 );
+  }
+
+  if ( VERBOSE >= 5 ) {
+    // print the list of networks seen:
+    Serial.print ( "Number of available networks: " );
+    Serial.println ( numSsid );
+  }
+
+  // print the network number and name for each network found:
+  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+    if ( VERBOSE >= 5 ) {
+      Serial.print ( thisNet );
+      Serial.print ( ") " );
+      Serial.print ( WiFi.SSID ( thisNet ) );
+      Serial.print ( "\tSignal: " );
+      Serial.print ( WiFi.RSSI ( thisNet ) );
+      Serial.print ( " dBm" );
+      Serial.print ( "\tEncryption: " );
+      switch ( WiFi.encryptionType ( thisNet ) ) {
+        case ENC_TYPE_WEP:
+          Serial.println ( "WEP" );
+          break;
+        case ENC_TYPE_TKIP:
+          Serial.println ( "WPA" );
+          break;
+        case ENC_TYPE_CCMP:
+          Serial.println ( "WPA2" );
+          break;
+        case ENC_TYPE_NONE:
+          Serial.println ( "None" );
+          break;
+        case ENC_TYPE_AUTO:
+          Serial.println ( "Auto" );
+          break;
+        default:
+          Serial.println ( "Unk" );
+          break;
+      }  // switch encryption type
+    }  // VERBOSE print
+    if ( WiFi.SSID ( thisNet ) == (String) "M5_IoT_MQTT" ) {
+      atM5 = true;
+    }
+  }  // loop through networks
+  
+  // Serial.println ( "xyzzy" );
+  // Serial.printf ( "->%s<-\n", "plugh" );
+  if ( VERBOSE >= 2 ) Serial.printf ( "We are %sat M5" ), atM5 ? "" : "not ";
+  return atM5;
+}

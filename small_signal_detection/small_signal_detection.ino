@@ -254,8 +254,7 @@ void loop () {
         lastPrintAt_ms = millis();
       }
 
-    #endif   // SLOW PLOTTING
-    
+    #endif   // SLOW PLOTTIN
   }  // it was time to sample 
     
     

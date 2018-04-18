@@ -40,6 +40,10 @@ Stats adcCounts;
 
 ADC is ESP8266 pin 6; it accepts 0-1V -> 0-1023 counts
 
+If we didn't connect it to anything, and included
+  ADC_MODE(ADC_VCC);
+then we would be reading VCC
+
 */
 
 unsigned long sleepPeriod_s = 4;
@@ -62,7 +66,7 @@ void setup() {
   initialCounts = analogRead ( A0 );
   
   Serial.begin ( BAUDRATE );
-  while ( !Serial && ( millis() < 10000 ) ) {
+  while ( ! Serial && ( millis() < 10000 ) ) {
     digitalWrite ( pdThrobber, ( millis() >> 7 ) & 0x01 );
   }
   
