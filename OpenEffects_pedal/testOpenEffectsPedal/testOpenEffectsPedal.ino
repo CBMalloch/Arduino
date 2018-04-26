@@ -10,8 +10,8 @@
 #include <Adafruit_NeoPixel.h>
 #include <Bounce2.h>
 
-// NOTE - cannot use Serial with OpenEffects or Audio boards
-#undef BAUDRATE
+// NOTE - can use Serial with OpenEffects or Audio boards
+#define BAUDRATE 115200
 
 #define VERBOSE 5
 #if VERBOSE >= 10
@@ -62,8 +62,8 @@ const int pd_pb2 = 3;
 const int pd_relayL = 4;
 const int pd_relayR = 5;
 
-// int CV1 = A10;
-// int CV2 = A11;
+const int pa_CV1 = A11;
+const int pa_CV2 = A10;
 
 const int pa_batSwitches [] = { A12, A13 };
 const unsigned long batSwitchNoticePeriod_ms =  50UL;
@@ -72,6 +72,8 @@ unsigned long batSwitchLastCenteredAt_ms [] = { 0UL, 0UL };
 unsigned long batSwitchLastRepeatAt_ms [] = { 0UL, 0UL };
 int batSwitchStatus [] = { 0, 0 };
 
+int cv1_counts = 0;
+int cv2_counts = 0;
 
 //const int nPixels    = 60;
 const int nPixels    = 10;
@@ -169,6 +171,10 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=688.75,326.75
 
 void setup() {
 
+  #ifdef BAUDRATE
+    Serial.begin ( BAUDRATE );
+    while ( !Serial && millis() < 2000 );
+  #endif
   AudioMemory ( 250 );
   // AudioMemory_F32 ( 100 ); //allocate Float32 audio data blocks
 
@@ -282,6 +288,8 @@ void setup() {
   
 void loop() {
   
+  const int maxState = 5;
+  
   #if VERBOSE >= 10
     profile [ 0 ].start();
   #endif
@@ -332,6 +340,11 @@ void loop() {
       
   pb1.update();
   pb2.update();
+  
+  // expression pedals cv1 and cv2
+  
+  cv1_counts = analogRead ( pa_CV1 );
+  cv2_counts = analogRead ( pa_CV2 );
 
   // -------------------------------------------------------
   // update variables and displays in accordance with inputs
@@ -396,8 +409,12 @@ void loop() {
     lastDrumat_ms = millis();
   }
 
+  if ( batSwitchStatus [ 0 ] != state ) {
+    displayIsStale = true;
+    state = constrain ( batSwitchStatus [ 0 ], 0, maxState );
+  }
   
-  switch ( batSwitchStatus [ 0 ] ) {
+  switch ( state ) {
     case 0:  // inputs
       mixer1.gain ( 0, 2.0 );
       mixer1.gain ( 1, 2.0 );
@@ -519,6 +536,26 @@ void loop() {
       // VU meter
       // Serial.print ( "Amplitude: " ); Serial.println ( amp );
       setVU ( round ( amp * 7.0 ) );
+      break;
+  
+    case 4:
+      // VU meter for expression pedal 1
+      // Serial.print ( "Expression pedal 1: " ); Serial.println ( cv1_counts );
+      setVU ( round ( cv1_counts / 1024.0 * 7.0 ) );
+      if ( Serial ) {
+        Serial.print ( "EP1: " ); 
+        Serial.println ( cv1_counts );
+      }
+      break;
+  
+    case 5:
+      // VU meter for effects pedal 2
+      // Serial.print ( "Expression pedal 2: " ); Serial.println ( cv2_counts );
+      setVU ( round ( cv2_counts / 1024.0 * 7.0 ) );
+      if ( Serial ) {
+        Serial.print ( "EP2: " ); 
+        Serial.println ( cv2_counts );
+      }
       break;
   
     default:
@@ -673,7 +710,7 @@ void displayOLED_0 () {
     oled.println ( potReadings [ i ] );
   }
   
-  // next lower, large numbers are the state and the boost values
+  // large numbers are the state and the boost values
 
   oled.setTextSize ( 2 );
   oled.setCursor ( 0, 30 );
@@ -690,6 +727,15 @@ void displayOLED_0 () {
   oled.setCursor ( 40, 45 );
   oled.print ( batSwitchStatus [ 1 ] );
   // oled.print ( batSwitchReadings [ 1 ] );
+  
+  // very bottom numbers are expression pedal values
+  
+  oled.setTextSize ( 1 );
+  oled.setTextColor ( WHITE );
+  oled.setCursor ( 10, 54 );
+  oled.print ( cv1_counts );
+  oled.print ( " | " );
+  oled.print ( cv2_counts );
   
   // blocks to indicate state of the push buttons
   

@@ -1,13 +1,15 @@
 #define PROGNAME  "generalOpenEffectsBox_v2"
-#define VERSION   "2.6.6"
-#define VERDATE   "2017-11-22"
+#define VERSION   "2.7.15"
+#define VERDATE   "2017-12-09"
 
-#include <SPI.h>
-#include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 // use Paul Stoffregen's NeoPixel library if using Teensy 3.5 or 3.6
 #include <Adafruit_NeoPixel.h>
+#include <Audio.h>
+
+#include <SPI.h>
+#include <Wire.h>
 #include <Bounce2.h>
 
 /*
@@ -18,6 +20,7 @@
 // #undef BAUDRATE
 #define BAUDRATE 115200
 #define VERBOSE 12
+#undef STRING1_REPLACES_TONESWEEP1
 
 /*
 
@@ -30,7 +33,7 @@
     1 - mixer1
         knob 0 - output volume
         knob 1 - L&R input gain
-        knob 2 - sine1 gain
+        knob 2 - tuning_sine_ gain
         knob 3 - tonesweep1 gain
     
     2 - bit crusher
@@ -76,18 +79,18 @@
         knob 0 - output volume
         delay 0 is always straight through with no delay
       submodes
-        0 - delay times
-          knob 1 - delay 1 time (ms)
-          knob 2 - delay 2 time (ms)
-          knob 3 - delay 3 time (ms)
-        1 - gains
+        0 - gains
           knob 1 - delay 1 gain
           knob 2 - delay 2 gain
           knob 3 - delay 3 gain
+        1 - delay times
+          knob 1 - delay 1 time (ms)
+          knob 2 - delay 2 time (ms)
+          knob 3 - delay 3 time (ms)
 
 
 Note: I have added waveform1 as a 4th input to mixer3, but have not written
-it into the code yet.
+it into the code yet. Have, too!
       
 Fun idea: 853Hz and 960Hz for the CONELRAD Attention Signal...
 
@@ -98,6 +101,7 @@ Fun idea: 853Hz and 960Hz for the CONELRAD Attention Signal...
   Please remember that the standard Serial and the standard LED on pin 13
   both interfere with audio board pin mappings. Don't use either of them!
   They will work, but their use will disable the audio board's workings.
+  It turns out that standard Serial is just fine. No problem.
 */
 
 /*
@@ -133,7 +137,7 @@ Fun idea: 853Hz and 960Hz for the CONELRAD Attention Signal...
     Hardware-related definitions and assignments
 // *****************************************************/
 
-//Pinout board rev1
+// Pinout board rev1
 // pa = pin, analog; pd = pin, digital
 const int pa_pots [] = { A6, A3, A2, A1 };
 // tap pins differ between red board and blue board; I have blue
@@ -167,7 +171,7 @@ const int pdWS2812 = 8;
 //   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
-Adafruit_NeoPixel strip = Adafruit_NeoPixel( nPixels, pdWS2812, NEO_GRB + NEO_KHZ800 );
+Adafruit_NeoPixel strip = Adafruit_NeoPixel ( nPixels, pdWS2812, NEO_GRB + NEO_KHZ800 );
 //  0 is the singleton
 //  1 is R dome
 //  2 is L dome
@@ -175,6 +179,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel( nPixels, pdWS2812, NEO_GRB + NEO_KH
 const int ledSingleton = 0;
 const int ledOnOff     = 2;
 const int ledBoost     = 1;
+
 
 /* *****************************************************
     Functionality definitions and assignments
@@ -208,60 +213,12 @@ const int potHysteresis = 10;
 int potReadings [ nPots ], oldPotReadings [ nPots ];
 bool potChanged [ nPots ];
 
-const int nPresets = 2;
+const int nPresets = 5;
 
-
-/***************************************************
-                   state vector!
- ***************************************************/
- 
 class OpenEffectsBox {
   public:
   
     OpenEffectsBox ();  // constructor
-    
-    float mix1_inst_gain;
-    float mix1_sin_gain;
-    float mix1_tonesweep_gain;
-    float mix1_sine_freq;
-    float tuning_freq_table [ 5 ];
-    float mix1_tonesweep_lf;
-    float mix1_tonesweep_hf;
-    float mix1_tonesweep_time;
-
-    int bitcrush_bits;
-    unsigned long bitcrush_sampleRate;
-
-    int waveshape_selection;
-    /*
-      0 - ws1_passthru / 2
-      1 - ws1_shape1 / 9
-      2 - ws1_shape2 / 9
-      3 - ws1_shape3 / 9
-      4 - ws1_shape4 / 9
-    */
-
-    float multiply_dc_gain;
-    float multiply_sine_gain;
-    float multiply_tonesweep_gain;
-    float mpy_dc_amp;    
-    float mpy_sine_freq;
-    float mpy_tonesweep_lf;
-    float mpy_tonesweep_hf;
-    float mpy_tonesweep_time;
-
-    int chorus_nVoices;
-
-    int flange_offset;
-    int flange_depth;
-    int flange_rate;
-
-    float reverbTime_sec;
-
-    int delay_times_ms [ 4 ];
-
-    float mixer2_gains [ 4 ];
-    float mixer4_gains [ 4 ];
     
     int currentPreset;
     
@@ -270,38 +227,129 @@ class OpenEffectsBox {
     void setPreset ( int presetNumber );
     void sgtl5000_init ();
     
-    void sine1_set ( float sine_freq );
+    float tuningFreq_get ( int index );
+
+    void tuning_sine_set ( float sine_freq );
+    float tuning_sine_get ( );
     void tonesweep1_set ( float tonesweep_lf, float tonesweep_hf, float tonesweep_time );
-    void mixer1_set ( float inst_gain, float sin_gain, float tonesweep_gain );
-    void bitcrusher1_set ( int bits, unsigned long sampleRate );
-    void waveshape1_set ( int waveshape );
-    void dc1_set ( int dc_gain );
-    void sine2_set ( float sine_freq );
-    void tonesweep2_set ( float tonesweep_lf, float tonesweep_hf, float tonesweep_time );
-    void mixer3_set (  
+    void tonesweep1_lf_set ( float tonesweep_lf );
+    void tonesweep1_hf_set ( float tonesweep_hf );
+    void tonesweep1_time_set ( float tonesweep_time );
+    float tonesweep1_lf_get ();
+    float tonesweep1_hf_get ();
+    float tonesweep1_time_get ();
+    void input_mixer_set ( float inst_gain, float sin_gain, float tonesweep_gain );
+    void input_mixer_inst_gain_set ( float inst_gain );
+    void input_mixer_sin_gain_set ( float sin_gain );
+    void input_mixer_tonesweep_gain_set ( float tonesweep_gain );
+    float input_mixer_inst_gain_get ();
+    float input_mixer_sin_gain_get ();
+    float input_mixer_tonesweep_gain_get ();
+    void bitcrusher_set ( int bits, unsigned long sampleRate );
+    void bitcrusher_bits_set ( int bits );
+    void bitcrusher_sampleRate_set ( unsigned long sampleRate );
+    int bitcrusher_bits_get ();
+    unsigned long bitcrusher_sampleRate_get ();
+    void waveshape_set ( int waveshape );
+    int waveshape_get ();
+    void mpy_dc_level_set ( float dc_gain );
+    float mpy_dc_level_get ();
+    void mpy_sine_freq_set ( float sine_freq );
+    float mpy_sine_freq_get ();
+    void mpy_tonesweep_set ( float tonesweep_lf, float tonesweep_hf, float tonesweep_time );
+    void mpy_tonesweep_lf_set ( float tonesweep_lf );
+    void mpy_tonesweep_hf_set ( float tonesweep_hf );
+    void mpy_tonesweep_time_set ( float tonesweep_time );
+    float mpy_tonesweep_lf_get ();
+    float mpy_tonesweep_hf_get ();
+    float mpy_tonesweep_time_get ();
+    void mpy_mixer_set (  
       float dc_gain, 
       float sine_gain, 
       float tonesweep_gain
     );
-    void chorus1_set ( int nVoices );
-    void flange1_set ( int offset, int depth, int rate );
-    void reverb1_set ( float time_sec );
-    void delayExt1_set ( int times [ 4 ] );
-    void mixer2_set ( float gains [ 4 ] );
-    void mixer4_set ( float gains [ 4 ] );
+    void mpy_mixer_dc_gain_set ( float dc_gain );
+    void mpy_mixer_sin_gain_set ( float sine_gain );
+    void mpy_mixer_tonesweep_gain_set ( float tonesweep_gain );
+    void mpy_mixer_set ();
+    float mpy_mixer_dc_gain_get ();
+    float mpy_mixer_sin_gain_get ();
+    float mpy_mixer_tonesweep_gain_get ();
+    void chorus_set ( int nVoices );
+    int chorus_get ();
+    void flange_set ( int offset, int depth, float rate );
+    void flange_start ();
+    void flange_offset_set ( int offset );
+    void flange_depth_set ( int depth );
+    void flange_rate_set ( float rate );
+    int flange_offset_get ();
+    int flange_depth_get ();
+    float flange_rate_get ();
+    void reverb_set ( float time_sec );
+    float reverb_get ();
+    void delay_times_set ( int times [ 4 ] );
+    void delay_times_set ();
+    void delay_times_get ( int times_ms [ 4 ] );
+    void delay_mixer_gains_set ( float gains [ 4 ] );
+    void delay_mixer_gains_get ( float gains [ 4 ] );
+    void output_mixer_gains_set ( float gains [ 4 ] );
+    void output_mixer_gains_get ( float gains [ 4 ] );
+    
     
   private:
+  
+    /***************************************************
+                       state vector!
+     ***************************************************/
+ 
     void tuningFreqTable_init ();
+
+    float _mix1_inst_gain;
+    float _mix1_sin_gain;
+    float _mix1_tonesweep_gain;
+    float _mix1_sine_freq;
+    float _tuning_freq_table [ 5 ];
+    float _mix1_tonesweep_lf;
+    float _mix1_tonesweep_hf;
+    float _mix1_tonesweep_time;
+
+    int _bitcrush_bits;
+    unsigned long _bitcrush_sampleRate;
+
+    int _waveshape_selection;
+    /*
+      0 - _wS1_passthru / 2
+      1 - _wS1_shape1 / 9
+      2 - _wS1_shape2 / 9
+      3 - _wS1_shape3 / 9
+      4 - _wS1_shape4 / 9
+    */
+
+    float _multiply_dc_gain;
+    float _multiply_sine_gain;
+    float _multiply_tonesweep_gain;
+    float _multiply_dc_amp;    
+    float _multiply_sine_freq;
+    float _multiply_tonesweep_lf;
+    float _multiply_tonesweep_hf;
+    float _multiply_tonesweep_time;
+
+    int _chorus_nVoices;
+
+    int _flange_offset;
+    int _flange_depth;
+    float _flange_rate;
+
+    float _reverbTime_sec;
+
+    int _delay_times_ms [ 4 ];
+
+    float _delay_mixer_gains [ 4 ];
+    float _output_mixer_gains [ 4 ];
+    
 };
 
-OpenEffectsBox::OpenEffectsBox() {
-}
-
-void OpenEffectsBox::init () {
-  sgtl5000_init ();
-  tuningFreqTable_init ();
-  setPreset ( 0 );
-}
+OpenEffectsBox::OpenEffectsBox() {}
 
 OpenEffectsBox oeb;
 
@@ -327,6 +375,7 @@ void setVU ( int n, int mode = 1, unsigned long onColor = 0x106060UL, unsigned l
 #include <SerialFlash.h>
 
 // GUItool: begin automatically generated code
+AudioSynthKarplusStrong  string1;        //xy=70,270
 AudioInputI2S            i2s1;           //xy=72,129
 AudioSynthWaveformSine   sine1;          //xy=73,174
 AudioSynthToneSweep      tonesweep1;     //xy=82,224
@@ -342,7 +391,7 @@ AudioAnalyzePeak         peak1;          //xy=379,135
 AudioEffectMultiply      multiply1;      //xy=396,338
 AudioEffectChorus        chorus1;        //xy=406,399
 AudioEffectFlange        flange1;        //xy=422,456
-AudioEffectReverb        reverb1;        //xy=443,517
+AudioEffectReverb        reverb1;        //xy=443,514
 AudioEffectDelayExternal delayExt1;      //xy=590,333
 AudioMixer4              mixer4;         //xy=661,546
 AudioMixer4              mixer2;         //xy=729,316
@@ -378,10 +427,10 @@ AudioControlSGTL5000     sgtl5000_1;     //xy=595,184
     audio system definitions and variable setups
 // *****************************************************/
 
-#define mixer1_input_L    0
-#define mixer1_input_R    1
-#define mixer1_sine1      2
-#define mixer1_tonesweep1 3
+#define input_mixer_input_L    0
+#define input_mixer_input_R    1
+#define input_mixer_tuning_sine_      2
+#define input_mixer_tonesweep1 3
 
 #if 1
 #define FLANGE_DELAY_LENGTH ( 2 * AUDIO_BLOCK_SAMPLES )
@@ -397,9 +446,9 @@ double s_freq = 0.0625;
 short flangeDelayLine [ FLANGE_DELAY_LENGTH ];
 #define CHORUS_DELAY_LENGTH ( 16 * AUDIO_BLOCK_SAMPLES )
 short chorusDelayLine [ CHORUS_DELAY_LENGTH ];
-#define mixer3_DC          0
-#define mixer3_sine2       1
-#define mixer3_tonesweep2  2
+#define mpy_mixer_DC          0
+#define mpy_mixer_sine2       1
+#define mpy_mixer_tonesweep2  2
 
 float outputVolume = 1.0;
 
@@ -449,10 +498,18 @@ void loop() {
   
   updateInputs ();
   
-  if ( ( oeb.mix1_tonesweep_gain > 0.01 ) && ( ! tonesweep1.isPlaying() ) ) 
-    tonesweep1.play ( 1.0, oeb.mix1_tonesweep_lf, oeb.mix1_tonesweep_hf, oeb.mix1_tonesweep_time );
-  if ( ( oeb.multiply_tonesweep_gain > 0.01 ) && ( ! tonesweep2.isPlaying() ) ) 
-    tonesweep2.play ( 1.0, oeb.mpy_tonesweep_lf, oeb.mpy_tonesweep_hf, oeb.mpy_tonesweep_time );
+  if ( ( oeb.input_mixer_tonesweep_gain_get () > 0.01 ) && ( ! tonesweep1.isPlaying() ) ) 
+    tonesweep1.play ( 1.0, oeb.tonesweep1_lf_get (), oeb.tonesweep1_hf_get (), oeb.tonesweep1_time_get () );
+  if ( ( oeb.mpy_mixer_tonesweep_gain_get () > 0.01 ) && ( ! tonesweep2.isPlaying() ) ) 
+    tonesweep2.play ( 1.0, oeb.mpy_tonesweep_lf_get (), oeb.mpy_tonesweep_hf_get (), oeb.mpy_tonesweep_time_get () );
+    
+  #ifdef STRING1_REPLACES_TONESWEEP1
+    static unsigned long lastString1At_ms = 0UL;
+    if ( ( millis() - lastString1At_ms ) > 1000UL ) {
+      string1.noteOn ( 440.0, 0.5 );
+      lastString1At_ms = millis ();
+    }
+  #endif
   
   // -------------------------------------------------------
   // update variables and displays in accordance with inputs
@@ -508,7 +565,7 @@ void loop() {
     }
     if ( pressDuration_ms > 500 ) {
       presetNumber += 1;
-      if ( presetNumber > nPresets ) presetNumber = 0;
+      if ( presetNumber >= nPresets ) presetNumber = 0;
       oeb.setPreset ( presetNumber );
       displayIsStale = true;
     }
@@ -523,7 +580,7 @@ void loop() {
   const unsigned long boostFlashInterval_ms = 200UL;
   const int ledBoostFlashColor = 0x206020;
   const int ledBoostQuietColor = 0x103010;
-  const int ledBoostDarkColor  = 0x0c280c;
+  const int ledBoostDarkColor  = 0x103010;  // 0x0c280c;
   // light is on in even states
   // fast blink to indicate the number of the state
   //   on for boostFlashShortDuration_ms, then off for boostFlashInterval_ms
@@ -584,7 +641,7 @@ void loop() {
     Serial.print ( "; at " ); Serial.print ( millis() - lastBoostFlashAt_ms );
     Serial.println ();
       
-        strip.setPixelColor ( ledBoost, 0x000000 );
+        strip.setPixelColor ( ledBoost, ledBoostQuietColor );
         strip.show();
         boostBtnState = 1;
         lastBoostFlashAt_ms = millis();
@@ -637,17 +694,13 @@ void loop() {
               float val = fmap ( potReadings [ i ], 0, 1023, 0.0, 2.0 );
               switch ( i ) {
                 case 1:  // inputs
-                  oeb.mix1_inst_gain = val;
-                  mixer1.gain ( 0, oeb.mix1_inst_gain );
-                  mixer1.gain ( 1, oeb.mix1_inst_gain );
+                  oeb.input_mixer_inst_gain_set ( val );
                   break;
-                case 2:  // sine1
-                  oeb.mix1_sin_gain = val;
-                  mixer1.gain ( 2, oeb.mix1_sin_gain );
+                case 2:  // tuning_sine_
+                  oeb.input_mixer_sin_gain_set ( val );
                   break;
                 case 3:  // tonesweep1
-                  oeb.mix1_tonesweep_gain = val;
-                  mixer1.gain ( 3, oeb.mix1_tonesweep_gain );
+                  oeb.input_mixer_tonesweep_gain_set ( val );
                   break;
                 default: 
                   break;
@@ -660,13 +713,12 @@ void loop() {
           
         // no case for i2s - no functions to call!
         
-        case 1:  // sine1 frequency
+        case 1:  // tuning_sine_ frequency
           if ( potChanged [ 1 ] ) {
-            oeb.mix1_sine_freq = oeb.tuning_freq_table [ map ( potReadings [ 1 ], 0, 1023, 0, 4 ) ];
-            sine1.frequency ( oeb.mix1_sine_freq );
+            oeb.tuning_sine_set ( oeb.tuningFreq_get ( map ( potReadings [ 1 ], 0, 1023, 0, 4 ) ) );
             if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ 1 ], 0, 1023, 1, 5 ) );   // debug
           }
-          updateOLEDdisplay = &displayOLED_mix1_sine1_frequency;
+          updateOLEDdisplay = &displayOLED_mix1_tuning_sine__frequency;
           break;
           
         case 2:  // tone sweep
@@ -675,18 +727,18 @@ void loop() {
             if ( potChanged [ i ] ) {
               switch ( i ) {
                 case 1:  // tone sweep lower frequency
-                  oeb.mix1_tonesweep_lf = expmap ( potReadings [ 1 ], 0, 1023, 1.0, 440.0 );
+                  oeb.tonesweep1_lf_set ( expmap ( potReadings [ 1 ], 0, 1023, 1.0, 440.0 ) );
                   break;
                 case 2:  // tone sweep upper frequency
-                  oeb.mix1_tonesweep_hf = expmap ( potReadings [ 2 ], 0, 1023, 10.0, 10000.0 );
+                  oeb.tonesweep1_hf_set ( expmap ( potReadings [ 2 ], 0, 1023, 10.0, 10000.0 ) );
                   break;
                 case 3:  // tone sweep time
-                  oeb.mix1_tonesweep_time = expmap ( potReadings [ 3 ], 0, 1023, 0.01, 10.0 );
+                  oeb.tonesweep1_time_set ( expmap ( potReadings [ 3 ], 0, 1023, 0.01, 10.0 ) );
                   break;
                 default:
                   break;
               }
-              tonesweep1.play ( 1.0, oeb.mix1_tonesweep_lf, oeb.mix1_tonesweep_hf, oeb.mix1_tonesweep_time );
+              tonesweep1.play ( 1.0, oeb.tonesweep1_lf_get (), oeb.tonesweep1_hf_get (), oeb.tonesweep1_time_get () );
               if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
             }
           }
@@ -706,12 +758,10 @@ void loop() {
         if ( potChanged [ i ] ) {
           switch ( i ) {
             case 1:  // bits
-              oeb.bitcrush_bits = map ( potReadings [ i ], 0, 1023, 16, 1 );
-              bitcrusher1.bits ( oeb.bitcrush_bits );
+              oeb.bitcrusher_bits_set ( map ( potReadings [ i ], 0, 1023, 16, 1 ) );
               break;
             case 2:  // sample rate
-              oeb.bitcrush_sampleRate = fmap ( potReadings [ i ], 0, 1023, 44100UL, 10 );
-              bitcrusher1.sampleRate ( oeb.bitcrush_sampleRate );
+              oeb.bitcrusher_sampleRate_set ( fmap ( potReadings [ i ], 0, 1023, 44100UL, 10 ) );
               break;
             default: 
               break;
@@ -728,8 +778,7 @@ void loop() {
       nSubModes = 1;
       
       if ( potChanged [ 1 ] ) {
-        oeb.waveshape_selection = map ( potReadings [ 1 ], 0, 1023, 0, 4 );
-        oeb.waveshape1_set ( oeb.waveshape_selection );
+        oeb.waveshape_set ( map ( potReadings [ 1 ], 0, 1023, 0, 4 ) );
       }
 
       updateOLEDdisplay = &displayOLED_waveshaper;
@@ -745,16 +794,13 @@ void loop() {
             if ( potChanged [ i ] ) {
               switch ( i ) {
                 case 1:  // dc gain
-                  oeb.multiply_dc_gain = fmap ( potReadings [ 1 ], 0, 1023, 0.0, 2.0 );
-                  mixer3.gain ( 0, oeb.multiply_dc_gain );
+                  oeb.mpy_mixer_dc_gain_set ( fmap ( potReadings [ 1 ], 0, 1023, 0.0, 2.0 ) );
                   break;
                 case 2:  // sine gain
-                  oeb.multiply_sine_gain = fmap ( potReadings [ 2 ], 0, 1023, 0.0, 2.0 );
-                  mixer3.gain ( 1, oeb.multiply_sine_gain );
+                  oeb.mpy_mixer_sin_gain_set ( fmap ( potReadings [ 2 ], 0, 1023, 0.0, 2.0 ) );
                   break;
                 case 3:  // tone sweep gain
-                  oeb.multiply_tonesweep_gain = fmap ( potReadings [ 3 ], 0, 1023, 0.0, 2.0 );
-                  mixer3.gain ( 2, oeb.multiply_tonesweep_gain );
+                  oeb.mpy_mixer_tonesweep_gain_set ( fmap ( potReadings [ 3 ], 0, 1023, 0.0, 2.0 ) );
                   break;
                 default:
                   break;
@@ -765,23 +811,21 @@ void loop() {
           updateOLEDdisplay = &displayOLED_multiply;
           break;
           
-        case 1:  // dc amplitude
+        case 1:  // dc level
           if ( potChanged [ 1 ] ) {
-            oeb.mpy_dc_amp = fmap ( potReadings [ 1 ], 0, 1023, -1.0, 1.0 );
-            dc1.amplitude ( oeb.mpy_dc_amp, 20 );
+            oeb.mpy_dc_level_set ( fmap ( potReadings [ 1 ], 0, 1023, -1.0, 1.0 ) );
             if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ 1 ], 0, 1023, 0, 7 ) );   // debug
           }
-          updateOLEDdisplay = &displayOLED_mpy_dc_gain;
+          updateOLEDdisplay = &displayOLED_mpy_dc_level;
           break;
           
         case 2:  // sine2 frequency
           if ( potChanged [ 1 ] ) {
             // sine frequency
-            oeb.mpy_sine_freq = expmap ( potReadings [ 1 ], 0, 1023, 0.01, 10.0 );
-            sine2.frequency ( oeb.mpy_sine_freq );
+            oeb.mpy_sine_freq_set ( expmap ( potReadings [ 1 ], 0, 1023, 0.01, 10.0 ) );
             if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ 1 ], 0, 1023, 0, 7 ) );   // debug
             }
-          updateOLEDdisplay = &displayOLED_mpy_sine2_frequency;
+          updateOLEDdisplay = &displayOLED_mpy_sine_frequency;
           break;
           
         case 3:  // tone sweep
@@ -790,18 +834,18 @@ void loop() {
             if ( potChanged [ i ] ) {
               switch ( i ) {
                 case 1:  // tone sweep lower frequency
-                  oeb.mpy_tonesweep_lf = expmap ( potReadings [ 1 ], 0, 1023, 1.0, 440.0 );
+                  oeb.mpy_tonesweep_lf_set ( expmap ( potReadings [ 1 ], 0, 1023, 1.0, 440.0 ) );
                   break;
                 case 2:  // tone sweep upper frequency
-                  oeb.mpy_tonesweep_hf = expmap ( potReadings [ 2 ], 0, 1023, 10.0, 10000.0 );
+                  oeb.mpy_tonesweep_hf_set ( expmap ( potReadings [ 2 ], 0, 1023, 10.0, 10000.0 ) );
                   break;
                 case 3:  // tone sweep time
-                  oeb.mpy_tonesweep_time = expmap ( potReadings [ 3 ], 0, 1023, 0.1, 10.0 );
+                  oeb.mpy_tonesweep_time_set ( expmap ( potReadings [ 3 ], 0, 1023, 0.1, 10.0 ) );
                   break;
                 default:
                   break;
               }
-              tonesweep2.play ( 1.0, oeb.mpy_tonesweep_lf, oeb.mpy_tonesweep_hf, oeb.mpy_tonesweep_time );
+              tonesweep2.play ( 1.0, oeb.mpy_tonesweep_lf_get (), oeb.mpy_tonesweep_hf_get (), oeb.mpy_tonesweep_time_get () );
               if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
             }
           }
@@ -817,10 +861,7 @@ void loop() {
       nSubModes = 1;
       
       if ( potChanged [ 1 ] ) {
-        oeb.chorus_nVoices = map ( potReadings [ 1 ], 0, 1023, 1, 5 );
-        // chorus1.modify ( map ( potReadings [ 0 ], 0, 1023, 1, 5 ) );
-        //   Arduino claims chorus1 has no member "modify"
-        chorus1.voices ( oeb.chorus_nVoices );
+        oeb.chorus_set ( map ( potReadings [ 1 ], 0, 1023, 1, 5 ) );
       }
       
       updateOLEDdisplay = &displayOLED_chorus;
@@ -834,18 +875,18 @@ void loop() {
         if ( potChanged [ i ] ) {
           switch ( i ) {
             case 1:  // offset - fixed distance behind current
-              oeb.flange_offset = map ( potReadings [ i ], 0, 1023, 0, FLANGE_DELAY_LENGTH );
+              oeb.flange_offset_set ( map ( potReadings [ i ], 0, 1023, 0, FLANGE_DELAY_LENGTH ) );
               break;
             case 2:  // depth - the size of the variation of offset
-              oeb.flange_depth = map ( potReadings [ i ], 0, 1023, 0, FLANGE_DELAY_LENGTH );
+              oeb.flange_depth_set ( map ( potReadings [ i ], 0, 1023, 0, FLANGE_DELAY_LENGTH ) );
               break;
             case 3:  // rate - the frequency of the variation of offset
-              oeb.flange_rate = expmap ( potReadings [ i ], 0, 1023, 0.1, 10.0 );
+              oeb.flange_rate_set ( expmap ( potReadings [ i ], 0, 1023, 0.1, 10.0 ) );
               break;
             default:
               break;
           }
-          flange1.voices ( oeb.flange_offset, oeb.flange_depth, oeb.flange_rate );
+          oeb.flange_start ();
           if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
         }
       }
@@ -858,12 +899,11 @@ void loop() {
       nSubModes = 1;
       
       if ( potChanged [ 1 ] ) {
-        oeb.reverbTime_sec = fmap ( potReadings [ 1 ], 0, 1023, 0.0, 5.0 );
+        oeb.reverb_set ( fmap ( potReadings [ 1 ], 0, 1023, 0.0, 5.0 ) );
         if ( BAUDRATE && VERBOSE >= 10 ) { 
           Serial.print ( millis() ); Serial.print ( ": " );
-          Serial.print ( "reverb: " ); Serial.print ( oeb.reverbTime_sec ); Serial.println ( "sec" );
+          Serial.print ( "reverb: " ); Serial.print ( oeb.reverb_get () ); Serial.println ( "sec" );
         }
-        reverb1.reverbTime ( oeb.reverbTime_sec );
       }
 
       updateOLEDdisplay = &displayOLED_reverb;
@@ -874,25 +914,29 @@ void loop() {
       nSubModes = 2;
       
       switch ( subMode ) {
-        case 0:  // delay times beyond delay 0
+        case 0:  // gain for each delay beyond 0
           for ( int i = 1; i <= 3; i++ ) {
             if ( potChanged [ i ] ) {
-              oeb.delay_times_ms [ i ] = expmap ( potReadings [ i ], 0, 1023, 0.1, 1485.13 ) - 0.1;
-              delayExt1.delay ( i, oeb.delay_times_ms [ i ] );
-              if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
-            }
-          }
-          updateOLEDdisplay = &displayOLED_delay_times;
-          break;
-        case 1:  // gain for each delay beyond 0
-          for ( int i = 1; i <= 3; i++ ) {
-            if ( potChanged [ i ] ) {
-              oeb.mixer2_gains [ i ] = expmap ( potReadings [ i ], 0, 1023, 0.01, 2.013 ) - 0.01;
-              mixer2.gain ( i, oeb.mixer2_gains [ i ] );
+              float delay_mixer_gains [ 4 ];
+              oeb.delay_mixer_gains_get ( delay_mixer_gains );
+              delay_mixer_gains [ i ] = expmap ( potReadings [ i ], 0, 1023, 0.01, 2.013 ) - 0.01;
+              oeb.delay_mixer_gains_set ( delay_mixer_gains );
               if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
             }
           }
           updateOLEDdisplay = &displayOLED_mixer2;
+          break;
+        case 1:  // delay times beyond delay 0
+          for ( int i = 1; i <= 3; i++ ) {
+            if ( potChanged [ i ] ) {
+              int delay_times_ms [ 4 ];
+              oeb.delay_times_get ( delay_times_ms );
+              delay_times_ms [ i ] = expmap ( potReadings [ i ], 0, 1023, 0.1, 1485.13 ) - 0.1;
+              oeb.delay_times_set ( delay_times_ms );
+              if ( VERBOSE >= 10 ) setVU ( map ( potReadings [ i ], 0, 1023, 0, 7 ) );   // debug
+            }
+          }
+          updateOLEDdisplay = &displayOLED_delay_times;
           break;
         default:
           break;
@@ -1059,7 +1103,7 @@ void displayOLED_mixer1 () {
 
   // mixer1 has 4 inputs, controlled as 3
   //   0 & 1 are L and R channels input
-  //   2 is sine1
+  //   2 is tuning_sine_
   //   3 is tonesweep1
   
   // 3 gains, pots 1-3
@@ -1070,21 +1114,21 @@ void displayOLED_mixer1 () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.mix1_inst_gain );
+  oled.print ( oeb.input_mixer_inst_gain_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "inp" );
 
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 32 );
-  oled.print ( oeb.mix1_sin_gain );
+  oled.print ( oeb.input_mixer_sin_gain_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 36 );
   oled.print ( "sin" );
 
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 48 );
-  oled.print ( oeb.mix1_tonesweep_gain );
+  oled.print ( oeb.input_mixer_tonesweep_gain_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 52 );
   oled.print ( "swp" );
@@ -1094,7 +1138,7 @@ void displayOLED_mixer1 () {
     
 }
 
-void displayOLED_mix1_sine1_frequency () {
+void displayOLED_mix1_tuning_sine__frequency () {
 
   if ( ! ( displayIsStale || ( millis() - lastOledUpdateAt_ms ) > displayUpdateRate_ms ) ) {
     return;
@@ -1111,7 +1155,7 @@ void displayOLED_mix1_sine1_frequency () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.mix1_sine_freq );
+  oled.print ( oeb.tuning_sine_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "freq" );
@@ -1138,24 +1182,24 @@ void displayOLED_mix1_tone_sweep () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.mix1_tonesweep_lf );
+  oled.print ( oeb.tonesweep1_lf_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "lo f" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 32 );
-  oled.print ( oeb.mix1_tonesweep_hf );
+  oled.print ( oeb.tonesweep1_hf_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 36 );
   oled.print ( "hi f" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 48 );
-  oled.print ( oeb.mix1_tonesweep_time );
+  oled.print ( oeb.tonesweep1_time_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 52 );
-  oled.print ( "ms" );
+  oled.print ( "s" );
   
   oled.display();  // note takes about 100ms!!!
   lastOledUpdateAt_ms = millis ();
@@ -1183,14 +1227,14 @@ void displayOLED_bitcrusher () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.bitcrush_bits );
+  oled.print ( oeb.bitcrusher_bits_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "bits" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 32 );
-  oled.print ( oeb.bitcrush_sampleRate );
+  oled.print ( oeb.bitcrusher_sampleRate_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 36 );
   oled.print ( "samp" );
@@ -1217,7 +1261,7 @@ void displayOLED_waveshaper () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.waveshape_selection );
+  oled.print ( oeb.waveshape_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "menu" );
@@ -1250,21 +1294,21 @@ void displayOLED_multiply () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.multiply_dc_gain );
+  oled.print ( oeb.mpy_mixer_dc_gain_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "dc" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 32 );
-  oled.print ( oeb.multiply_sine_gain );
+  oled.print ( oeb.mpy_mixer_sin_gain_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 36 );
   oled.print ( "sin" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 48 );
-  oled.print ( oeb.multiply_tonesweep_gain );
+  oled.print ( oeb.mpy_mixer_tonesweep_gain_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 52 );
   oled.print ( "swp" );
@@ -1274,7 +1318,7 @@ void displayOLED_multiply () {
     
 }
   
-void displayOLED_mpy_dc_gain () {
+void displayOLED_mpy_dc_level () {
 
   if ( ! ( displayIsStale || ( millis() - lastOledUpdateAt_ms ) > displayUpdateRate_ms ) ) {
     return;
@@ -1291,7 +1335,7 @@ void displayOLED_mpy_dc_gain () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.mpy_dc_amp );
+  oled.print ( oeb.mpy_mixer_dc_gain_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "val" );
@@ -1301,7 +1345,7 @@ void displayOLED_mpy_dc_gain () {
     
 }
   
-void displayOLED_mpy_sine2_frequency () {
+void displayOLED_mpy_sine_frequency () {
 
   if ( ! ( displayIsStale || ( millis() - lastOledUpdateAt_ms ) > displayUpdateRate_ms ) ) {
     return;
@@ -1318,7 +1362,7 @@ void displayOLED_mpy_sine2_frequency () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.mpy_sine_freq );
+  oled.print ( oeb.mpy_sine_freq_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "freq" );
@@ -1345,24 +1389,24 @@ void displayOLED_mpy_tone_sweep () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.mpy_tonesweep_lf );
+  oled.print ( oeb.mpy_tonesweep_lf_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "lo f" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 32 );
-  oled.print ( oeb.mpy_tonesweep_hf );
+  oled.print ( oeb.mpy_tonesweep_hf_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 36 );
   oled.print ( "hi f" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 48 );
-  oled.print ( oeb.mpy_tonesweep_time );
+  oled.print ( oeb.mpy_tonesweep_time_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 52 );
-  oled.print ( "ms" );
+  oled.print ( "s" );
   
   oled.display();  // note takes about 100ms!!!
   lastOledUpdateAt_ms = millis ();
@@ -1386,7 +1430,7 @@ void displayOLED_chorus () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 64, 16 );
-  oled.print ( oeb.chorus_nVoices );
+  oled.print ( oeb.chorus_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "voices" );
@@ -1413,21 +1457,21 @@ void displayOLED_flange () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.flange_offset );
+  oled.print ( oeb.flange_offset_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "ofst" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 32 );
-  oled.print ( oeb.flange_depth );
+  oled.print ( oeb.flange_depth_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 36 );
   oled.print ( "dpth" );
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 48 );
-  oled.print ( oeb.flange_rate );
+  oled.print ( oeb.flange_rate_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 52 );
   oled.print ( "rate" );
@@ -1454,7 +1498,7 @@ void displayOLED_reverb () {
   
   oled.setTextSize ( 2 );
   oled.setCursor ( 30, 16 );
-  oled.print ( oeb.reverbTime_sec );
+  oled.print ( oeb.reverb_get () );
   oled.setTextSize ( 1 );
   oled.setCursor ( 0, 20 );
   oled.print ( "sec" );
@@ -1479,11 +1523,13 @@ void displayOLED_delay_times () {
   oled.setCursor ( 0, 0 );
   oled.print ( "delays" );
   
+  int delay_times [ 4 ];
+  oeb.delay_times_get ( delay_times );
   for ( int i = 1; i < 4; i++ ) {
     int y = ( i - 1 ) * 16 + 16;
     oled.setTextSize ( 1 );
     oled.setCursor ( 30, y );
-    oled.print ( oeb.delay_times_ms [ i ] );
+    oled.print ( delay_times [ i ] );
     oled.setTextSize ( 1 );
     oled.setCursor ( 0, y );
     oled.print ( "ms" );
@@ -1509,11 +1555,13 @@ void displayOLED_mixer2 () {
   oled.setCursor ( 0, 0 );
   oled.print ( "delay gain" );
   
+  float mixer_gains [ 4 ];
+  oeb.delay_mixer_gains_get ( mixer_gains );
   for ( int i = 1; i < 4; i++ ) {
     int y = ( i - 1 ) * 16 + 16;
     oled.setTextSize ( 1 );
     oled.setCursor ( 30, y );
-    oled.print ( oeb.mixer2_gains [ i ] );
+    oled.print ( mixer_gains [ i ] );
     // oled.setTextSize ( 1 );
     // oled.setCursor ( 0, y );
     // oled.print ( "" );
@@ -1593,53 +1641,155 @@ float expmap ( float x, float x0, float x9, float t0, float t9 ) {
 
 // ========================================================================
 
-// inits for audio objects
+// inits, setters, and getters for audio objects
+
+void OpenEffectsBox::init () {
+  sgtl5000_init ();
+  tuningFreqTable_init ();
+  setPreset ( 0 );
+}
 
 void OpenEffectsBox::sgtl5000_init () {
+  sgtl5000_1.enable ();  // ummm... it seems to make a difference if you enable!
+  
+  // input
+  
   #if 1
     sgtl5000_1.inputSelect ( AUDIO_INPUT_LINEIN );
     // 0 is 3.12Vp-p; default 5 is 1.33Vp-p; min 15 is 0.24Vp-p
-    sgtl5000_1.lineInLevel ( 10 );   
+    // sgtl5000_1.lineInLevel ( 10 );
+    sgtl5000_1.lineInLevel ( 5 );       // maybe this will work now TESTING
   #else
     sgtl5000_1.inputSelect ( AUDIO_INPUT_MIC );
     sgtl5000_1.micGain ( 20 );      // dB
   #endif
+  
+  // output
+  
   sgtl5000_1.volume ( 0.8 );  // headphones only, not line-level outputs
+  
   // max 13 is 3.16Vp-p; default 29 is 1.29Vp-p; min 31 is 1.16Vp-p
-  sgtl5000_1.lineOutLevel ( 13 );   
+  sgtl5000_1.lineOutLevel ( 13 );
+  // sgtl5000_1.lineOutLevel ( 29 );       // maybe this will work now TESTING
 }
 
-void OpenEffectsBox::sine1_set ( float sine_freq ) {
-  mix1_sine_freq = sine_freq;
-  sine1.amplitude ( 1.0 );
-  sine1.frequency ( mix1_sine_freq );
+void OpenEffectsBox::tuning_sine_set ( float sine_freq ) {
+  _mix1_sine_freq = sine_freq;
+  sine1.amplitude ( 0.2 );
+  sine1.frequency ( _mix1_sine_freq );
 }
+
+float OpenEffectsBox::tuning_sine_get () {
+  return ( _mix1_sine_freq );
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
 
 // tonesweep1: play will be automatic when the gain is positive
 void OpenEffectsBox::tonesweep1_set ( float tonesweep_lf, float tonesweep_hf, float tonesweep_time ) {
-  mix1_tonesweep_lf = tonesweep_lf;
-  mix1_tonesweep_hf = tonesweep_hf;
-  mix1_tonesweep_time = tonesweep_time;
+  _mix1_tonesweep_lf = tonesweep_lf;
+  _mix1_tonesweep_hf = tonesweep_hf;
+  _mix1_tonesweep_time = tonesweep_time;
 }
 
-void OpenEffectsBox::mixer1_set ( float inst_gain, float sin_gain, float tonesweep_gain ) {
-  mix1_inst_gain = inst_gain;
-  mix1_sin_gain = sin_gain;
-  mix1_tonesweep_gain = tonesweep_gain;
-  mixer1.gain ( mixer1_input_L, mix1_inst_gain );   // i2s2 ( line inputs L & R )
-  mixer1.gain ( mixer1_input_R, mix1_inst_gain );   // i2s2 ( line inputs L & R )
-  mixer1.gain ( mixer1_sine1, mix1_sin_gain );   // sine1
-  mixer1.gain ( mixer1_tonesweep1, mix1_tonesweep_gain );   // tonesweep1
+void OpenEffectsBox::tonesweep1_lf_set ( float tonesweep_lf ) {
+  _mix1_tonesweep_lf = tonesweep_lf;
 }
 
-void OpenEffectsBox::bitcrusher1_set ( int bits, unsigned long sampleRate ) {
-  bitcrush_bits = bits;
-  bitcrush_sampleRate = sampleRate;
-  bitcrusher1.bits ( bitcrush_bits );
-  bitcrusher1.sampleRate ( bitcrush_sampleRate );
+void OpenEffectsBox::tonesweep1_hf_set ( float tonesweep_hf ) {
+  _mix1_tonesweep_hf = tonesweep_hf;
+}
+
+void OpenEffectsBox::tonesweep1_time_set ( float tonesweep_time ) {
+  _mix1_tonesweep_time = tonesweep_time;
+}
+
+float OpenEffectsBox::tonesweep1_lf_get () {
+  return ( _mix1_tonesweep_lf );
+}
+
+float OpenEffectsBox::tonesweep1_hf_get () {
+  return ( _mix1_tonesweep_hf );
+}
+
+float OpenEffectsBox::tonesweep1_time_get () {
+  return ( _mix1_tonesweep_time );
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+// string1: no getter or setter; for testing purposes only
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::input_mixer_set ( float inst_gain, float sin_gain, float tonesweep_gain ) {
+  _mix1_inst_gain = inst_gain;
+  _mix1_sin_gain = sin_gain;
+  _mix1_tonesweep_gain = tonesweep_gain;
+  mixer1.gain ( input_mixer_input_L, _mix1_inst_gain );   // i2s2 ( line inputs L & R )
+  mixer1.gain ( input_mixer_input_R, _mix1_inst_gain );   // i2s2 ( line inputs L & R )
+  mixer1.gain ( input_mixer_tuning_sine_, _mix1_sin_gain );   // tuning_sine_
+  mixer1.gain ( input_mixer_tonesweep1, _mix1_tonesweep_gain );   // tonesweep1
+}
+
+void OpenEffectsBox::input_mixer_inst_gain_set ( float inst_gain ) {
+  _mix1_inst_gain = inst_gain;
+  mixer1.gain ( input_mixer_input_L, _mix1_inst_gain );   // i2s2 ( line inputs L & R )
+  mixer1.gain ( input_mixer_input_R, _mix1_inst_gain );   // i2s2 ( line inputs L & R )
+}
+
+void OpenEffectsBox::input_mixer_sin_gain_set ( float sin_gain ) {
+  _mix1_sin_gain = sin_gain;
+  mixer1.gain ( input_mixer_tuning_sine_, _mix1_sin_gain );   // tuning_sine_
+}
+
+void OpenEffectsBox::input_mixer_tonesweep_gain_set ( float tonesweep_gain ) {
+  _mix1_tonesweep_gain = tonesweep_gain;
+  mixer1.gain ( input_mixer_tonesweep1, _mix1_tonesweep_gain );   // tuning_sine_
+}
+
+float OpenEffectsBox::input_mixer_inst_gain_get () {
+  return ( _mix1_inst_gain );
+}
+
+float OpenEffectsBox::input_mixer_sin_gain_get () {
+  return ( _mix1_sin_gain );
+}
+
+float OpenEffectsBox::input_mixer_tonesweep_gain_get () {
+  return ( _mix1_tonesweep_gain );
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::bitcrusher_set ( int bits, unsigned long sampleRate ) {
+  _bitcrush_bits = bits;
+  _bitcrush_sampleRate = sampleRate;
+  bitcrusher1.bits ( _bitcrush_bits );
+  bitcrusher1.sampleRate ( _bitcrush_sampleRate );
+}
+
+void OpenEffectsBox::bitcrusher_bits_set ( int bits ) {
+  _bitcrush_bits = bits;
+  bitcrusher1.bits ( _bitcrush_bits );
+}
+
+void OpenEffectsBox::bitcrusher_sampleRate_set ( unsigned long sampleRate ) {
+  _bitcrush_sampleRate = sampleRate;
+  bitcrusher1.sampleRate ( _bitcrush_sampleRate );
+}
+
+int OpenEffectsBox::bitcrusher_bits_get () {
+  return ( _bitcrush_bits );
+}
+
+unsigned long OpenEffectsBox::bitcrusher_sampleRate_get () {
+  return ( _bitcrush_sampleRate );
 }
   
-void OpenEffectsBox::waveshape1_set ( int waveshape ) {
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::waveshape_set ( int waveshape ) {
     
     static float waveShapes [ 5 ] [ 9 ] = { 
       { -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 },
@@ -1648,97 +1798,274 @@ void OpenEffectsBox::waveshape1_set ( int waveshape ) {
       {  1.0,  0.3,   0.2,   0.1, 0.0, 0.1, 0.2,  0.3,  1.0 },
       {  1.0,  0.98,  0.5,   0.1, 0.0, 0.1, 0.5,  0.98, 1.0 }
     };
-    
-  waveshape_selection = waveshape;
-  waveshape1.shape ( waveShapes [ waveshape_selection ], waveshape_selection ? 9 : 2 );
+  _waveshape_selection = waveshape;
+  waveshape1.shape ( waveShapes [ _waveshape_selection ], _waveshape_selection ? 9 : 2 );
 }
-  
-void OpenEffectsBox::dc1_set ( int dc_gain ) {
-  multiply_dc_gain = dc_gain;
-  dc1.amplitude ( multiply_dc_gain );
+ 
+int OpenEffectsBox::waveshape_get () {
+  return ( _waveshape_selection );
+}
+ 
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::mpy_dc_level_set ( float dc_gain ) {
+  _multiply_dc_gain = dc_gain;
+  dc1.amplitude ( dc_gain );
 }
 
-void OpenEffectsBox::sine2_set ( float sine_freq ) {
-  mpy_sine_freq = sine_freq;
-  sine2.amplitude ( 1.0 );
-  sine2.frequency ( mpy_sine_freq );
+float OpenEffectsBox::mpy_dc_level_get () {
+  return ( _multiply_dc_gain );
 }
+ 
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::mpy_sine_freq_set ( float sine_freq ) {
+  _multiply_sine_freq = sine_freq;
+  sine2.amplitude ( 1.0 );
+  sine2.frequency ( _multiply_sine_freq );
+}
+
+float OpenEffectsBox::mpy_sine_freq_get () {
+  return ( _multiply_sine_freq );
+}
+ 
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
 
 // tonesweep2: play will be automatic when the gain is positive
-void OpenEffectsBox::tonesweep2_set ( float tonesweep_lf, float tonesweep_hf, float tonesweep_time ) {
-  mpy_tonesweep_lf = tonesweep_lf;
-  mpy_tonesweep_hf = tonesweep_hf;
-  mpy_tonesweep_time = tonesweep_time;
+void OpenEffectsBox::mpy_tonesweep_set ( float tonesweep_lf, float tonesweep_hf, float tonesweep_time ) {
+  _multiply_tonesweep_lf = tonesweep_lf;
+  _multiply_tonesweep_hf = tonesweep_hf;
+  // note: despite documentation, tonesweep_time is (float) seconds, not (int) ms
+  _multiply_tonesweep_time = tonesweep_time;
 }
 
-void OpenEffectsBox::mixer3_set ( 
+void OpenEffectsBox::mpy_tonesweep_lf_set ( float tonesweep_lf ) {
+  _multiply_tonesweep_lf = tonesweep_lf;
+}
+
+void OpenEffectsBox::mpy_tonesweep_hf_set ( float tonesweep_hf ){
+  _multiply_tonesweep_hf = tonesweep_hf;
+}
+
+void OpenEffectsBox::mpy_tonesweep_time_set ( float tonesweep_time ) {
+  _multiply_tonesweep_time = tonesweep_time;
+}
+
+float OpenEffectsBox::mpy_tonesweep_lf_get () {
+  return ( _multiply_tonesweep_lf );
+}
+
+float OpenEffectsBox::mpy_tonesweep_hf_get () {
+  return ( _multiply_tonesweep_hf );
+}
+
+float OpenEffectsBox::mpy_tonesweep_time_get () {
+  return ( _multiply_tonesweep_time );
+}
+ 
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::mpy_mixer_set ( 
     float dc_gain, 
     float sine_gain, 
     float tonesweep_gain ) {
     
-  multiply_dc_gain = dc_gain;
-  multiply_sine_gain = sine_gain;
-  multiply_tonesweep_gain = tonesweep_gain;
+  _multiply_dc_gain = dc_gain;
+  _multiply_sine_gain = sine_gain;
+  _multiply_tonesweep_gain = tonesweep_gain;
   
-  mixer3.gain ( 0, multiply_dc_gain );
-  mixer3.gain ( 1, multiply_sine_gain );
-  mixer3.gain ( 2, multiply_tonesweep_gain );
-    
+  mpy_mixer_set ();
 }
 
-void OpenEffectsBox::chorus1_set ( int chorus_n ) {
-  chorus_nVoices = chorus_n;
-  chorus1.begin ( chorusDelayLine, CHORUS_DELAY_LENGTH, chorus_nVoices );  // 1 is passthru
+void OpenEffectsBox::mpy_mixer_set () {
+  mixer3.gain ( 0, _multiply_dc_gain );
+  mixer3.gain ( 1, _multiply_sine_gain );
+  mixer3.gain ( 2, _multiply_tonesweep_gain );
 }
 
-void OpenEffectsBox::flange1_set ( int offset, int depth, int rate) {
-  flange_offset = offset;
-  flange_depth = depth;
-  flange_rate = rate;
+
+void OpenEffectsBox::mpy_mixer_dc_gain_set ( float dc_gain ) {
+  _multiply_dc_gain = dc_gain;
+  mpy_mixer_set ();
+}
+
+void OpenEffectsBox::mpy_mixer_sin_gain_set ( float sine_gain ) {
+  _multiply_sine_gain = sine_gain;
+  mpy_mixer_set ();
+}
+
+void OpenEffectsBox::mpy_mixer_tonesweep_gain_set ( float tonesweep_gain ) {
+  _multiply_tonesweep_gain = tonesweep_gain;
+  mpy_mixer_set ();
+}
+
+float OpenEffectsBox::mpy_mixer_dc_gain_get () {
+  return ( _multiply_dc_gain );
+}
+
+float OpenEffectsBox::mpy_mixer_sin_gain_get () {
+  return ( _multiply_sine_gain );
+}
+
+float OpenEffectsBox::mpy_mixer_tonesweep_gain_get () {
+  return ( _multiply_tonesweep_gain );
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::chorus_set ( int chorus_n ) {
+  _chorus_nVoices = chorus_n;
+  chorus1.begin ( chorusDelayLine, CHORUS_DELAY_LENGTH, _chorus_nVoices );  // 1 is passthru
+}
+
+int OpenEffectsBox::chorus_get () {
+  return ( _chorus_nVoices );
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::flange_set ( int offset, int depth, float rate) {
+  _flange_offset = offset;
+  _flange_depth = depth;
+  _flange_rate = rate;
+  flange_start ();
+}
+
+void OpenEffectsBox::flange_start () {
   flange1.begin ( flangeDelayLine, FLANGE_DELAY_LENGTH, 
-    flange_offset, flange_depth, flange_rate );
+    _flange_offset, _flange_depth, _flange_rate );
 }
 
-void OpenEffectsBox::reverb1_set ( float time_sec ) {
-  reverbTime_sec = time_sec;
+void OpenEffectsBox::flange_offset_set ( int offset ) {
+  _flange_offset = offset;
+  flange_start ();
+}
+
+void OpenEffectsBox::flange_depth_set ( int depth ) {
+  _flange_depth = depth;
+  flange_start ();
+}
+
+void OpenEffectsBox::flange_rate_set ( float rate ) {
+  _flange_rate = rate;
+  flange_start ();
+}
+
+int OpenEffectsBox::flange_offset_get () {
+  return ( _flange_offset );
+}
+
+int OpenEffectsBox::flange_depth_get () {
+  return ( _flange_depth );
+}
+
+float OpenEffectsBox::flange_rate_get () {
+  return ( _flange_rate );
+}
+
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::reverb_set ( float time_sec ) {
+
+/*
+  // extra, trying to trace reverb problem
+  _reverbTime_sec = 2.0;
   if ( BAUDRATE && VERBOSE >= 10 ) { 
     Serial.print ( millis() ); Serial.print ( ": " );
-    Serial.print ( "reverb: " ); Serial.print ( reverbTime_sec ); Serial.println ( "sec" );
+    Serial.print ( "reverb: " ); Serial.print ( _reverbTime_sec ); Serial.println ( "sec" );
   }
-  reverb1.reverbTime ( reverbTime_sec );
+  reverb1.reverbTime ( _reverbTime_sec );
+*/  
+  
+  _reverbTime_sec = time_sec;
+  // sidestep bug - reverb 0.0 is effectively 1.0 or so
+  if ( _reverbTime_sec == 0.0 ) _reverbTime_sec = 1e-4;  
+  if ( 0 && BAUDRATE && VERBOSE >= 10 ) { 
+    Serial.print ( millis() ); Serial.print ( ": " );
+    Serial.print ( "reverb: " ); Serial.print ( _reverbTime_sec ); Serial.println ( "sec" );
+  }
+  reverb1.reverbTime ( _reverbTime_sec );
 }
 
-void OpenEffectsBox::delayExt1_set ( int times_ms [ 4 ] ) {
+float OpenEffectsBox::reverb_get () {
+  return ( _reverbTime_sec );
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::delay_times_set ( int times_ms [ 4 ] ) {
   for ( int i = 0; i < 4; i++ ) {
-    delay_times_ms [ i ] = times_ms [ i ];
-    delayExt1.delay ( i , delay_times_ms [ i ] );
+    _delay_times_ms [ i ] = times_ms [ i ];
+  }
+  delay_times_set ();
+}
+
+void OpenEffectsBox::delay_times_set () {
+  for ( int i = 0; i < 4; i++ ) {
+    delayExt1.delay ( i , _delay_times_ms [ i ] );
   }
   for ( int i = 4; i < 8; i++ ) {
     delayExt1.disable ( i );
   }
 }
-  
-void OpenEffectsBox::mixer2_set ( float gains [ 4 ] ) {
+
+void OpenEffectsBox::delay_times_get ( int times_ms [ 4 ] ) {
   for ( int i = 0; i < 4; i++ ) {
-    mixer2_gains [ i ] = gains [ i ];
-    mixer2.gain ( i, mixer2_gains [ i ] );
+    times_ms [ i ] = _delay_times_ms [ i ];
+  }
+  return;
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::delay_mixer_gains_set ( float gains [ 4 ] ) {
+  for ( int i = 0; i < 4; i++ ) {
+    _delay_mixer_gains [ i ] = gains [ i ];
+    mixer2.gain ( i, _delay_mixer_gains [ i ] );
   }
 }
 
-void OpenEffectsBox::mixer4_set ( float gains [ 4 ] ) {
+void OpenEffectsBox::delay_mixer_gains_get ( float gains [ 4 ] ) {
   for ( int i = 0; i < 4; i++ ) {
-    mixer4_gains [ i ] = gains [ i ];
-    mixer4.gain ( i, mixer4_gains [ i ] );
+    gains [ i ] = _delay_mixer_gains [ i ];
+  }
+  return;
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
+
+void OpenEffectsBox::output_mixer_gains_set ( float gains [ 4 ] ) {
+  for ( int i = 0; i < 4; i++ ) {
+    _output_mixer_gains [ i ] = gains [ i ];
+    mixer4.gain ( i, _output_mixer_gains [ i ] );
   }
 }
+
+void OpenEffectsBox::output_mixer_gains_get ( float gains [ 4 ] ) {
+  for ( int i = 0; i < 4; i++ ) {
+    gains [ i ] = _output_mixer_gains [ i ];
+  }
+  return;
+}
+
+// ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' ' '
 
 void OpenEffectsBox::tuningFreqTable_init () {
-  tuning_freq_table [ 0 ] = 440.00;  // A4
-  tuning_freq_table [ 1 ] = 293.66;  // D4
-  tuning_freq_table [ 2 ] = 196.00;  // G3
-  tuning_freq_table [ 3 ] = 130.81;  // C3
-  tuning_freq_table [ 4 ] = 659.25;  // E5
+  _tuning_freq_table [ 0 ] = 440.00;  // A4
+  _tuning_freq_table [ 1 ] = 293.66;  // D4
+  _tuning_freq_table [ 2 ] = 196.00;  // G3
+  _tuning_freq_table [ 3 ] = 130.81;  // C3
+  _tuning_freq_table [ 4 ] = 659.25;  // E5
 }
+
+float OpenEffectsBox::tuningFreq_get ( int index ) {
+  return ( _tuning_freq_table [ index ] );
+}
+
+// ^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v
+// v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^
+// ^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v^v
 
 void OpenEffectsBox::setPreset ( int ps ) {
   currentPreset = ps;
@@ -1746,173 +2073,221 @@ void OpenEffectsBox::setPreset ( int ps ) {
     case 0: // reinitialize board to straight through
       {
         // mix1_inst_gain, mix1_sin_gain, mix1_tonesweep_gain
-        mixer1_set ( 1.0, 0.0, 0.0 );
+        input_mixer_set ( 1.0, 0.0, 0.0 );
         // mix1_sine_freq
-        sine1_set ( 440.0 );
+        tuning_sine_set ( 440.0 );
         
         //  tonesweep_lf, tonesweep_hf, tonesweep_time                       
         tonesweep1_set ( 55.0, 3520.0, 4.0 );
 
         // bitcrush_bits, bitcrush_sampleRate
-        bitcrusher1_set ( 16, 44100 );
+        bitcrusher_set ( 16, 44100 );
 
         /*
-          0 - ws1_passthru / 2
-          1 - ws1_shape1 / 9
-          2 - ws1_shape2 / 9
-          3 - ws1_shape3 / 9
-          4 - ws1_shape4 / 9
+          0 - wS1_passthru / 2
+          1 - wS1_shape1 / 9
+          2 - wS1_shape2 / 9
+          3 - wS1_shape3 / 9
+          4 - wS1_shape4 / 9
         */
-        waveshape1_set ( 0 );
+        waveshape_set ( 0 );
 
         // dc1, sine2, and tonesweep2 are inputs to mixer3, in turn to multiply
         // multiply_dc_gain
-        dc1_set ( 1.0 );
-        // mpy_sine_freq
-        sine2_set ( 2.0 );
+        mpy_dc_level_set ( 1.0 );
+        // multiply_sine_freq
+        mpy_sine_freq_set ( 2.0 );
+        //  tonesweep_lf, tonesweep_hf, tonesweep_time                       
+        mpy_tonesweep_set ( 55.0, 3520.0, 4.0 );
         // tonesweep2: tonesweeps play only once, when called
         // multiply_dc_gain, multiply_sine_gain,  multiply_tonesweep_gain
-        mixer3_set ( 1.0, 0.0, 0.0 );
-
-        //  tonesweep_lf, tonesweep_hf, tonesweep_time                       
-        tonesweep2_set ( 55.0, 3520.0, 4.0 );
+        mpy_mixer_set ( 1.0, 0.0, 0.0 );
 
         // chorus_nVoices
-        chorus1_set ( 1 );
+        chorus_set ( 1 );
 
         // flange_offset, flange_depth, flange_rate
-        flange1_set ( 0, 0, 0 );
+        flange_set ( 0, 0, 0.0 );
 
         // reverbTime_sec
-        reverb1_set ( 0.0 );
+        reverb_set ( 0.0 );
 
         // delay_times_ms
         int dt_ms [ 4 ] = { 0, 0, 0, 0 };
-        delayExt1_set ( dt_ms );
+        delay_times_set ( dt_ms );
 
-        // mixer2 mixes delays
         float mg [ 4 ] = { 1.0, 0.0, 0.0, 0.0 };
-        mixer2_set ( mg );
-        mixer4_set ( mg );
+        // mixer2 mixes delays
+        delay_mixer_gains_set ( mg );
+        // mixer43 is output master gain
+        output_mixer_gains_set ( mg );
       }
       break;
       
-    case 1: // preset 1 - nice with reverb but mostly straight
+    case 1: // preset 1 for tuning
       {
         // mix1_sine_freq
-        sine1_set ( 440.0 );
+        tuning_sine_set ( 440.0 );
         // tonesweep needs no init; parameters are explicit in start
         // mix1_inst_gain, mix1_sin_gain, mix1_tonesweep_gain
-        mixer1_set ( 1.0, 0.0, 0.0 );
+        input_mixer_set ( 1.0, 0.10, 0.0 );
         // bitcrush_bits, bitcrush_sampleRate
-        bitcrusher1_set ( 16, 44100 );
+        bitcrusher_set ( 16, 44100 );
         // waveshape_selection
-        waveshape1_set ( 0 );
+        waveshape_set ( 2 );
   
         // dc1, sine2, and tonesweep2 are inputs to mixer3, in turn to multiply
         // multiply_dc_gain
-        dc1_set ( 0.5 );
-        // mpy_sine_freq
-        sine2_set ( 0.25 );
+        mpy_dc_level_set ( 0.5 );
+        // multiply_sine_freq
+        mpy_sine_freq_set ( 6.0 );
         // tonesweep2: tonesweeps play only once, when called
         // multiply_dc_gain, multiply_sine_gain,  multiply_tonesweep_gain
-        mixer3_set ( 1.0, 0.1, 0.0 );
+        mpy_mixer_set ( 1.0, 0.5, 0.0 );
   
         // chorus_nVoices
-        chorus1_set ( 2 );
+        chorus_set ( 2 );
         // flange_offset, flange_depth, flange_rate
-        flange1_set ( 0, 0, 0 );
+        flange_set ( 0, 0, 0 );
         // reverbTime_sec
-        reverb1_set ( 1.0 );
+        reverb_set ( 1.0 );
         // delay_times_ms
         int dt_ms [ 4 ] = { 0, 100, 200, 300 };
-        delayExt1_set ( dt_ms );
+        delay_times_set ( dt_ms );
         // mixer2 mixes delays
-        float m2g [ 4 ] = { 1.0, 0.0, 0.0, 0.0 };
-        mixer2_set ( m2g );
+        float m2g [ 4 ] = { 1.0, 0.8, 0.6, 0.4 };
+        delay_mixer_gains_set ( m2g );
         // mixer4 is output volume
         float m4g [ 4 ] = { 1.0, 0.0, 0.0, 0.0 };
-        mixer4_set ( m4g );
+        output_mixer_gains_set ( m4g );
       }
       break;
 
-    case 2: // preset 2 a little wild
+    case 2: // preset 2 - nice with reverb but mostly straight
       {
         // mix1_sine_freq
-        sine1_set ( 440.0 );
+        tuning_sine_set ( 440.0 );
         // tonesweep needs no init; parameters are explicit in start
         // mix1_inst_gain, mix1_sin_gain, mix1_tonesweep_gain
-        mixer1_set ( 1.0, 0.0, 0.0 );
+        input_mixer_set ( 1.0, 0.0, 0.0 );
         // bitcrush_bits, bitcrush_sampleRate
-        bitcrusher1_set ( 16, 44100 );
+        bitcrusher_set ( 16, 44100 );
         // waveshape_selection
-        waveshape1_set ( 2 );
+        waveshape_set ( 0 );
   
         // dc1, sine2, and tonesweep2 are inputs to mixer3, in turn to multiply
         // multiply_dc_gain
-        dc1_set ( 0.5 );
-        // mpy_sine_freq
-        sine2_set ( 6.0 );
+        mpy_dc_level_set ( 0.5 );
+        // multiply_sine_freq
+        mpy_sine_freq_set ( 0.25 );
         // tonesweep2: tonesweeps play only once, when called
         // multiply_dc_gain, multiply_sine_gain,  multiply_tonesweep_gain
-        mixer3_set ( 1.0, 0.5, 0.0 );
+        mpy_mixer_set ( 1.0, 0.1, 0.0 );
   
         // chorus_nVoices
-        chorus1_set ( 2 );
+        chorus_set ( 2 );
         // flange_offset, flange_depth, flange_rate
-        flange1_set ( 0, 0, 0 );
+        flange_set ( 0, 0, 0 );
         // reverbTime_sec
-        reverb1_set ( 1.0 );
+        reverb_set ( 1.0 );
         // delay_times_ms
         int dt_ms [ 4 ] = { 0, 100, 200, 300 };
-        delayExt1_set ( dt_ms );
+        delay_times_set ( dt_ms );
         // mixer2 mixes delays
-        float m2g [ 4 ] = { 1.0, 0.8, 0.6, 0.4 };
-        mixer2_set ( m2g );
+        float m2g [ 4 ] = { 1.0, 0.0, 0.0, 0.0 };
+        delay_mixer_gains_set ( m2g );
         // mixer4 is output volume
         float m4g [ 4 ] = { 1.0, 0.0, 0.0, 0.0 };
-        mixer4_set ( m4g );
+        output_mixer_gains_set ( m4g );
+      }
+      break;
+
+    case 3: // preset 3 a little wild
+      {
+        // mix1_sine_freq
+        tuning_sine_set ( 440.0 );
+        // tonesweep needs no init; parameters are explicit in start
+        // mix1_inst_gain, mix1_sin_gain, mix1_tonesweep_gain
+        input_mixer_set ( 1.0, 0.0, 0.0 );
+        // bitcrush_bits, bitcrush_sampleRate
+        bitcrusher_set ( 16, 44100 );
+        // waveshape_selection
+        waveshape_set ( 2 );
+  
+        // dc1, sine2, and tonesweep2 are inputs to mixer3, in turn to multiply
+        // multiply_dc_gain
+        mpy_dc_level_set ( 0.5 );
+        // multiply_sine_freq
+        mpy_sine_freq_set ( 6.0 );
+        // tonesweep2: tonesweeps play only once, when called
+        // multiply_dc_gain, multiply_sine_gain,  multiply_tonesweep_gain
+        mpy_mixer_set ( 1.0, 0.5, 0.0 );
+  
+        // chorus_nVoices
+        chorus_set ( 2 );
+        // flange_offset, flange_depth, flange_rate
+        flange_set ( 0, 0, 0 );
+        // reverbTime_sec
+        reverb_set ( 1.0 );
+        // delay_times_ms
+        int dt_ms [ 4 ] = { 0, 100, 200, 300 };
+        delay_times_set ( dt_ms );
+        // mixer2 mixes delays
+        float m2g [ 4 ] = { 1.0, 0.8, 0.6, 0.4 };
+        delay_mixer_gains_set ( m2g );
+        // mixer4 is output volume
+        float m4g [ 4 ] = { 1.0, 0.0, 0.0, 0.0 };
+        output_mixer_gains_set ( m4g );
       }
       break;
         
-    case 3: // preset 3 for tuning
+    case 4: // interesting flange / reverb effect
       {
-        // mix1_sine_freq
-        sine1_set ( 440.0 );
-        // tonesweep needs no init; parameters are explicit in start
         // mix1_inst_gain, mix1_sin_gain, mix1_tonesweep_gain
-        mixer1_set ( 1.0, 0.10, 0.0 );
+        input_mixer_set ( 1.0, 0.0, 0.3 );
+        // mix1_sine_freq
+        tuning_sine_set ( 440.0 );
+        
+        //  tonesweep_lf, tonesweep_hf, tonesweep_time                       
+        tonesweep1_set ( 20.0, 90.0, 1.7 );
+
         // bitcrush_bits, bitcrush_sampleRate
-        bitcrusher1_set ( 16, 44100 );
-        // waveshape_selection
-        waveshape1_set ( 2 );
-  
+        bitcrusher_set ( 16, 44100 );
+
+        waveshape_set ( 0 );
+
         // dc1, sine2, and tonesweep2 are inputs to mixer3, in turn to multiply
         // multiply_dc_gain
-        dc1_set ( 0.5 );
-        // mpy_sine_freq
-        sine2_set ( 6.0 );
+        mpy_dc_level_set ( 1.0 );
+        // multiply_sine_freq
+        mpy_sine_freq_set ( 2.0 );
+        //  tonesweep_lf, tonesweep_hf, tonesweep_time                       
+        mpy_tonesweep_set ( 55.0, 3520.0, 4.0 );
         // tonesweep2: tonesweeps play only once, when called
         // multiply_dc_gain, multiply_sine_gain,  multiply_tonesweep_gain
-        mixer3_set ( 1.0, 0.5, 0.0 );
-  
+        mpy_mixer_set ( 1.0, 0.0, 0.0 );
+
         // chorus_nVoices
-        chorus1_set ( 2 );
+        chorus_set ( 1 );  // changing this is interesting
+
         // flange_offset, flange_depth, flange_rate
-        flange1_set ( 0, 0, 0 );
+        flange_set ( 32, 43, 10.0 );
+
         // reverbTime_sec
-        reverb1_set ( 1.0 );
+        reverb_set ( 1.0 );
+
         // delay_times_ms
-        int dt_ms [ 4 ] = { 0, 100, 200, 300 };
-        delayExt1_set ( dt_ms );
+        int dt_ms [ 4 ] = { 0, 0, 0, 0 };
+        delay_times_set ( dt_ms );
+
+        float mg [ 4 ] = { 1.0, 0.0, 0.0, 0.0 };
         // mixer2 mixes delays
-        float m2g [ 4 ] = { 1.0, 0.8, 0.6, 0.4 };
-        mixer2_set ( m2g );
-        // mixer4 is output volume
-        float m4g [ 4 ] = { 1.0, 0.0, 0.0, 0.0 };
-        mixer4_set ( m4g );
+        delay_mixer_gains_set ( mg );
+        // mixer43 is output master gain
+        output_mixer_gains_set ( mg );
       }
       break;
+      
     default:
       break;
   }
