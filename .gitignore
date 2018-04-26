@@ -9,3 +9,14 @@
 .svn/**
 **/*.bbprojectdata
 **/*.bbprojectsettings
+OpenEffect_Project.bbprojectd
+/EMMA/
+/DIY0031-lora32u4/
+libraries/cbm_NetworkInfo/cbmNetworkInfo.cpp
+libraries/cbm_NetworkInfo/cbmNetworkInfo.h
+libraries/cbm_NetworkInfo/.DS_Store
+libraries/cbm_NetworkInfo/cbmNetworkInfo.cpp
+libraries/cbm_NetworkInfo/cbmNetworkInfo.cpp
+libraries/cbm_NetworkInfo/cbmNetworkInfo.h
+libraries/cbm_NetworkInfo/cbmNetworkInfo.cpp
+libraries/cbm_NetworkInfo/cbmNetworkInfo.h

@@ -1,9 +1,17 @@
 #define PROGNAME  "testOpenEffectsPedal_sine_only"
-#define VERSION   "0.0.7"
-#define VERDATE   "2017-09-26"
+#define VERSION   "0.1.0"
+#define VERDATE   "2017-10-22"
 
 
-// currently set up to test the OpenEffects box
+/*
+  Uses the OnkartGromt OpenEffects Project box
+  Internally generates a middle C (C3) sine at 261.626 Hz
+  
+  Tests the function of the L and R relays by sequentially 
+  actuating each one, with the leftmost LED on when the L
+  relay is active, the next-leftmost one when the R relay 
+  is active.
+*/
 
 /*
   Please remember that the standard Serial and the standard LED on pin 13

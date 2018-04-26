@@ -1,4 +1,4 @@
-#define PROGNAME  "testAudioBoardFiddle"
+#define PROGNAME  "testAudioBoardFiddle2a"
 #define VERSION   "0.0.2"
 #define VERDATE   "2017-09-18"
 
