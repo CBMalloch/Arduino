@@ -1,6 +1,6 @@
 #define PROGNAME  "ESP_text_to_MQTT"
-#define VERSION   "0.1.1"
-#define VERDATE   "2018-02-28"
+#define VERSION   "0.2.0"
+#define VERDATE   "2018-04-25"
 
 /*
   to be loaded onto ESP-01
@@ -74,17 +74,44 @@
                        
 */
 
+/* 
+  For users other than Chuck, comment out the following #include.
+  In the absence of the include, cbmnetworkinfo_h will remain undefined
+  and this will eliminate Chuck-only aspects of the program
+*/
+#include <cbmNetworkInfo.h>
+
+#define ALLOW_OTA
+#ifdef ALLOW_OTA
+  #include <ArduinoOTA.h>
+#endif
+
 // Note: also including <Ethernet.h> broke WiFi.connect!
 #include <ESP8266WiFi.h>
+// WiFiClient supports TCP connection
+#include <WiFiClient.h>
+// PubSubClient supports MQTT
 #include <PubSubClient.h>
+#include <ESP8266WebServer.h>
+// see https://tttapa.github.io/ESP8266/Chap08%20-%20mDNS.html
+// ESP8266mDNS is multicast DNS - responds to <whatever>.local
+#include <ESP8266mDNS.h>
+// ESP8266WiFiMulti looks at multiple access points and chooses the strongest
+// #include <ESP8266WiFiMulti.h>
+#include <WiFiUDP.h>
+#include <TimeLib.h>
+
 #include <ArduinoJson.h>
 
 
 // ***************************************
 // ***************************************
 
+// not a #define so we can (later) implement auto-detect baud rate...
 // #define BAUDRATE       115200
-#define VERBOSE            10
+unsigned long BAUDRATE = 115200UL;
+
+const int VERBOSE = 18;
 
 const unsigned long sendDataToCloudInterval_ms =  10UL * 1000UL;
 const int maxSendings = 5;
@@ -92,30 +119,59 @@ const int maxSendings = 5;
 // ***************************************
 // ***************************************
 
+
+
+/********************************** GPIO **************************************/
+
+
+/********************************* Network ************************************/
+
+#ifdef cbmnetworkinfo_h
+  int WIFI_LOCALE;
+  cbmNetworkInfo Network;
+#endif
 // Create an ESP8266 WiFiClient class to connect to the MQTT server.
 WiFiClient conn_TCP;
-
+const unsigned int port_UDP = 9250;
+WiFiUDP conn_UDP;
 // Set up the MQTT client by passing in the WiFi client and MQTT server and login details.
 PubSubClient conn_MQTT ( conn_TCP );
-
-//*************************
+ESP8266WebServer htmlServer ( 80 );
 
 uint32_t chipID;
+bool connection_initedP = false;
+
+/********************************* MQTT ***************************************/
 
 char mqtt_host [ 50 ] = "third_base";
 char mqtt_clientID [ 50 ] = "whatever";
 char mqtt_userID [ 50 ] = "nobody";
 char mqtt_userPW [ 50 ] = "nothing";
+const int mqtt_serverPort = 1883;
 int mqtt_qos = 0;
 int mqtt_retain = 0;
-int nSendings = 0;
 
-int networkConnect ( const char ssid [], const char networkPW [] );
-int MQTTconnect( void );
-void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length );
-bool handleSerialInput ( void );
-bool handleString ( char strBuffer[] );  // broadcasts if there's a change
-int sendIt ( const char * topic, char * value, const char * name );
+/********************************** NTP ***************************************/
+
+IPAddress timeServer ( 17, 253, 14, 253 );
+const char* NTPServerName = "time.apple.com";
+
+const int NTP_PACKET_SIZE = 48;   // NTP time stamp is in the first 48 bytes of the message
+byte NTPBuffer [NTP_PACKET_SIZE]; // buffer to hold incoming and outgoing packets
+  
+const int timeZone = 0;   // GMT
+// const int timeZone = -5;  // Eastern Standard Time (USA)
+// const int timeZone = -4;  // Eastern Daylight Time (USA)
+unsigned long lastNTPResponseAt_ms = millis();
+// uint32_t time_unix_s               = 0;
+
+/******************************* Global Vars **********************************/
+
+int nSendings = 0;
+const int lastMQTTtopicLen = 64;
+char lastMQTTtopic [lastMQTTtopicLen] = "Topic not yet set";
+const int lastMQTTmessageLen = 64;
+char lastMQTTmessage [lastMQTTmessageLen] = "No message yet";
 
 const size_t ssidLen = 20;
 char ssid [ ssidLen ];
@@ -128,9 +184,25 @@ char userPW [ userPWLen ];
 
 const size_t pBufLen = 128;
 char pBuf [ pBufLen ];
-int strBufPtr = 0;
 
-long BAUDRATE = 115200L;
+const int htmlMessageLen = 1024;
+char htmlMessage [htmlMessageLen];
+
+const int timeStringLen = 32;
+char timeString [ timeStringLen ];
+
+/************************** Function Prototypes *******************************/
+
+int networkConnect ( const char ssid [], const char networkPW [] );
+int MQTTconnect( void );
+void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length );
+bool handleSerialInput ( void );
+bool handleString ( char strBuffer[] );  // broadcasts if there's a change
+int sendMQTTvalue ( const char * topic, const char * value, const char * name );
+bool weAreAtM5 ();
+
+time_t getUnixTime();
+void sendNTPpacket ( IPAddress& address );
 
 void setup ( void ) {
   
@@ -138,7 +210,7 @@ void setup ( void ) {
     // first feeble attempt at autobaud
   
     const int nBaudrates = 4;
-    const long baudrates [ nBaudrates ] = { 115200, 57600, 19200, 9600 };
+    const unsigned long baudrates [ nBaudrates ] = { 115200UL, 57600UL, 19200UL, 9600UL };
     while ( BAUDRATE == 0L ) {
       for ( int i = 0; i < nBaudrates; i++ ) {
         Serial.begin ( baudrates [ i ] );
@@ -154,11 +226,126 @@ void setup ( void ) {
     Serial.print ( "Detected baud rate: " ); Serial.println ( BAUDRATE );
   #else
     Serial.begin ( BAUDRATE );
-    while ( !Serial && ( millis() < 10000 ) );
+    while ( !Serial && ( millis() < 5000 ) );
   #endif
   
+  /****************************** Comm Setup **********************************/
+
+  // All comm setup deferred until we receive a string from the master
   
-  Serial.print ( "\n\n" );
+  Serial.println ( "Waiting for connect string from master..." );
+  while ( ! connection_initedP ) {
+    handleSerialInput();
+  
+    yield();
+    delay ( 10 );
+  }
+
+  /******************************* UDP Setup **********************************/
+  
+  conn_UDP.begin ( port_UDP );
+  
+  if ( VERBOSE >= 4 ) Serial.println ( "UDP connected" );
+  delay ( 50 );
+
+ /****************************** MQTT Setup **********************************/
+
+  conn_MQTT.setCallback ( handleReceivedMQTTMessage );
+  conn_MQTT.setServer ( mqtt_host, mqtt_serverPort );
+  if ( VERBOSE >= 5 ) {
+    Serial.print ( "Connecting to MQTT at " );
+    Serial.println ( mqtt_host );
+  }
+  MQTTconnect ();
+
+  yield ();
+  
+    /******************************* NTP Setup **********************************/
+  
+  setSyncProvider ( getUnixTime );
+  setSyncInterval ( 300 );          // seconds
+  
+  while ( ( timeStatus() != timeSet ) && ( millis () < 30000UL ) ) {
+    now ();
+    Serial.print ( "t" );
+    yield();
+  }
+  
+  char topic [ 64 ];
+  #ifdef cbmnetworkinfo_h
+    snprintf ( topic, 64, "%s/%s/time/startup", PROGNAME, Network.chipName );
+  #else
+    snprintf ( topic, 64, "%s/%#08x/time/startup", PROGNAME, ESP.getChipId() );
+  #endif
+  if ( timeStatus() == timeSet ) {
+    unsigned long timeNow = now ();
+    snprintf ( timeString, timeStringLen, "%04d-%02d-%02d %02d:%02d:%02dZ",
+      year ( timeNow ), month ( timeNow ), day ( timeNow ), hour ( timeNow ), minute ( timeNow ), second ( timeNow ) );
+    sendMQTTvalue ( topic, timeString, "Startup Time" );
+    Serial.printf ( "Starting at %s\n", timeString );
+  } else {
+    Serial.println ( "WARNING: No NTP response within 30 seconds..." );
+    sendMQTTvalue ( topic, "WARNING no NTP within 30 seconds", "Startup Time" );
+  }
+  yield();
+
+/***************************** OTA Update Setup *****************************/
+  
+  #ifdef ALLOW_OTA
+  
+    // Port defaults to 8266
+    // ArduinoOTA.setPort(8266);
+
+    // Hostname defaults to esp8266-[ChipID]
+    char hostName [ 50 ];
+    snprintf ( hostName, 50, "esp8266-%s", Network.chipName );
+    ArduinoOTA.setHostname ( (const char *) hostName );
+
+    // No authentication by default
+    ArduinoOTA.setPassword ( (const char *) CBM_OTA_KEY );
+
+    ArduinoOTA.onStart([]() {
+      Serial.println("Start");
+    });
+  
+    ArduinoOTA.onEnd([]() {
+      Serial.println("\nEnd");
+    });
+  
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+  
+    ArduinoOTA.onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+  
+    ArduinoOTA.begin();
+    Serial.println ( "ArduinoOTA running" );
+    
+  #endif
+
+  /**************************** HTML Server Setup *****************************/
+
+  htmlServer.on ( "/", htmlResponse_root );
+  // htmlServer.on ( "/form", htmlResponse_form );
+  htmlServer.begin ();
+
+  /**************************** MDNS Server Setup *****************************/
+
+  if (!MDNS.begin ( PROGNAME ) ) {             // Start the mDNS responder for <PROGNAME>.local
+    Serial.println("Error setting up MDNS responder!");
+  }
+  Serial.printf ( "mDNS responder '%s.local' started", PROGNAME );
+  
+  /************************** Report successful init **************************/
+   
+  Serial.println();
   Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
   
   // generate random client ID value
@@ -170,6 +357,13 @@ void setup ( void ) {
 void loop () {
   
   static unsigned long lastSentToCloudAt_ms = 0;
+  
+  htmlServer.handleClient();  
+
+  // server.handleClient();
+  #ifdef ALLOW_OTA
+    ArduinoOTA.handle();
+  #endif
   
   conn_MQTT.loop();
   delay ( 10 );  // fix some issues with WiFi stability
@@ -187,143 +381,15 @@ void loop () {
   yield();
  
   handleSerialInput();
-  
   yield();
+  
   delay ( 10 );
  
 }
 
-bool handleSerialInput() {
-
-  // collect serial input and handle it when necessary
-  const int strBufSize = 200;
-  static char strBuf [ strBufSize ];
-  static int strBufPtr = 0;
-  
-  // if no characters arrive for a while, reset the buffer
-  static unsigned long lastCharArrivedAt_ms = 0;
-  const unsigned long timeoutPeriod_ms = 200;
-  
-  if ( ( millis() - lastCharArrivedAt_ms ) > timeoutPeriod_ms ) {
-    strBufPtr = 0;
-  }
-    
-  
-  while ( int len = Serial.available() ) {
-    for ( int i = 0; i < len; i++ ) {
-      
-      if ( strBufPtr >= strBufSize - 1 ) {
-        // -1 to leave room for null ( '\0' ) appendix
-        Serial.println ( "BUFFER OVERRUN" );
-        strBufPtr = 0;
-        // flush Serial input buffer
-        while ( Serial.available() ) Serial.read();
-        return ( false );
-      }
-      
-      strBuf [ strBufPtr ] = Serial.read();
-      // LEDToggle();
-      // Serial.println(buffer[strBufPtr], HEX);
-      if ( strBufPtr > 5 && strBuf [ strBufPtr ] == '\r' ) {  // 0x0d
-        // append terminating null
-        strBuf [ ++strBufPtr ] = '\0';
-        handleString ( strBuf );
-        // clear the buffer
-        strBufPtr = 0;
-        strBuf [ 0 ] = '\0';
-      } else if ( strBuf [ strBufPtr ] == '\n' ) {  // 0x0a
-        // ignore LF
-      } else {
-        strBufPtr++;
-      }  // handling linends
-      
-      yield ();
-      
-    }  // reading the input buffer
-    lastCharArrivedAt_ms = millis();
-  }  // Serial.available
-  
-  return ( true );
-}
-
-bool handleString ( char strBuffer[] ) {
-  
-  /* 
-    Respond to JSON commands like
-      { "command": "connect", "networkSSID": "cbm_IoT_MQTT", "networkPW": "secret", 
-        "MQTTuserID": "cbmalloch", "MQTTuserPW": "" }
-      { "command": "send", "topic": "cbmalloch/feeds/onoff", "value": 1 }
-  */
-  
-  // is the string valid JSON
-  
-  if ( strlen ( strBuffer ) ) {
-    // there's at least a partial string     
-    Serial.print ( "about to parse: " ); Serial.println ( strBuffer );
-  }
-    
-  // Memory pool for JSON object tree.
-  //
-  // Inside the brackets, 200 is the size of the pool in bytes.
-  // Don't forget to change this value to match your JSON document.
-  // Use arduinojson.org/assistant to compute the capacity.
-
-  StaticJsonBuffer<200> jsonBuffer;
-  JsonObject& root = jsonBuffer.parseObject ( strBuffer );
-
-  // Test if parsing succeeds.
-  if ( root.success () && root [ "command" ].success() ) {
-    // handle whatever it was
-    const char* cmd = root [ "command" ];
-    if ( ! strcmp ( cmd, "connect" ) ) {
-      strncpy ( mqtt_host, (const char *) root [ "MQTThost" ], 50 );
-      conn_MQTT.setServer ( mqtt_host, 1883 );
-      strncpy ( mqtt_userID, (const char *) root [ "MQTTuserID" ], 50 );
-      strncpy ( mqtt_userPW, (const char *) root [ "MQTTuserPW" ], 50 );
-      
-      int result = networkConnect ( 
-              (const char *) root [ "networkSSID" ],
-              (const char *) root [ "networkPW" ] );
-      if ( result == 1 ) {
-        Serial.printf ( "{ \"connectionResult\": \"OK\", \"ssid\": \"%d.%d.%d.%d\" }\n",
-                        WiFi.localIP() [ 0 ], WiFi.localIP() [ 1 ], WiFi.localIP() [ 2 ], WiFi.localIP() [ 3 ] );
-          
-        return ( true );
-      } else {
-        Serial.printf ( "{ \"connectionResult\": \"failed %d\" }\n", result );
-        return ( false );
-      }
-      
-    } else if (  ! strcmp ( cmd, "send" ) ) {
-      sendIt ( (const char *) root [ "topic" ],
-               (const char *) root [ "value" ] );
-    } else if (  ! strcmp ( cmd, "subscribe" ) ) {
-    
-    
-    
-      conn_MQTT.subscribe ( root [ "topic" ] );
-      conn_MQTT.setCallback ( handleReceivedMQTTMessage );
-
-               
-               
-               
-               
-               
-    } else if ( false ) {
-    } else {
-      Serial.print ( "JSON msg from Serial: bad command: " );
-      Serial.println ( cmd );
-    }
-    return ( true );
-  } else {
-    Serial.println ( "Received string was not valid JSON" );
-    return ( false );
-  }
- 
-  yield ();
-  return true;
-
-}
+// *****************************************************************************
+// ********************************** WiFi *************************************
+// *****************************************************************************
 
 int networkConnect ( const char ssid [], const char networkPW [] ) {
 
@@ -334,21 +400,39 @@ int networkConnect ( const char ssid [], const char networkPW [] ) {
     -1001 -> Network timeout
     -1002 -> No networks found
   */
-
-  if ( VERBOSE >= 2 ) {
-    Serial.print ( " Chip ID: " ); Serial.print ( ESP.getChipId () );
-    Serial.print ( " ( 0x" ); Serial.print ( ESP.getChipId (), HEX );
-    Serial.print ( " ); " ); // Serial.println ();
-    
-    byte macAddress [ 6 ];
-    WiFi.macAddress ( macAddress );
-    Serial.print ( "MAC address: " );
-    for ( int i = 0; i < 6; i++ ) {
-      Serial.print ( macAddress [ i ], HEX ); 
-      if ( i < 5 ) Serial.print ( ":" );
+  
+  #ifdef cbmnetworkinfo_h
+    // Chuck-only convenience functions for fixed IP assignment
+    if ( ! strncmp ( ssid, "dd-wrt-03", 20 ) ) {
+      Network.init ( CBMDDWRT3 );
+    } else if ( ! strncmp ( ssid, "cbmDataCollection", 20 ) ) {
+      Network.init ( CBMDATACOL );
+    } else if ( ! strncmp ( ssid, "cbm_IoT_MQTT", 20 ) ) {
+      Network.init ( CBMIoT );
+    } else {
+      Serial.print ( "Unrecognized network SSID: " ); 
+      Serial.println ( ssid );
     }
-    Serial.println ();
-  }
+    WiFi.config ( Network.ip, Network.gw, Network.mask, Network.dns );
+    Serial.printf ( "Chuck-only in handleString: %u.%u.%u.%u gw %u.%u.%u.%u\n",
+       Network.ip [ 0 ], Network.ip [ 1 ], Network.ip [ 2 ], Network.ip [ 3 ],
+       Network.gw [ 0 ], Network.gw [ 1 ], Network.gw [ 2 ], Network.gw [ 3 ] );
+  #else
+    if ( VERBOSE >= 2 ) {
+      Serial.print ( " Chip ID: " ); Serial.print ( ESP.getChipId () );
+      Serial.print ( " ( 0x" ); Serial.print ( ESP.getChipId (), HEX );
+      Serial.print ( " ); " ); // Serial.println ();
+    
+      byte macAddress [ 6 ];
+      WiFi.macAddress ( macAddress );
+      Serial.print ( "MAC address: " );
+      for ( int i = 0; i < 6; i++ ) {
+        Serial.print ( macAddress [ i ], HEX ); 
+        if ( i < 5 ) Serial.print ( ":" );
+      }
+      Serial.println ();
+    }
+  #endif
   
   int status = -1000;
   // Connect to WiFi access point.
@@ -417,6 +501,10 @@ int networkConnect ( const char ssid [], const char networkPW [] ) {
   
   return 1;
 }
+
+// *****************************************************************************
+// ********************************** MQTT *************************************
+// *****************************************************************************
 
 int MQTTconnect () {
 
@@ -504,34 +592,7 @@ int MQTTconnect () {
   return 1;
 }
 
-int sendIt ( const char * topic, const char * value ) {
-  
-  int length = strlen ( value );
-  
-  if ( length < 1 ) {
-    if ( VERBOSE >= 10 ) {
-      Serial.print ( "\nNot sending null payload: " );
-      Serial.println ( topic );
-    }
-    return 0;
-  }
-  
-  if ( VERBOSE >= 10 ) {
-    Serial.print( "\nSending " );
-    Serial.print ( topic );
-    Serial.print ( ": " );
-    Serial.print ( value );
-    Serial.print ( " ... " );
-  }
-  
-  bool success = conn_MQTT.publish ( topic, value );
-  if ( VERBOSE >= 10 ) Serial.println ( success ? "OK!" : "Failed" );
-  
-  return success ? length : -1;
-};
-
-
-// callback function name hardcoded in MQTTClient.h
+// callback function name hardcoded in MQTTClient.h ??
 void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length ) {
   memcpy ( pBuf, payload, length );
   pBuf [ length ] = '\0';
@@ -545,12 +606,12 @@ void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int leng
   }
   
   // Serialize this information
-  StaticJsonBuffer<200> jsonBuffer;
+  StaticJsonBuffer<400> jsonBuffer;
   JsonObject& root = jsonBuffer.createObject();
   root["topic"] = topic;
   root["value"] = pBuf;
   
-  char myBuf [ 200 ];
+  char myBuf [ 400 ];
   
   root.printTo ( myBuf );
   
@@ -563,45 +624,397 @@ void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int leng
   
 }
 
-int listNetworks() {
+int sendMQTTvalue ( const char * topic, const char * value, const char * name ) {
+
+  /*
+  
+    Send data via MQTT to Mosquitto
+    
+  */
+  
+  int tLen = strlen ( topic );
+  int vLen = strlen ( value );
+  if ( vLen < 1 ) {
+    if ( VERBOSE >= 10 ) {
+      Serial.print ( "\nNot sending null payload " );
+      Serial.println ( name );
+    }
+    return 0;
+  }
+  
+  if ( ( tLen + vLen ) > MQTT_MAX_PACKET_SIZE ) {
+    if ( VERBOSE >= 10 ) {
+      Serial.print ( "\nNot sending oversized ( " );
+      Serial.print ( tLen + vLen );
+      Serial.print ( " > 128 ) packet " );
+      Serial.println ( name );
+    }
+    return 0;
+  }
+  
+  if ( VERBOSE >= 10 ) {
+    Serial.print( "Sending " );
+    Serial.print ( topic );
+    Serial.print ( " ( name = " );
+    Serial.print ( name );
+    Serial.print ( ", len = " );
+    Serial.print ( tLen + vLen );
+    Serial.print ( " ): " );
+    Serial.print ( value );
+    Serial.print ( " ... " );
+  }
+  
+  /*
+  
+    Note: each publish call seems to take about a second
+    Even though connection remains good
+    But only when the MQTT server is overtaxed - probably in need of restart!
+  
+  */
+
+  bool success = conn_MQTT.publish ( topic, value );
+  if ( VERBOSE >= 10 ) Serial.println ( success ? "OK!" : "Failed" );
+  
+  lastMQTTtopic [ 0 ] = '\0';
+  lastMQTTmessage [ 0 ] = '\0';
+  if ( ! success ) strncat ( lastMQTTtopic, "<FAILURE>", lastMQTTtopicLen );
+  strncat ( lastMQTTtopic, topic, lastMQTTtopicLen );
+  strncat ( lastMQTTmessage, value, lastMQTTmessageLen );
+  
+  return success ? ( tLen + vLen ) : -1;
+};
+
+// *****************************************************************************
+// ********************************** HTML *************************************
+// *****************************************************************************
+
+void htmlResponse_root () {
+
+  htmlMessage [ 0 ] = '\0';
+
+  strncat ( htmlMessage, "<!DOCTYPE html>\n", htmlMessageLen );
+  strncat ( htmlMessage, "  <html>\n", htmlMessageLen );
+  strncat ( htmlMessage, "    <head>\n", htmlMessageLen );
+  strncat ( htmlMessage, "      <h1>Status: Color Tree</h1>\n", htmlMessageLen );
+  snprintf ( pBuf, pBufLen, "      <h2>    %s v%s %s cbm</h2>\n",
+                PROGNAME, VERSION, VERDATE );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  IPAddress ip = WiFi.localIP();
+  snprintf ( pBuf, pBufLen, "      <h3>    Running on %s at %u.%u.%u.%u / %s.local</h3>\n",
+                Network.chipName, ip[0], ip[1], ip[2], ip[3], PROGNAME );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  strncat ( htmlMessage, "    </head>\n", htmlMessageLen );
+  strncat ( htmlMessage, "    <body>\n", htmlMessageLen );
+  
+  /*
+                  <p>Uptime: %02d:%02d:%02d</p>\
+                  <form action='http://%s/form' method='post'>\
+                    Network: <input type='text' name='nw'><br>\
+                    <input type='submit' value='Submit'>\
+                  </form>\
+  */
+  
+  strncat ( htmlMessage, "      <p>Last MQTT message was:<br>\n", htmlMessageLen );
+  
+  snprintf ( pBuf, pBufLen, "<pre>        topic: %s<br>\n", lastMQTTtopic );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  snprintf ( pBuf, pBufLen, "        message: %s<br>\n", lastMQTTmessage );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  unsigned long timeNow = now ();
+  snprintf ( timeString, timeStringLen, "%04d-%02d-%02d %02d:%02d:%02dZ",
+    year ( timeNow ), month ( timeNow ), day ( timeNow ), hour ( timeNow ), minute ( timeNow ), second ( timeNow ) );
+  snprintf ( pBuf, pBufLen, "        at: %s<br></pre></p>\n", timeString );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  
+  // snprintf ( pBuf, pBufLen, "<br><br>Len so far %d<br>", strlen ( htmlMessage ) );
+  // strncat ( htmlMessage, pBuf, htmlMessageLen );
+   
+  strncat ( htmlMessage, "    </body>\n", htmlMessageLen );
+  strncat ( htmlMessage, "  </html>\n", htmlMessageLen );
+
+  htmlServer.send ( 200, "text/html", htmlMessage );
+}
+
+// void htmlResponse_form () {
+// 
+//   for ( int i = 0; i < htmlServer.headers(); i++ ) {
+//     Serial.print ( "arg " ); Serial.print ( i ); Serial.print ( ": " ); Serial.println ( htmlServer.header ( i ) );
+//   }
+//       
+//   for ( int i = 0; i < htmlServer.args(); i++ ) {
+//     Serial.print ( "arg " ); Serial.print ( i ); Serial.print ( ": " ); Serial.println ( htmlServer.arg ( i ) );
+//   }
+//       
+//   if ( ! htmlServer.hasArg ( "nw" ) ) {
+//     htmlServer.send ( 200, "text/plain", "Body not received" );
+//     return;
+//   }
+//   
+//   Serial.println ( htmlServer.arg ( "nw" ) );
+//   
+//   String message = "Body received:\n";
+//   message += htmlServer.arg("nw");
+//   message += "\n";
+// 
+//   htmlServer.send ( 200, "text/plain", message );
+//   Serial.println ( message );
+// 
+// }
+
+// *****************************************************************************
+// ********************************* serial ************************************
+// *****************************************************************************
+
+bool handleSerialInput() {
+
+  // collect serial input and handle it when necessary
+  const int strBufSize = 250;
+  static char strBuf [ strBufSize ];
+  static int strBufPtr = 0;
+  
+  // if no characters arrive for a while, reset the buffer
+  static unsigned long lastCharArrivedAt_ms = 0;
+  const unsigned long timeoutPeriod_ms = 200;
+  
+  if ( ( millis() - lastCharArrivedAt_ms ) > timeoutPeriod_ms ) {
+    strBufPtr = 0;
+  }
+    
+  
+  while ( int len = Serial.available() ) {
+    for ( int i = 0; i < len; i++ ) {
+      
+      if ( strBufPtr >= strBufSize - 1 ) {
+        // -1 to leave room for null ( '\0' ) appendix
+        Serial.println ( "BUFFER OVERRUN" );
+        strBufPtr = 0;
+        // flush Serial input buffer
+        while ( Serial.available() ) Serial.read();
+        return ( false );
+      }
+      
+      strBuf [ strBufPtr ] = Serial.read();
+      // LEDToggle();
+      // Serial.println(buffer[strBufPtr], HEX);
+      if ( strBufPtr > 5 && strBuf [ strBufPtr ] == '\r' ) {  // 0x0d
+        // append terminating null
+        strBuf [ ++strBufPtr ] = '\0';
+        handleString ( strBuf );
+        // clear the buffer
+        strBufPtr = 0;
+        strBuf [ 0 ] = '\0';
+      } else if ( strBuf [ strBufPtr ] == '\n' ) {  // 0x0a
+        // ignore LF
+      } else {
+        strBufPtr++;
+      }  // handling linends
+      
+      yield ();
+      
+    }  // reading the input buffer
+    lastCharArrivedAt_ms = millis();
+  }  // Serial.available
+  
+  return ( true );
+}
+
+bool handleString ( char strBuffer[] ) {
+  
+  /* 
+    Respond to JSON commands like
+      { "command": "connect", "networkSSID": "cbm_IoT_MQTT", "networkPW": "secret", 
+        "MQTTuserID": "cbmalloch", "MQTTuserPW": "" }
+      { "command": "send", "topic": "cbmalloch/feeds/onoff", "value": 1 }
+  */
+  
+  // is the string valid JSON
+  
+  if ( strlen ( strBuffer ) ) {
+    // there's at least a partial string     
+    Serial.print ( "about to parse: " ); Serial.println ( strBuffer );
+  }
+    
+  // Memory pool for JSON object tree.
+  //
+  // Inside the brackets, 200 is the size of the pool in bytes.
+  // Don't forget to change this value to match your JSON document.
+  // Use arduinojson.org/assistant to compute the capacity.
+
+  StaticJsonBuffer<400> jsonBuffer;
+  JsonObject& root = jsonBuffer.parseObject ( strBuffer );
+
+  // Test if parsing succeeds.
+  if ( root.success () && root [ "command" ].success() ) {
+    // handle whatever it was
+    const char* cmd = root [ "command" ];
+    if ( ! strcmp ( cmd, "connect" ) ) {
+      strncpy ( mqtt_host, (const char *) root [ "MQTThost" ], 50 );
+      conn_MQTT.setServer ( mqtt_host, 1883 );
+      strncpy ( mqtt_userID, (const char *) root [ "MQTTuserID" ], 50 );
+      strncpy ( mqtt_userPW, (const char *) root [ "MQTTuserPW" ], 50 );
+      
+      int result = networkConnect ( 
+              (const char *) root [ "networkSSID" ],
+              (const char *) root [ "networkPW" ] );
+      if ( result == 1 ) {
+        Serial.printf ( "{ \"connectionResult\": \"OK\", \"ssid\": \"%d.%d.%d.%d\" }\n",
+                        WiFi.localIP() [ 0 ], WiFi.localIP() [ 1 ], WiFi.localIP() [ 2 ], WiFi.localIP() [ 3 ] );
+          
+        connection_initedP = true;
+        return ( true );
+      } else {
+        Serial.printf ( "{ \"connectionResult\": \"failed %d\" }\n", result );
+        return ( false );
+      }
+      
+    } else if (  ! strcmp ( cmd, "send" ) ) {
+      sendMQTTvalue ( (const char *) root [ "topic" ],
+                      (const char *) root [ "value" ],
+                      (const char *) root [ "topic" ] );
+    } else if (  ! strcmp ( cmd, "subscribe" ) ) {
+    
+    
+    
+      conn_MQTT.subscribe ( root [ "topic" ] );
+      conn_MQTT.setCallback ( handleReceivedMQTTMessage );
+
+               
+               
+               
+               
+               
+    } else if ( false ) {
+    } else {
+      Serial.print ( "JSON msg from Serial: bad command: " );
+      Serial.println ( cmd );
+    }
+    return ( true );
+  } else {
+    Serial.println ( "Received string was not valid JSON" );
+    return ( false );
+  }
+ 
+  yield ();
+  return true;
+
+}
+
+// *****************************************************************************
+// ********************************** time *************************************
+// *****************************************************************************
+
+time_t getUnixTime() {
+  while (conn_UDP.parsePacket() > 0) ; // discard any previously received packets
+  Serial.println("Transmit NTP Request");
+  sendNTPpacket(timeServer);
+  uint32_t beginWait = millis();
+  while (millis() - beginWait < 1500) {
+   int size = conn_UDP.parsePacket();
+    if (size >= NTP_PACKET_SIZE) {
+      Serial.println("Receive NTP Response");
+      conn_UDP.read(NTPBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
+      unsigned long secsSince1900;
+      // convert four bytes starting at location 40 to a long integer
+      secsSince1900 =  (unsigned long)NTPBuffer[40] << 24;
+      secsSince1900 |= (unsigned long)NTPBuffer[41] << 16;
+      secsSince1900 |= (unsigned long)NTPBuffer[42] << 8;
+      secsSince1900 |= (unsigned long)NTPBuffer[43];
+      return secsSince1900 - 2208988800UL + timeZone * 1UL * 60UL * 60UL;
+    }
+  }
+  Serial.println("No NTP Response :-(");
+  return 0; // return 0 if unable to get the time
+}
+
+void sendNTPpacket ( IPAddress& address ) {
+  Serial.printf ( "Sending NTP request to %2u.%2u.%2u.%2u\n", 
+    address[0], address[1], address[2], address[3] );
+  memset(NTPBuffer, 0, NTP_PACKET_SIZE);  // set all bytes in the buffer to 0
+  // Initialize values needed to form NTP request
+  NTPBuffer[0] = 0b11100011;   // LI, Version, Mode
+  NTPBuffer[1] = 0;     // Stratum, or type of clock
+  NTPBuffer[2] = 6;     // Polling Interval
+  NTPBuffer[3] = 0xEC;  // Peer Clock Precision
+  // 8 bytes of zero for Root Delay & Root Dispersion
+  NTPBuffer[12]  = 49;
+  NTPBuffer[13]  = 0x4E;
+  NTPBuffer[14]  = 49;
+  NTPBuffer[15]  = 52;
+  // all NTP fields have been given values, now
+  // you can send a packet requesting a timestamp:                 
+   // send a packet requesting a timestamp:
+  conn_UDP.beginPacket ( address, 123 ); // NTP requests are to port 123
+  conn_UDP.write ( NTPBuffer, NTP_PACKET_SIZE );
+  conn_UDP.endPacket();
+}
+
+// *****************************************************************************
+// ********************************** util *************************************
+// *****************************************************************************
+
+bool weAreAtM5 () {
+  bool atM5 = false;
+  const int VERBOSE = 2;
   // scan for nearby networks:
-  Serial.println("** Scan Networks **");
+  if ( VERBOSE >= 5 ) Serial.println ( "** Scan Networks **" );
   int numSsid = WiFi.scanNetworks();
   if (numSsid == -1) {
-    Serial.println("Couldn't get a wifi connection");
-    while (true);
+    Serial.println ( "No wifi connection" );
+    return ( -1 );
   }
 
-  // print the list of networks seen:
-  Serial.print("Number of available networks: ");
-  Serial.println(numSsid);
+  if ( VERBOSE >= 5 ) {
+    // print the list of networks seen:
+    Serial.print ( "Number of available networks: " );
+    Serial.println ( numSsid );
+  }
 
   // print the network number and name for each network found:
   for (int thisNet = 0; thisNet < numSsid; thisNet++) {
-    Serial.print(thisNet);
-    Serial.print(") ");
-    Serial.print(WiFi.SSID(thisNet));
-    Serial.print("\tSignal: ");
-    Serial.print(WiFi.RSSI(thisNet));
-    Serial.print(" dBm");
-    Serial.print("\tEncryption: ");
-    switch (WiFi.encryptionType(thisNet)) {
-      case ENC_TYPE_WEP:
-        Serial.println("WEP");
-        break;
-      case ENC_TYPE_TKIP:
-        Serial.println("WPA");
-        break;
-      case ENC_TYPE_CCMP:
-        Serial.println("WPA2");
-        break;
-      case ENC_TYPE_NONE:
-        Serial.println("None");
-        break;
-      case ENC_TYPE_AUTO:
-        Serial.println("Auto");
-        break;
+    if ( VERBOSE >= 5 ) {
+      Serial.print ( thisNet );
+      Serial.print ( ") " );
+      Serial.print ( WiFi.SSID ( thisNet ) );
+      Serial.print ( "\tSignal: " );
+      Serial.print ( WiFi.RSSI ( thisNet ) );
+      Serial.print ( " dBm" );
+      Serial.print ( "\tEncryption: " );
+      switch ( WiFi.encryptionType ( thisNet ) ) {
+        case ENC_TYPE_WEP:
+          Serial.println ( "WEP" );
+          break;
+        case ENC_TYPE_TKIP:
+          Serial.println ( "WPA" );
+          break;
+        case ENC_TYPE_CCMP:
+          Serial.println ( "WPA2" );
+          break;
+        case ENC_TYPE_NONE:
+          Serial.println ( "None" );
+          break;
+        case ENC_TYPE_AUTO:
+          Serial.println ( "Auto" );
+          break;
+        default:
+          Serial.println ( "Unk" );
+          break;
+      }  // switch encryption type
+    }  // VERBOSE print
+    if ( WiFi.SSID ( thisNet ) == (String) "M5_IoT_MQTT" ) {
+      atM5 = true;
     }
+  }  // loop through networks
+  
+  // Serial.println ( "xyzzy" );
+  // Serial.printf ( "->%s<-\n", "plugh" );
+  if ( VERBOSE >= 2 ) {
+    Serial.print ( "We are " ); 
+    Serial.print ( atM5 ? "" : "not " ); 
+    Serial.println ( "at M5" );
   }
-  return numSsid;
+  return atM5;
 }
+
+// *****************************************************************************
+// *****************************************************************************
+// *****************************************************************************
