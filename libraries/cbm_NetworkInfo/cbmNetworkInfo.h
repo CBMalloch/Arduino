@@ -6,17 +6,23 @@
 
 #if ARDUINO >= 100
  #include "Arduino.h"
- // #include "Print.h"
+ #include "Print.h"
 #else
  #include "WProgram.h"
 #endif
-  
-#include <ESP8266WiFi.h>
 
+#if defined ( ESP32 )
+  // #include <WiFi.h>
+#elif defined ( ESP ) || defined ( ESP8266 )
+  #include <ESP8266WiFi.h>
+#else
+  #include <Ethernet.h>
+#endif
+  
 // enum doesn't work -- it's evaluated AFTER the preprocessor!
 // enum { M5, CBMM5, CBMBELKIN, CBMDDWRT };
 #define M5                   0
-#define CBMM5                1
+#define CBMIoT               1
 #define CBMDATACOL          10
 #define CBMDDWRT            20
 #define CBMDDWRT3           25
@@ -45,7 +51,14 @@
 #define aio_key      "0b64fe97c019e00d1a8bd2ddc7b03ebe6ea5468f"
 
 /**********************************************************************/
+/**********************************************************************/
 
+/****************************** OTA Setup *****************************/
+
+#define CBM_OTA_USERNAME  "cbmalloch"
+#define CBM_OTA_KEY       "cbmLaunch"
+
+/**********************************************************************/
 void describeESP ( char* chipName );
 
 class cbmNetworkInfo {
@@ -57,11 +70,12 @@ class cbmNetworkInfo {
     void init ( int wifi_locale );
     void setCredentials ( int wifi_locale );
     void setNetworkBaseIP ( int wifi_locale );
-    void describeESP ( char* chipName, HardwareSerial *strSerial = &Serial );
-    void describeNetwork ( HardwareSerial *strSerial = &Serial );
+    void describeESP ( char* chipName );
+    void describeNetwork ();
 
     IPAddress ip;
-    // IPAddress dns  ( 151, 203,   0,  84 );  //   shown in Ethernet doc, but not used by ESP8266
+    // IPAddress dns  ( 151, 203,   0,  84 );  
+    //   shown in Ethernet doc, but not used by ESP8266
     IPAddress gw;
     IPAddress mask;
     IPAddress dns;
@@ -70,11 +84,11 @@ class cbmNetworkInfo {
     char ssid [ CBM_NI_STRLEN ];
     char password [ CBM_NI_STRLEN ];
     
-    unsigned long chipId;
+    uint64_t chipId;
     #define CBM_NI_CHIPNAME_STRLEN 12
     char chipName [ CBM_NI_CHIPNAME_STRLEN ];
     
-    void printIP ( IPAddress ip, HardwareSerial *strSerial = &Serial );
+    void printIP ( IPAddress ip );
     
 	private:
     void fixIP ( );
