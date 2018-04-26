@@ -20,12 +20,12 @@
 // ---------------------------------------
 
 // need to use CBMDDWRT3 for my own network access
-// CBMDATACOL for other use
+// CBMDATACOL for other use; cbmIoT to simulate M5 at home
 // can use CBMM5 or CBMDDWRT3GUEST for Sparkfun etc.
 
-// Note: we will detect if at M5
+// Note: we will not detect if at M5
 
-#define WIFI_LOCALE CBMDATACOL
+#define WIFI_LOCALE CBMIoT
 
 // ---------------------------------------
 // ---------------------------------------
@@ -41,6 +41,8 @@ const int pdEspTX = 11;
 const int pdLED  = 13;
 
 /************************* MQTT Setup *********************************/
+
+cbmNetworkInfo Network;
 
 // values hidden for security reasons
 char MQTT_SERVER []   = "mosquitto";
@@ -63,6 +65,9 @@ void setup ( void ) {
   
   Serial.begin ( BAUDRATE );
   while ( !Serial && ( millis() < 10000 ) );
+  
+  // for security reasons, the network settings are stored in a private library
+  Network.init ( WIFI_LOCALE );
   
   esp.begin ( espBAUDRATE );
   
@@ -109,7 +114,7 @@ void setup ( void ) {
   snprintf ( strBuf, bufLen, 
     "{ \"command\": \"connect\", \"networkSSID\": \"%s\", \"networkPW\": \"%s\", "
     "\"MQTThost\":\"192.168.5.1\", \"MQTTuserID\": \"cbmalloch\", \"MQTTuserPW\": \"\" }\n", 
-    atM5 ? "M5_IoT_MQTT" : "cbm_IoT_MQTT", atM5 ? "m5launch" : "cbmLaunch" );
+    atM5 ? "M5_IoT_MQTT" : Network.ssid, atM5 ? "m5launch" : Network.password );
   Serial.print ( ">> " ); Serial.println ( strBuf );
   esp.println ( strBuf );
   

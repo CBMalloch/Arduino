@@ -45,6 +45,7 @@ Note this is a discrete approximation to the exponential.
 	Synopsis
 		double results[2], z;
 		EWMA myEWMA;
+		myEWMA.setAlpha ( myEWMA.alpha ( 200 ) );
 		myEWMA = EWMA(0.693147 / 40.0);
 		val = myEWMA.record(800.0);
 		z = myEWMA.value();

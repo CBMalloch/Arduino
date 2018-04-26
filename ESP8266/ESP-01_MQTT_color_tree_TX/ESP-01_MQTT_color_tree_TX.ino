@@ -23,8 +23,8 @@
     
     Note: With auto-sensing, the device will connect (at home) to 
     cbm_IoT_MQTT, not to dd-wrt-03.
-    This means that the Arduino IDE needs to be on the IoT network in order 
-    to push an update...
+    The Arduino IDE needs to be on the IoT network in order 
+    to push an update!
     
     OTA is currently working at my house, but I haven't tried it at M5. It 
     requires the developer to be co-located on a LAN (since the MQTT server doesn't
@@ -37,12 +37,8 @@
     
     ===========================================================================
     
-    If you want to compile this program and you're not me, you don't have my
-    network credentials "cbmNetworkInfo". So you need to change
-      #define COMPILE_USING_CBMNETWORKINFO
-    to
-      #undef COMPILE_USING_CBMNETWORKINFO
-    and to change <super secret password> to something that will work at M5
+    If you want to compile this program and you're not me, you need to change 
+    <super secret password> to something that will work at M5
     == I refuse to put anything on my GitHub that contains any password ==
     
 */
@@ -60,7 +56,9 @@
   #include <ArduinoOTA.h>
 #endif
 #include <ESP8266WiFi.h>
+// WiFiClient supports TCP connection
 #include <WiFiClient.h>
+// PubSubClient supports MQTT
 #include <PubSubClient.h>
 #include <ESP8266WebServer.h>
 // see https://tttapa.github.io/ESP8266/Chap08%20-%20mDNS.html
@@ -70,7 +68,6 @@
 // #include <ESP8266WiFiMulti.h>
 
 #include <Adafruit_NeoPixel.h>
-
 
 // ***************************************
 // ***************************************
@@ -90,6 +87,11 @@ const char * MQTT_FEED = "cbmalloch/tree/#";
 // ***************************************
 // ***************************************
 
+/*********************************** GPIO *************************************/
+
+// 0, 2, 4, 5, 12, 13, 14, 15, 16
+// <https://learn.adafruit.com/adafruit-huzzah-esp8266-breakout/pinouts>
+
 /*
   Blue onboard LED is inverse logic, connected as:
     ESP-01:          GPIO1 = TX
@@ -104,16 +106,7 @@ const int            pdWS2812      =   3;
 
 const unsigned short nPixels       =  100;
 
-// ***************************************
-// ***************************************
-
-int colorDotLocation = -1;
-unsigned long colorDotColors [] = { 0x080808, 0x202020, 0x208020, 0x202020, 0x080808 };
-unsigned long lastPositionCommandAt_ms = 0UL;
-unsigned long pointerDuration_ms = 5000UL;
-unsigned long rainbowTick_ms = 20UL;
-int progressionMode = 0;                  // hue, saturation | value
-int progressionNonvaryingParameter = 25;  //   thus, value
+/********************************* Network ************************************/
 
 #ifdef cbmnetworkinfo_h
   int WIFI_LOCALE;
@@ -124,11 +117,7 @@ WiFiClient conn_TCP;
 ESP8266WebServer htmlServer ( 80 );
 PubSubClient conn_MQTT ( conn_TCP );
 
-#define WLAN_PASS       password
-#define WLAN_SSID       ssid
-
-
-/***************************** MQTT Setup *************************************/
+/*********************************** MQTT *************************************/
 
 char * MQTT_SERVER = "192.168.5.1"; 
 #define MQTT_SERVERPORT  1883
@@ -140,18 +129,7 @@ char * MQTT_SERVER = "192.168.5.1";
   #define MQTT_KEY         "m5launch"
 #endif
 
-// ***************************************
-
-const size_t pBufLen = 128;
-char pBuf [ pBufLen ];
-const int htmlMessageLen = 1024;
-char htmlMessage [htmlMessageLen];
-
-// magic juju to return array size
-// see http://forum.arduino.cc/index.php?topic=157398.0
-template< typename T, size_t N > size_t ArraySize (T (&) [N]){ return N; }
-
-/****************************** WS2812 Setup **********************************/
+/********************************** WS2812 ************************************/
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -178,6 +156,23 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel ( nPixels, ( uint8_t ) pdWS2812, NEO
     http://husstechlabs.com/support/tutorials/bi-directional-level-shifter/
 */
 
+/******************************* Global Vars **********************************/
+
+const size_t pBufLen = 128;
+char pBuf [ pBufLen ];
+const int htmlMessageLen = 1024;
+char htmlMessage [htmlMessageLen];
+
+int colorDotLocation = -1;
+unsigned long colorDotColors [] = { 0x080808, 0x202020, 0x208020, 0x202020, 0x080808 };
+unsigned long lastPositionCommandAt_ms = 0UL;
+unsigned long pointerDuration_ms = 5000UL;
+unsigned long rainbowTick_ms = 20UL;
+int progressionMode = 0;                  // hue, saturation | value
+int progressionNonvaryingParameter = 25;  //   thus, value
+
+/************************** Function Prototypes *******************************/
+
 void connect( void );
 void htmlResponse_root ();
 void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length );
@@ -193,15 +188,16 @@ uint32_t newHSVWheel ( int x, int t );
 void setColor ( int n, unsigned long theColor );
 unsigned long hsv_to_rgb ( float h, float s, float v );
 
+// magic juju to return array size
+// see http://forum.arduino.cc/index.php?topic=157398.0
+template< typename T, size_t N > size_t ArraySize (T (&) [N]){ return N; }
+
 /******************************************************************************/
 
 void setup() {
   
   Serial.begin ( BAUDRATE );
-  while ( !Serial && millis() < 5000 ) {
-    // wait for serial port to open
-    delay ( 20 );
-  }
+  while ( !Serial && millis() < 5000 );
   
   // delay grabbing pins until we're done with Serial...
   // pinMode ( pdConnecting, OUTPUT );  
@@ -300,6 +296,7 @@ void setup() {
   /**************************** HTML Server Setup *****************************/
 
   htmlServer.on ( "/", htmlResponse_root );
+  // htmlServer.on ( "/form", htmlResponse_form );
   htmlServer.begin ();
 
   /**************************** MDNS Server Setup *****************************/
@@ -867,6 +864,14 @@ void htmlResponse_root () {
   strncat ( htmlMessage, "    </head>\n", htmlMessageLen );
   strncat ( htmlMessage, "    <body>\n", htmlMessageLen );
   
+  /*
+                  <p>Uptime: %02d:%02d:%02d</p>\
+                  <form action='http://%s/form' method='post'>\
+                    Network: <input type='text' name='nw'><br>\
+                    <input type='submit' value='Submit'>\
+                  </form>\
+*/
+  
   if ( ( millis() - lastPositionCommandAt_ms ) < pointerDuration_ms ) {
     snprintf ( pBuf, pBufLen, "Indicator dot at pixel %d<br>\n",
                 colorDotLocation );
@@ -913,6 +918,32 @@ void htmlResponse_root () {
 
   htmlServer.send ( 200, "text/html", htmlMessage );
 }
+
+// void htmlResponse_form () {
+// 
+//   for ( int i = 0; i < htmlServer.headers(); i++ ) {
+//     Serial.print ( "arg " ); Serial.print ( i ); Serial.print ( ": " ); Serial.println ( htmlServer.header ( i ) );
+//   }
+//       
+//   for ( int i = 0; i < htmlServer.args(); i++ ) {
+//     Serial.print ( "arg " ); Serial.print ( i ); Serial.print ( ": " ); Serial.println ( htmlServer.arg ( i ) );
+//   }
+//       
+//   if ( ! htmlServer.hasArg ( "nw" ) ) {
+//     htmlServer.send ( 200, "text/plain", "Body not received" );
+//     return;
+//   }
+//   
+//   Serial.println ( htmlServer.arg ( "nw" ) );
+//   
+//   String message = "Body received:\n";
+//   message += htmlServer.arg("nw");
+//   message += "\n";
+// 
+//   htmlServer.send ( 200, "text/plain", message );
+//   Serial.println ( message );
+// 
+// }
 
 // *****************************************************************************
 // ********************************** util *************************************

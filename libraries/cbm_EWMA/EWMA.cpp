@@ -62,12 +62,12 @@ void EWMA::load(int n, double loadValue) {
 
 double EWMA::record(double x) {
   if (this->_n == 0) {
-  	this->_n++;
   	this->_currentValue = x;
   } else {
 		this->_currentValue  = this->_currentValue * (1.0 - this->_alpha) 
 		    + x * this->_alpha;
 	}
+  this->_n++;
 	return (this->_currentValue);
 }
 
