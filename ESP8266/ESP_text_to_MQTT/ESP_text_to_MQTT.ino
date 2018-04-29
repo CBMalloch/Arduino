@@ -1,6 +1,6 @@
 #define PROGNAME  "ESP_text_to_MQTT"
-#define VERSION   "0.2.0"
-#define VERDATE   "2018-04-25"
+#define VERSION   "0.2.2"
+#define VERDATE   "2018-04-29"
 
 /*
   to be loaded onto ESP-01
@@ -191,6 +191,8 @@ char htmlMessage [htmlMessageLen];
 const int timeStringLen = 32;
 char timeString [ timeStringLen ];
 
+char uniqueToken [ 9 ];
+
 /************************** Function Prototypes *******************************/
 
 int networkConnect ( const char ssid [], const char networkPW [] );
@@ -241,6 +243,18 @@ void setup ( void ) {
     delay ( 10 );
   }
 
+  /************************** Random Token Setup ******************************/
+  
+  // create a hopefully-unique string to identify this program instance
+  // REQUIREMENT: must have initialized the network for chipName
+  
+  #ifdef cbmnetworkinfo_h
+    // Chuck-only
+    strncpy ( uniqueToken, Network.chipName, 9 );
+  #else
+    snprintf ( uniqueToken, 9, "%08x", ESP.getChipId() );
+  #endif
+
   /******************************* UDP Setup **********************************/
   
   conn_UDP.begin ( port_UDP );
@@ -250,6 +264,8 @@ void setup ( void ) {
 
  /****************************** MQTT Setup **********************************/
 
+  snprintf ( mqtt_clientID, 50, "ESP_text_to_MQTT_%s", uniqueToken );
+  
   conn_MQTT.setCallback ( handleReceivedMQTTMessage );
   conn_MQTT.setServer ( mqtt_host, mqtt_serverPort );
   if ( VERBOSE >= 5 ) {
@@ -272,11 +288,7 @@ void setup ( void ) {
   }
   
   char topic [ 64 ];
-  #ifdef cbmnetworkinfo_h
-    snprintf ( topic, 64, "%s/%s/time/startup", PROGNAME, Network.chipName );
-  #else
-    snprintf ( topic, 64, "%s/%#08x/time/startup", PROGNAME, ESP.getChipId() );
-  #endif
+  snprintf ( topic, 64, "%s/%s/time/startup", PROGNAME, uniqueToken );
   if ( timeStatus() == timeSet ) {
     unsigned long timeNow = now ();
     snprintf ( timeString, timeStringLen, "%04d-%02d-%02d %02d:%02d:%02dZ",
@@ -298,7 +310,7 @@ void setup ( void ) {
 
     // Hostname defaults to esp8266-[ChipID]
     char hostName [ 50 ];
-    snprintf ( hostName, 50, "esp8266-%s", Network.chipName );
+    snprintf ( hostName, 50, "esp8266-%s", uniqueToken );
     ArduinoOTA.setHostname ( (const char *) hostName );
 
     // No authentication by default
@@ -338,20 +350,19 @@ void setup ( void ) {
 
   /**************************** MDNS Server Setup *****************************/
 
-  if (!MDNS.begin ( PROGNAME ) ) {             // Start the mDNS responder for <PROGNAME>.local
+  const int mdnsIdLen = 40;
+  char mdnsId [ mdnsIdLen ];
+  snprintf ( mdnsId, mdnsIdLen, "%s_%s", PROGNAME, uniqueToken );
+  if (!MDNS.begin ( mdnsId ) ) {             // Start the mDNS responder for <PROGNAME>.local
     Serial.println("Error setting up MDNS responder!");
   }
-  Serial.printf ( "mDNS responder '%s.local' started", PROGNAME );
+  Serial.printf ( "mDNS responder '%s.local' started", mdnsId );
   
   /************************** Report successful init **************************/
    
   Serial.println();
   Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
   
-  // generate random client ID value
-  randomSeed ( analogRead(0) + analogRead(3) + millis() );
-  snprintf ( mqtt_clientID, 50, "ESP_text_to_MQTT_%ld", random ( 2147483647L ) );
-
 }
 
 void loop () {
@@ -695,13 +706,13 @@ void htmlResponse_root () {
   strncat ( htmlMessage, "<!DOCTYPE html>\n", htmlMessageLen );
   strncat ( htmlMessage, "  <html>\n", htmlMessageLen );
   strncat ( htmlMessage, "    <head>\n", htmlMessageLen );
-  strncat ( htmlMessage, "      <h1>Status: Color Tree</h1>\n", htmlMessageLen );
+  strncat ( htmlMessage, "      <h1>Status:</h1>\n", htmlMessageLen );
   snprintf ( pBuf, pBufLen, "      <h2>    %s v%s %s cbm</h2>\n",
                 PROGNAME, VERSION, VERDATE );
   strncat ( htmlMessage, pBuf, htmlMessageLen );
   IPAddress ip = WiFi.localIP();
-  snprintf ( pBuf, pBufLen, "      <h3>    Running on %s at %u.%u.%u.%u / %s.local</h3>\n",
-                Network.chipName, ip[0], ip[1], ip[2], ip[3], PROGNAME );
+  snprintf ( pBuf, pBufLen, "      <h3>    Running as %s at %u.%u.%u.%u / %s.local</h3>\n",
+                uniqueToken, ip[0], ip[1], ip[2], ip[3], PROGNAME );
   strncat ( htmlMessage, pBuf, htmlMessageLen );
   strncat ( htmlMessage, "    </head>\n", htmlMessageLen );
   strncat ( htmlMessage, "    <body>\n", htmlMessageLen );
