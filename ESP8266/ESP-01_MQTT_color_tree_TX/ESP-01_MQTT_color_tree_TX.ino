@@ -1,6 +1,6 @@
 #define PROGNAME "ESP-01_MQTT_color_tree_TX"
-#define VERSION  "1.0.1"
-#define VERDATE  "2018-04-16"
+#define VERSION  "1.1.6"
+#define VERDATE  "2018-05-09"
 
 /*
     ESP-01_MQTT_color_tree_TX.ino
@@ -41,6 +41,12 @@
     <super secret password> to something that will work at M5
     == I refuse to put anything on my GitHub that contains any password ==
     
+    2018-05-09 v1.1.0 cbm - operation with small tVelocity is jumpy.
+      Substantially rewrite pixel functions using getPixelColor to move the
+      pattern along by one pixel at each (calculated) clock tick; then the 
+      creation of the pattern requires only the calculation of one pixel
+      at a time.
+      
 */
 
 
@@ -76,6 +82,11 @@ const int BAUDRATE = 115200;
 const int VERBOSE = 10;
 #define HOME_WIFI_LOCALE ( 1 ? CBMDDWRT3 : CBMIoT )
 
+// higher velocities => smaller/faster pattern progress
+// bigger scales => bigger/slower pattern progress
+const float dxScale = 100.0;
+const float dtScale = 100.0;
+
 // ---------------------------------------
 // ---------------------------------------
 
@@ -92,6 +103,7 @@ const char * MQTT_FEED = "cbmalloch/tree/#";
 // 0, 2, 4, 5, 12, 13, 14, 15, 16
 // <https://learn.adafruit.com/adafruit-huzzah-esp8266-breakout/pinouts>
 
+// ESP-01 GPIO pins: 0 = GPIO0; 1 = GPIO1 = TX; 2 = GPIO2; 3 = GPIO3 = RX
 /*
   Blue onboard LED is inverse logic, connected as:
     ESP-01:          GPIO1 = TX
@@ -101,7 +113,6 @@ const int pdConnecting    = 1;
 #define INVERSE_LOGIC_ON    0
 #define INVERSE_LOGIC_OFF   1
 
-// GPIO pins: 0 = GPIO0; 1 = GPIO1 = TX; 2 = GPIO2; 3 = GPIO3 = RX
 const int            pdWS2812      =   3;
 
 const unsigned short nPixels       =  100;
@@ -117,6 +128,11 @@ WiFiClient conn_TCP;
 ESP8266WebServer htmlServer ( 80 );
 PubSubClient conn_MQTT ( conn_TCP );
 
+/********************************** mDNS **************************************/
+
+const int mdnsIdLen = 40;
+char mdnsId [ mdnsIdLen ];
+
 /*********************************** MQTT *************************************/
 
 char * MQTT_SERVER = "192.168.5.1"; 
@@ -128,6 +144,11 @@ char * MQTT_SERVER = "192.168.5.1";
   #define MQTT_USERNAME    "Random_M5_User"
   #define MQTT_KEY         "m5launch"
 #endif
+
+char mqtt_clientID [ 50 ] = "whatever";
+// int mqtt_qos = 0;
+// int mqtt_retain = 0;
+
 
 /********************************** WS2812 ************************************/
 
@@ -170,6 +191,15 @@ unsigned long pointerDuration_ms = 5000UL;
 unsigned long rainbowTick_ms = 20UL;
 int progressionMode = 0;                  // hue, saturation | value
 int progressionNonvaryingParameter = 25;  //   thus, value
+// control speed of pattern progression in x and t
+float tVelocity = 1.0;
+
+long patternTickDuration_ms = dtScale / tVelocity;  // leave signed!
+float xVelocity = 1.0;
+float patternPixelDistance = xVelocity / dxScale;
+unsigned long brightnessPct = 100;
+
+char uniqueToken [ 9 ];
 
 /************************** Function Prototypes *******************************/
 
@@ -240,8 +270,22 @@ void setup() {
     Serial.println ( WiFi.localIP() );
   }
 
+  /************************** Random Token Setup ******************************/
+  
+  // create a hopefully-unique string to identify this program instance
+  // REQUIREMENT: must have initialized the network for chipName
+  
+  #ifdef cbmnetworkinfo_h
+    // Chuck-only
+    strncpy ( uniqueToken, Network.chipName, 9 );
+  #else
+    snprintf ( uniqueToken, 9, "%08x", ESP.getChipId() );
+  #endif
+
   /****************************** MQTT Setup **********************************/
 
+  snprintf ( mqtt_clientID, 50, "%s_%s", PROGNAME, uniqueToken );
+  
   conn_MQTT.setCallback ( handleReceivedMQTTMessage );
   conn_MQTT.setServer ( MQTT_SERVER, MQTT_SERVERPORT );
   if ( VERBOSE >= 5 ) {
@@ -261,7 +305,7 @@ void setup() {
 
     // Hostname defaults to esp8266-[ChipID]
     char hostName [ 50 ];
-    snprintf ( hostName, 50, "esp8266-%s", Network.chipName );
+    snprintf ( hostName, 50, "esp8266-%s", uniqueToken );
     ArduinoOTA.setHostname ( (const char *) hostName );
 
     // No authentication by default
@@ -299,12 +343,13 @@ void setup() {
   // htmlServer.on ( "/form", htmlResponse_form );
   htmlServer.begin ();
 
-  /**************************** MDNS Server Setup *****************************/
+  /**************************** mDNS Server Setup *****************************/
 
-  if (!MDNS.begin ( PROGNAME ) ) {             // Start the mDNS responder for <PROGNAME>.local
+  snprintf ( mdnsId, mdnsIdLen, "%s_%s", PROGNAME, uniqueToken );
+  if (!MDNS.begin ( mdnsId ) ) {             // Start the mDNS responder for <PROGNAME>.local
     Serial.println("Error setting up MDNS responder!");
   }
-  Serial.printf ( "mDNS responder '%s.local' started", PROGNAME );
+  Serial.printf ( "mDNS responder '%s.local' started", mdnsId );
   
   /************************** Report successful init **************************/
 
@@ -315,7 +360,13 @@ void setup() {
   
   /******************************* GPIO Setup *********************************/
   
-  #ifndef SERIAL_DEBUG
+  #ifdef SERIAL_DEBUG
+  
+    Serial.println ( "Serial debug requires TX, which is the blue LED" );
+    // pinMode ( pdConnecting, OUTPUT ); digitalWrite ( pdConnecting, INVERSE_LOGIC_OFF );
+    
+  #else
+  
   
     /********************* Prepare to reuse serial TX pin *********************/
 
@@ -325,10 +376,10 @@ void setup() {
   
     // (finally) take control of desired GPIO pins
   
-    pinMode ( pdConnecting, OUTPUT );  
+    pinMode ( pdConnecting, OUTPUT );  digitalWrite ( pdConnecting, INVERSE_LOGIC_OFF );
     pinMode ( pdWS2812,  OUTPUT );
   
-    if ( ! weAreAtM5 () ) strip.setBrightness ( 32 );
+    if ( ! weAreAtM5 () ) brightnessPct = 32;  // strip.setBrightness ( 32 );
     for ( int i = 0; i < 10; i++ ) {
       digitalWrite ( pdConnecting, 1 - digitalRead ( pdConnecting ) );
       const unsigned long wh [] = { 0x000000, 0x100000, 0x101000, 0x001000, 0x001010, 0x000010 };
@@ -346,7 +397,6 @@ void loop() {
 
   htmlServer.handleClient();  
 
-  // server.handleClient();
   #ifdef ALLOW_OTA
     ArduinoOTA.handle();
   #endif
@@ -394,11 +444,8 @@ void connect () {
   
   startTime_ms = millis();
   printed = false;
-  char mqttClientID [ 50 ];
-  randomSeed(analogRead(0));
-  snprintf ( mqttClientID, 50, "%s_%d", PROGNAME, random ( 100 ) );
   while ( ! conn_MQTT.connected ( ) ) {
-    conn_MQTT.connect ( mqttClientID, MQTT_USERNAME, MQTT_KEY );  // first arg is client ID; required
+    conn_MQTT.connect ( mqtt_clientID, MQTT_USERNAME, MQTT_KEY );  // first arg is client ID; required
     if ( VERBOSE > 4 && ! printed ) { 
       // Serial.print ( "  MQTT client ID: \"" ); Serial.print ( mqttClientID ); Serial.println ( "\"" );
       // Serial.print ( "  MQTT user: \"" ); Serial.print ( MQTT_USERNAME ); Serial.println ( "\"" );
@@ -421,7 +468,7 @@ void connect () {
     }
     conn_MQTT.subscribe ( MQTT_FEED );
     if (  VERBOSE > 4 ) {
-      Serial.printf ( "  and subscribed to %s as %s\n", MQTT_FEED, mqttClientID );
+      Serial.printf ( "  and subscribed to %s as %s\n", MQTT_FEED, mqtt_clientID );
       Serial.println ( MQTT_FEED );
     }
   }
@@ -498,7 +545,7 @@ int interpretNewCommandString ( char * theTopic, char * thePayload ) {
       cbmalloch/tree: 0xrrggbb or #rrggbb - sets first LED to that color ( for a few seconds )
       cbmalloch/tree: <integer> - sets "pointer" to the designated LED, for a few seconds
       
-      cbmalloch/tree/mode: 
+      cbmalloch/tree/mode:
         0 - x-t is hue, step through saturations; set will set value
         1 - x-t is hue, step through values; set will set saturation
         2 - x-t is saturation, step through hues; set will set value
@@ -508,6 +555,10 @@ int interpretNewCommandString ( char * theTopic, char * thePayload ) {
       cbmalloch/tree/set: <integer> 
         hue [0,360) degrees
         saturation, value [0,100] percent
+        
+      cbmalloch/tree/xVelocity: spatial velocity of pattern
+      cbmalloch/tree/tVelocity: temporal velocity of pattern
+      
   */
   
   // interpret thePayload ( "ON", "OFF", 0xrrggbb, or number (pointer) )
@@ -527,6 +578,23 @@ int interpretNewCommandString ( char * theTopic, char * thePayload ) {
     #ifdef SERIAL_DEBUG
       Serial.print ( "Set " ); Serial.println ( progressionNonvaryingParameter );
     #endif
+    retVal = 0;
+  } else if ( ! strncmp ( theRest, "/xVelocity", 5 ) ) {
+    // set the spatial velocity of  the pattern
+    xVelocity = atof ( thePayload );
+    #ifdef SERIAL_DEBUG
+      Serial.print ( "xVelocity " ); Serial.println ( xVelocity );
+    #endif
+    patternPixelDistance = xVelocity / dxScale;
+    retVal = 0;
+  } else if ( ! strncmp ( theRest, "/tVelocity", 5 ) ) {
+    // set the temporal velocity of  the pattern
+    tVelocity = atof ( thePayload );
+    #ifdef SERIAL_DEBUG
+      Serial.print ( "tVelocity " ); Serial.println ( tVelocity );
+    #endif
+    // patternTickDuration_ms is inversely related to tVelocity
+    patternTickDuration_ms = dtScale / tVelocity;
     retVal = 0;
   } else if ( strlen ( theRest ) > 0 ) {
     // any other "theRest" is invalid; don't test payloads
@@ -562,82 +630,81 @@ int interpretNewCommandString ( char * theTopic, char * thePayload ) {
 // ********************************* WS2812 ************************************
 // *****************************************************************************
 
+double fMapToInterval01 ( double x ) {
+  if ( x < 0.0 ) {
+    x += (ceil) (x);  // workaround to avoid (incorrect) macro
+  }
+  return ( fmod ( x, 1.0 ) );
+}
+
 void showColors () {
-  const int nCycles = 3;
+
+  // xVelocity and tVelocity are globally the speed of the pattern,
+  // measured on (scaled) pixels and milliseconds, respectively
+  
+  static bool patternIsStale = true;
+  static float x0 = 0.0;
+  
   unsigned long timeSincePositionCommand_ms = millis() - lastPositionCommandAt_ms;
-  if ( timeSincePositionCommand_ms < pointerDuration_ms ) return;
-  // offset rainbow by ticks
-  int offset = timeSincePositionCommand_ms / rainbowTick_ms;
-  for ( int i = 0; i < nPixels; i++ ) {
-    byte wheelPos = ( i * nCycles + offset ) & 0x00ff;
-    // strip.setPixelColor ( i, Wheel ( wheelPos ) );
-    // within_display, display_number
-    strip.setPixelColor ( i, newHSVWheel ( i * nCycles, offset ) );
+  if ( timeSincePositionCommand_ms < pointerDuration_ms ) {
+    patternIsStale = true;
+    return;
   }
-  strip.show();
-}
-
-uint32_t Wheel(byte WheelPos) {
-  // Input a value 0 to 255 to get a color value.
-  // The colours are a transition r - g - b - back to r.
-  WheelPos = 255 - WheelPos;
-  if(WheelPos < 85) {
-    return strip.Color(255 - WheelPos * 3, 0, WheelPos * 3);
-  }
-  if(WheelPos < 170) {
-    WheelPos -= 85;
-    return strip.Color(0, WheelPos * 3, 255 - WheelPos * 3);
-  }
-  WheelPos -= 170;
-  return strip.Color(WheelPos * 3, 255 - WheelPos * 3, 0);
-}
-
-uint32_t HSVWheel ( int x, int t ) {
-  // Rotate through hues (0-360), saturations (0-1), and values (0-1)
-  // single-valued function of x - t, so that a later t moves the pattern
-  // to larger x
   
-  // large cycle goes through 5 small cycles
-  // each small cycle is one revolution around the hue direction
-  // each successive small cycle increases the saturation by 15%
-  // from 25% to 100%
+  static unsigned long lastTickAt_ms = 0UL;
   
-  // t is ms; one large cycle should take 30s = 30e3 ms 
-  // actually, t is rainbowTicks, which are set for 20ms
-  // so one large cycle should take 1e3 ticks
-  const float time_scale = 1.0 / 1e3;
-  // x is in pixels; one small cycle should take 100 pixels, 
-  // so one large cycle takes 500 pixels
-  // changing to 100 pixels
-  const float x_scale = 1.0 / 100.0;
-  // 1/5 (small cycle) should go 360 deg
-  const float hue_slope = 5.0 * 360.0;
-  const float saturation_slope = 0.15;
-  const float saturation_int = 0.25;
-  const float value_int = 220.0 / 256.0;
+  // patternTickDuration_ms is set in interpretNewCommandString to be 
+  // 100 / tVelocity
   
-  // constrain to [ 0, 1 )
-  float z = fmod ( float ( x ) * x_scale - float ( t ) * time_scale, 1.0 );
-  if ( z < 0 ) z += 1.0;
-  
-  // f ( z ) = ( r, theta ) is to be a spiral in HSV space
-  
-  // angle is hue
-  float hue = fmod ( z * hue_slope, 360.0 );
-
-  float saturation = fmod ( z * saturation_slope + saturation_int, 1.0 );
-  #ifdef SERIAL_DEBUG
-    if ( VERBOSE >= 10 ) Serial.printf ( "z: %5.3f => ( hue = %5.1f, saturation = %5.2f )  :  ", 
-      z, hue, saturation );
-  #endif
-
-
-  float value = value_int;
+  if ( ( millis() - lastTickAt_ms ) < abs ( patternTickDuration_ms ) ) return;
     
-  return ( hsv_to_rgb ( hue, saturation, value ) );
+  if ( patternIsStale ) {
+    #ifdef SERIAL_DEBUG
+      Serial.println ( "Stale" );
+    #endif
+    x0 = 0.0;
+    for ( int i = 0; i < nPixels; i++ ) {
+      x0 -= patternPixelDistance;
+      strip.setPixelColor ( i, newHSVWheel ( x0 ) );
+    }
+    patternIsStale = false;
+  } else {
+  
+    // tick the pattern; begin by moving everybody up one pixel
+    
+    if ( patternTickDuration_ms > 0 ) {
+      // time is flowing forwards; loop backwards
+      for ( int i = nPixels - 1; i >= 1; i-- ) {
+        #if defined ( SERIAL_DEBUG ) && VERBOSE >= 12
+          Serial.printf ( " %d:%#08x", i, strip.getPixelColor ( i - 1 ) );
+        #endif
+        strip.setPixelColor ( i, strip.getPixelColor ( i - 1 ) );
+      }
+      x0 = fMapToInterval01 ( x0 - patternPixelDistance);
+      strip.setPixelColor ( 0, newHSVWheel ( x0 ) );
+    } else {
+      // time is flowing backwards; loop forward
+      for ( int i = 0; i <= nPixels - 2; i++ ) {
+        #if defined ( SERIAL_DEBUG ) && VERBOSE >= 12
+          Serial.printf ( " %d:%#08x", i, strip.getPixelColor ( i + 1 ) );
+        #endif
+        strip.setPixelColor ( i, strip.getPixelColor ( i + 1 ) );
+      }
+      x0 = fMapToInterval01 ( x0 + patternPixelDistance);
+      strip.setPixelColor ( nPixels - 1, newHSVWheel ( x0 ) );
+    }
+  
+    #if defined ( SERIAL_DEBUG ) && VERBOSE >= 12
+      Serial.printf ( "  x0: %4.2f\n", x0 );
+    #endif
+
+  }
+  
+  strip.show();
+  lastTickAt_ms = millis();
 }
 
-uint32_t newHSVWheel ( int x, int t ) {
+uint32_t newHSVWheel ( float z ) {
   /*
   Rotate through hues (0-360), saturations (0-1), and values (0-1)
   single-valued function of x - t, so that a later t moves the pattern
@@ -648,33 +715,36 @@ uint32_t newHSVWheel ( int x, int t ) {
   each successive small cycle increases the second dimension by 15%
   from 25% to 100% or by 60deg from 0deg to 300deg
   */
-  
+
+  // the large cycle pattern consists of smallCyclesInLargeCycle small cycles
   const int smallCyclesInLargeCycle = 5;
-  const int smallCycleSteps = smallCyclesInLargeCycle - 1;
-  const float cycleRatio = 1.0 / float ( smallCyclesInLargeCycle );
-  const float msInSmallCycle = 1000.0;
-  // small cycle should tick this fast
-  // units value / time;  1/smallCyclesInLargeCycle  /  msInSmallCycle
-  //  1 * 1/6 / ( 1000 / 20 ) -> 1/300 or so
-  const float smallCycleTimeScale = 1.0 * cycleRatio / ( msInSmallCycle / float ( rainbowTick_ms ) );// / 10.0;
   
-  // small cycle should be this many pixels
-  const float smallCyclePixelScale = 1.0 / 100.0 / smallCyclesInLargeCycle;
+  // const int smallCycleSteps = smallCyclesInLargeCycle - 1;
+  // const float cycleRatio = 1.0 / float ( smallCyclesInLargeCycle );
+  // const float msInSmallCycle = 1000.0;
+  // // small cycle should tick this fast
+  // // units value / time;  1/smallCyclesInLargeCycle  /  msInSmallCycle
+  // //  1 * 1/6 / ( 1000 / 20 ) -> 1/300 or so
+  // const float smallCycleTimeScale = 1.0 * cycleRatio / ( msInSmallCycle / float ( rainbowTick_ms ) );// / 10.0;
+  // 
+  // // small cycle should be this many pixels
+  // const float smallCyclePixelScale = 1.0 / 100.0 / smallCyclesInLargeCycle;
   
   // small cycle should go 360 deg
-  const float hue_slope = 360.0;
   const float hue_int = 0.0;
-  const float saturation_slope = 1.0;
+  const float hue_slope = 360.0;
   const float saturation_int = 0.25;
-  const float value_slope = 1.0;
+  const float saturation_slope = 1.0 - saturation_int;
   const float value_int = 0.25;
+  const float value_slope = 1.0 - value_int;
   
-  // we see 35 or 36 change in t between minor-cycle calls
+  // // we see 35 or 36 ms change in t between minor-cycle calls
+  // 
+  // // constrain to [ 0, 1 )
+  // // first term [0, 100) * 0.01; second term could be big - t changes by order of 35
+  // // want second term to be on order of 1e-3
+  // float z = fmod ( float ( x ) * smallCyclePixelScale - float ( t ) * smallCycleTimeScale, 1.0 );
   
-  // constrain to [ 0, 1 )
-  // first term [0, 100) * 0.01; second term could be big - t changes by order of 35
-  // want second term to be on order of 1e-3
-  float z = fmod ( float ( x ) * smallCyclePixelScale - float ( t ) * smallCycleTimeScale, 1.0 );
   if ( z < 0 ) z += 1.0;
   
   float hue, saturation, value;
@@ -685,35 +755,35 @@ uint32_t newHSVWheel ( int x, int t ) {
       // hue, saturation | value
       hue = fmod ( z * hue_slope * smallCyclesInLargeCycle + hue_int, 360.0 );
       saturation = fmod ( z * saturation_slope + saturation_int, 1.0 );
-      value = progressionNonvaryingParameter / 100.0;
+      value = progressionNonvaryingParameter / 100.0 * brightnessPct / 100.0;
       break;
     case 1:
       // hue, value | saturation 
       hue = fmod ( z * hue_slope * smallCyclesInLargeCycle + hue_int, 360.0 );
-      value = fmod ( z * value_slope + value_int, 1.0 );
+      value = fmod ( z * value_slope + value_int, 1.0 ) * brightnessPct / 100.0;
       saturation = progressionNonvaryingParameter / 100.0;
       break;
     case 2:
       // saturation, hue | value 
       saturation = fmod ( z * saturation_slope * smallCyclesInLargeCycle + saturation_int, 1.0 );
       hue = fmod ( z * hue_slope + hue_int, 360.0 );
-      value = progressionNonvaryingParameter / 100.0;
+      value = progressionNonvaryingParameter / 100.0 * brightnessPct / 100.0;
       break;
     case 3:
       // saturation, value | hue
       saturation = fmod ( z * saturation_slope * smallCyclesInLargeCycle + saturation_int, 1.0 );
-      value = fmod ( z * value_slope + value_int, 1.0 );
+      value = fmod ( z * value_slope + value_int, 1.0 ) * brightnessPct / 100.0;
       hue = progressionNonvaryingParameter * 360.0 / 100.0;
       break;
     case 4:
       // value, hue | saturation
-      value = fmod ( z * value_slope * smallCyclesInLargeCycle + value_int, 1.0 );
+      value = fmod ( z * value_slope * smallCyclesInLargeCycle + value_int, 1.0 ) * brightnessPct / 100.0;
       hue = fmod ( z * hue_slope + hue_int, 360.0 );
       saturation = progressionNonvaryingParameter / 100.0;
       break;
     case 5:
       // value, saturation | hue
-      value = fmod ( z * value_slope * smallCyclesInLargeCycle + value_int, 1.0 );
+      value = fmod ( z * value_slope * smallCyclesInLargeCycle + value_int, 1.0 ) * brightnessPct / 100.0;
       saturation = fmod ( z * saturation_slope + saturation_int, 1.0 );
       hue = progressionNonvaryingParameter * 360.0 / 100.0;
       break;
@@ -722,12 +792,10 @@ uint32_t newHSVWheel ( int x, int t ) {
   }
   
   #ifdef SERIAL_DEBUG
-    if ( 1 ||  ( x == 0 ) ) {
-      if ( VERBOSE >= 10 ) {
-        Serial.printf ( "(x,t): ( %3d, %6d ); z: %5.3f; progMode: %1d; hsv: ( %5.1f, %5.3f, %5.3f )  : ", 
-          x, t, z, progressionMode, hue, saturation, value );
-        if ( VERBOSE < 20 ) Serial.println ();
-      }
+    if ( VERBOSE >= 12 ) {
+      Serial.printf ( "z: %5.3f; progMode: %1d; hsv: ( %5.1f, %5.3f, %5.3f )  : ", 
+        z, progressionMode, hue, saturation, value );
+      if ( VERBOSE < 20 ) Serial.println ();
     }
   #endif
     
@@ -859,7 +927,7 @@ void htmlResponse_root () {
   strncat ( htmlMessage, pBuf, htmlMessageLen );
   IPAddress ip = WiFi.localIP();
   snprintf ( pBuf, pBufLen, "      <h3>    Running on %s at %u.%u.%u.%u / %s.local</h3>\n",
-                Network.chipName, ip[0], ip[1], ip[2], ip[3], PROGNAME );
+                uniqueToken, ip[0], ip[1], ip[2], ip[3], PROGNAME );
   strncat ( htmlMessage, pBuf, htmlMessageLen );
   strncat ( htmlMessage, "    </head>\n", htmlMessageLen );
   strncat ( htmlMessage, "    <body>\n", htmlMessageLen );
@@ -910,8 +978,15 @@ void htmlResponse_root () {
   }
   strncat ( htmlMessage, pBuf, htmlMessageLen );
   
-  // snprintf ( pBuf, pBufLen, "<br><br>Len so far %d<br>", strlen ( htmlMessage ) );
-  // strncat ( htmlMessage, pBuf, htmlMessageLen );
+  snprintf ( pBuf, pBufLen, "<br>\nTime direction: %s<br>\n", 
+    patternTickDuration_ms > 0 ? "forwards" : "backwards" );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  snprintf ( pBuf, pBufLen, "tVelocity: %4.2f; Tick duration (ms): %d<br>\n", 
+    tVelocity, abs ( patternTickDuration_ms ) );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
+  snprintf ( pBuf, pBufLen, "xVelocity: %4.2f; Pixel distance: %4.2f<br>\n\n", 
+    xVelocity, patternPixelDistance );
+  strncat ( htmlMessage, pBuf, htmlMessageLen );
    
   strncat ( htmlMessage, "    </body>\n", htmlMessageLen );
   strncat ( htmlMessage, "  </html>\n", htmlMessageLen );

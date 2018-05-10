@@ -1,6 +1,6 @@
 #define PROGNAME  "ESP_text_to_MQTT"
-#define VERSION   "0.2.2"
-#define VERDATE   "2018-04-29"
+#define VERSION   "0.2.3"
+#define VERDATE   "2018-05-05"
 
 /*
   to be loaded onto ESP-01
@@ -141,15 +141,21 @@ ESP8266WebServer htmlServer ( 80 );
 uint32_t chipID;
 bool connection_initedP = false;
 
+/********************************** mDNS **************************************/
+
+const int mdnsIdLen = 40;
+char mdnsId [ mdnsIdLen ];
+
 /********************************* MQTT ***************************************/
 
-char mqtt_host [ 50 ] = "third_base";
 char mqtt_clientID [ 50 ] = "whatever";
+
+char mqtt_host [ 50 ] = "third_base";
 char mqtt_userID [ 50 ] = "nobody";
 char mqtt_userPW [ 50 ] = "nothing";
 const int mqtt_serverPort = 1883;
-int mqtt_qos = 0;
-int mqtt_retain = 0;
+// int mqtt_qos = 0;
+// int mqtt_retain = 0;
 
 /********************************** NTP ***************************************/
 
@@ -232,8 +238,8 @@ void setup ( void ) {
   #endif
   
   /****************************** Comm Setup **********************************/
-
-  // All comm setup deferred until we receive a string from the master
+  /* note WiFi Setup will be deferred until we have connection data from master/
+  /****************************************************************************/
   
   Serial.println ( "Waiting for connect string from master..." );
   while ( ! connection_initedP ) {
@@ -264,7 +270,7 @@ void setup ( void ) {
 
  /****************************** MQTT Setup **********************************/
 
-  snprintf ( mqtt_clientID, 50, "ESP_text_to_MQTT_%s", uniqueToken );
+  snprintf ( mqtt_clientID, 50, "%s_%s", PROGNAME, uniqueToken );
   
   conn_MQTT.setCallback ( handleReceivedMQTTMessage );
   conn_MQTT.setServer ( mqtt_host, mqtt_serverPort );
@@ -276,7 +282,7 @@ void setup ( void ) {
 
   yield ();
   
-    /******************************* NTP Setup **********************************/
+  /******************************* NTP Setup **********************************/
   
   setSyncProvider ( getUnixTime );
   setSyncInterval ( 300 );          // seconds
@@ -301,7 +307,7 @@ void setup ( void ) {
   }
   yield();
 
-/***************************** OTA Update Setup *****************************/
+  /***************************** OTA Update Setup *****************************/
   
   #ifdef ALLOW_OTA
   
@@ -348,10 +354,8 @@ void setup ( void ) {
   // htmlServer.on ( "/form", htmlResponse_form );
   htmlServer.begin ();
 
-  /**************************** MDNS Server Setup *****************************/
+  /**************************** mDNS Server Setup *****************************/
 
-  const int mdnsIdLen = 40;
-  char mdnsId [ mdnsIdLen ];
   snprintf ( mdnsId, mdnsIdLen, "%s_%s", PROGNAME, uniqueToken );
   if (!MDNS.begin ( mdnsId ) ) {             // Start the mDNS responder for <PROGNAME>.local
     Serial.println("Error setting up MDNS responder!");
@@ -371,7 +375,6 @@ void loop () {
   
   htmlServer.handleClient();  
 
-  // server.handleClient();
   #ifdef ALLOW_OTA
     ArduinoOTA.handle();
   #endif
@@ -712,7 +715,7 @@ void htmlResponse_root () {
   strncat ( htmlMessage, pBuf, htmlMessageLen );
   IPAddress ip = WiFi.localIP();
   snprintf ( pBuf, pBufLen, "      <h3>    Running as %s at %u.%u.%u.%u / %s.local</h3>\n",
-                uniqueToken, ip[0], ip[1], ip[2], ip[3], PROGNAME );
+                uniqueToken, ip[0], ip[1], ip[2], ip[3], mdnsId );
   strncat ( htmlMessage, pBuf, htmlMessageLen );
   strncat ( htmlMessage, "    </head>\n", htmlMessageLen );
   strncat ( htmlMessage, "    <body>\n", htmlMessageLen );
