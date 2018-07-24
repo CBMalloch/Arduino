@@ -44,7 +44,7 @@
       // print report
       void report ();
     private:
-      static const int PROFILE_VERBOSE = 10;
+      static const int PROFILE_VERBOSE = 2;
       static const int maxBins = 10;
       static const int nameLen = 20;
       char name [ nameLen ];

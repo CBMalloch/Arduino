@@ -84,9 +84,6 @@ float                scaleFactor   =  0.0;
   cbmNetworkInfo Network;
 #endif
 
-#define WLAN_PASS       password
-#define WLAN_SSID       ssid
-
 // Create an ESP8266 WiFiClient class to connect to the MQTT server.
 WiFiClient conn_TCP;
 
@@ -246,10 +243,12 @@ void loop() {
   const float countsHysteresis        = 10.0;
   
 
-  // server.handleClient();
+  // htmlServer.handleClient();  
+
   #ifdef ALLOW_OTA
     ArduinoOTA.handle();
   #endif
+
   
   conn_MQTT.loop();
   delay ( 10 );  // fix some issues with WiFi stability

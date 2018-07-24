@@ -65,18 +65,20 @@ void Profile::stop () {
 void Profile::report () {
   Serial.print   ( name ); Serial.print ( ": " ); 
   Serial.print   ( nHits ); Serial.println ( " hits" );
-  Serial.print   ( "  nBins: " ); Serial.println ( nBins );
-  Serial.print   ( "  binSize: " ); Serial.println ( binSize );
-  Serial.print   ( "  lowBinStart: " ); Serial.println ( lowBinStart );
-  Serial.println ( "  bin values:" );
-  unsigned long binStart = lowBinStart;
-  for ( int i = 0; i < nBins; i++ ) {
-    const int bufLen = 40;
-    char buf [ bufLen ];
-    snprintf ( buf, bufLen, "    [%8lu - %8lu]: %8lu\n",
-               binStart, binStart + binSize - 1, bins [ i ] );
-    Serial.print ( buf );
-    binStart += binSize;
+  if ( false || nHits ) {
+    Serial.print   ( "  nBins: " ); Serial.println ( nBins );
+    Serial.print   ( "  binSize: " ); Serial.println ( binSize );
+    Serial.print   ( "  lowBinStart: " ); Serial.println ( lowBinStart );
+    Serial.println ( "  bin values:" );
+    unsigned long binStart = lowBinStart;
+    for ( int i = 0; i < nBins; i++ ) {
+      const int bufLen = 40;
+      char buf [ bufLen ];
+      snprintf ( buf, bufLen, "    [%8lu - %8lu]: %8lu\n",
+                 binStart, binStart + binSize - 1, bins [ i ] );
+      Serial.print ( buf );
+      binStart += binSize;
+    }
+    Serial.print ( "  total time: " ); Serial.println ( totalTime );
   }
-  Serial.print ( "  total time: " ); Serial.println ( totalTime );
 }
