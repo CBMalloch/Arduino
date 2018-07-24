@@ -1,5 +1,5 @@
 #define PROGNAME  "ESP_text_to_MQTT"
-#define VERSION   "0.6.10"
+#define VERSION   "0.6.11"
 #define VERDATE   "2018-07-24"
 
 /*
@@ -107,6 +107,9 @@
   0.5.0 2018-07-02 cbm added retention of network parameters
   0.6.6 2018-07-15 cbm check for "connect" command replaced by check for 
                        comm parameters stored in EEPROM
+  0.6.11 2018-07-24 cbm fixed static timing start in networkConnect;
+                        had fixed timeouts, LED indicator activations;
+                        found errors using OpticSpy!
                        
 */
 
@@ -505,20 +508,26 @@ void loop () {
   // no sense continuing if we don't yet have communications parameters
   // if ( ! persistentDataIsStoredToEEPROM_p () ) return;
   
-  // reconnect if necessary
+  // reconnect WiFi if necessary
   if ( WiFi.status() != WL_CONNECTED ) {
     if ( networkConnect ( network_ssid, network_passphrase ) <= 0 ) {
       return;
     }
   }
   
-  // implicitly keep retrying to connect to MQTT until success
+  // keep retrying to connect to MQTT until success
   if ( ! conn_MQTT.connected() ) {
     if ( MQTTconnect () != 1 ) {
       return;
     }
   }
   yield();
+ 
+  conn_MQTT.loop();
+  delay ( 10 );  // fix some issues with WiFi stability
+  
+  handleSerialInput();
+  delay ( 10 );
  
   #ifdef HOSTWEBPAGE
     htmlServer.handleClient();  
@@ -527,9 +536,6 @@ void loop () {
   #ifdef ALLOW_OTA
     ArduinoOTA.handle();
   #endif
-  
-  conn_MQTT.loop();
-  delay ( 10 );  // fix some issues with WiFi stability
   
   yield();
   
@@ -548,9 +554,6 @@ void loop () {
   #endif
 
   
-  handleSerialInput();
-  delay ( 10 );
- 
 }
 
 // *****************************************************************************
@@ -571,7 +574,7 @@ int networkConnect ( const char network_ssid [], const char networkPW [] ) {
     -1003 -> unrecognized cbm network_ssid
   */
   
-  static unsigned long timerStartedAt_ms = millis();
+  unsigned long timerStartedAt_ms = millis();  // NOT static!
   const unsigned long timeoutPeriod_ms = 15UL * 1000UL;
   
   digitalWrite ( pdConnecting, INVERSE_LOGIC_ON );
@@ -623,6 +626,8 @@ int networkConnect ( const char network_ssid [], const char networkPW [] ) {
       Serial.println ();
     }
   #endif
+  
+  connection_initedP = true;  // indicate we've got our communications params
   
   int status = -1000;
   // Connect to WiFi access point.
@@ -714,7 +719,6 @@ int networkConnect ( const char network_ssid [], const char networkPW [] ) {
   Serial.printf ( "{ \"connectionResult\": \"OK\", \"ssid\": \"%d.%d.%d.%d\" }\n",
                   WiFi.localIP() [ 0 ], WiFi.localIP() [ 1 ], WiFi.localIP() [ 2 ], WiFi.localIP() [ 3 ] );
   if ( VERBOSE >= 8 ) Serial.printf ( "\nConnected; RSS: %d.\n", WiFi.RSSI() );
-  connection_initedP = true;
   
   digitalWrite ( pdConnecting, INVERSE_LOGIC_OFF );
   
