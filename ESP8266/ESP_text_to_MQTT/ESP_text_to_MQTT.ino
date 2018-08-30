@@ -1,10 +1,13 @@
 #define PROGNAME  "ESP_text_to_MQTT"
-#define VERSION   "0.6.11"
-#define VERDATE   "2018-07-24"
+#define VERSION   "0.6.12"
+#define VERDATE   "2018-07-25"
 
 /*
-  to be loaded onto ESP-01
+
   receive text commands to connect to network and then to send data to MQTT server
+  
+  Target hardware: ESP-01 8-pin ESP8266 module, optionally on a cbm-designed
+  carrier / voltage regulator / level shifter
   NOTE: the ESP-01 is a 3.3V device, intolerant of 5V
   
   all commands and responses are JSON
@@ -95,10 +98,9 @@
     
     
     
-    No web interface at the moment
+    Web-server html interface is now implemented
     
-    Needs to retain interface data in case of a glitch???
-    Or other program needs to get feedback to reinit
+    Retains connection parameters in case of a glitch.
 
 
   0.0.1 2018-02-26 cbm cloned from backup_indicator_feed_to_Mosquitto
@@ -150,7 +152,7 @@
 
 // not a #define so we can (later) implement auto-detect baud rate...
 // #define BAUDRATE       115200
-unsigned long BAUDRATE = 115200UL;
+unsigned long BAUDRATE                = 115200UL;
 
 const int  VERBOSE                    = 6;
 const bool ALLOW_PRINTING_OF_PASSWORD = false;
@@ -207,7 +209,7 @@ bool connection_initedP = false;
 const int mdnsIdLen = 40;
 char mdnsId [ mdnsIdLen ];
 
-/********************************* MQTT ***************************************/
+/********************************** MQTT **************************************/
 
 // note that mqtt_clientID is independent of communications settings, so not stored in EEPROM
 const size_t mqttClientIDLen = 50;
@@ -394,6 +396,7 @@ void setup ( void ) {
   while ( ( timeStatus() != timeSet ) && ( millis () < 30000UL ) ) {
     now ();
     Serial.print ( "t" );
+    delay ( 200 );
     yield();
   }
   
@@ -469,7 +472,7 @@ void setup ( void ) {
   if ( ! MDNS.begin ( mdnsId ) ) {             // Start the mDNS responder for <PROGNAME>.local
     Serial.println("Error setting up MDNS responder!");
   }
-  Serial.printf ( "mDNS responder '%s.local' started", mdnsId );
+  Serial.printf ( "mDNS responder '%s.local' started\n", mdnsId );
   
   /************************** Report successful init **************************/
    
@@ -702,8 +705,7 @@ int networkConnect ( const char network_ssid [], const char networkPW [] ) {
         }
       #endif
 
-      digitalWrite ( pdConnecting, INVERSE_LOGIC_OFF );
-      return ( -1001 );
+      return ( -1001 );  // leaving pdConnecting ON
     }
     
     digitalWrite ( pdConnecting, INVERSE_LOGIC_OFF );
@@ -733,7 +735,7 @@ int networkConnect ( const char network_ssid [], const char networkPW [] ) {
     int MQTT_connection_result = MQTTconnect ();
     if ( MQTT_connection_result != 1 ) {
       // failure...
-      return MQTT_connection_result;
+      return MQTT_ok;  // leaving pdConnecting ON
     }
   
     // indicate NETWORK reconnection, but only if MQTT is also connected!
@@ -888,8 +890,7 @@ int MQTTconnect () {
           sendMQTTvalue ( topic, conn_MQTT.state (), "Telemetry MQTT connect failure", true );
         }
       #endif
-      digitalWrite ( pdConnecting, INVERSE_LOGIC_OFF );
-      return -1012;
+      return -1012;  // leaving pdConnecting ON
     }
     
     yield();

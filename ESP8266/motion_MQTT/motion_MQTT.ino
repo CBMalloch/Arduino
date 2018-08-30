@@ -1,31 +1,45 @@
 #define PROGNAME "motion_MQTT"
-#define VERSION  "0.1.1"
-#define VERDATE  "2018-04-06"
+#define VERSION  "0.2.0"
+#define VERDATE  "2018-07-27"
 
 /*
     motion_MQTT.ino
     2018-04-06
     Charles B. Malloch, PhD
 
-    Read analog signal from RCWL-0516 microwave motion sensor
-    (which involved wiretapping into pin 12)
+    Program to drive the ESP-01 RX output pins using MQTT
+    to drive a 5V string of WS2812 3-color LEDs
+      
+    Interesting to use TX = GPIO1 after wresting it away from Serial
+        
+      
+      
+      
+      
+      
     
-    Note: With auto-sensing, the device will connect (at home) to 
+    REFACTORING as of 2018-07-27 - merging with ESP-01_MQTT_color_tree_TX.ino
+    
+    
+    
+    
+    
+    
+    
+    
+    Note: With auto-sensing, the device will connect (at Chuck's house) to 
     cbm_IoT_MQTT, not to dd-wrt-03.
-    This means that the Arduino IDE needs to be on the IoT network in order 
-    to push an update...
+    This means that the Arduino IDE needs to be running on a computer 
+    connected to the IoT network in order to push an OTA update...
     
     OTA is currently working at my house, but I haven't tried it at M5. It 
     requires the developer to be co-located on a LAN (since the MQTT server doesn't
     pass through to the Internet). Thus you must be on the M5_IoT_MQTT network.
     
-    If you want to compile this program and you're not me, you don't have my
-    network credentials "cbmNetworkInfo". So you need to change
-      #define COMPILE_USING_CBMNETWORKINFO
-    to
-      #undef COMPILE_USING_CBMNETWORKINFO
-    and to change <super secret password> to something that will work at M5
-    == I refuse to put anything on my GitHub that contains any password ==
+    cbmalloch/tree          : mode for tree
+    cbmalloch/tree/set      : third variable (HSV) for tree
+    cbmalloch/tree/xVelocity: spatial velocity of pattern
+    cbmalloch/tree/tVelocity: temporal velocity of pattern
     
 */
 
@@ -34,6 +48,9 @@
   For users other than Chuck, comment out the following #include.
   In the absence of the include, cbmnetworkinfo_h will remain undefined
   and this will eliminate Chuck-only aspects of the program
+
+    == Never put anything on GitHub that contains any password ==
+
 */
 #include <cbmNetworkInfo.h>
 
@@ -71,27 +88,38 @@ const char * MQTT_FEED = "cbmalloch/tree";
 // ***************************************
 // ***************************************
 
-// const int            pdLED0        =    4;  // GPIO2; n'existe pas
-const int            pdLED         =    0;  // GPIO16
-const int            paMotion      =   A0;
-float                scaleFactor   =  0.0;
 
-// ***************************************
-// ***************************************
+
+/********************************** Pins **************************************/
+
+/*
+  Blue onboard LED is inverse logic, connected as:
+    ESP-01:          GPIO1 = TX
+      so use GPIO2 also (next to GND); it has a 1K pullup on my boards
+        so modify my board with a 330R and a SMD LED as needed
+    Adafruit Huzzah: GPIO2
+*/
+
+const int pdConnecting    = 2;
+#define INVERSE_LOGIC_ON    0
+#define INVERSE_LOGIC_OFF   1
+
+const int            pdThrobber       =    0;  // GPIO16
+const int            paMotion         =   A0;
+
+/********************************* Network ************************************/
 
 #ifdef cbmnetworkinfo_h
   int WIFI_LOCALE;
   cbmNetworkInfo Network;
 #endif
-
 // Create an ESP8266 WiFiClient class to connect to the MQTT server.
 WiFiClient conn_TCP;
 
-bool atM5 = true;
+PubSubClient conn_MQTT ( conn_TCP );
 
-
-// /************************* MQTT Setup *********************************/
-// 
+/********************************** mDNS **************************************/
+/********************************** MQTT **************************************/
 
 char * MQTT_SERVER = "192.168.5.1"; 
 #define MQTT_SERVERPORT  1883
@@ -103,13 +131,16 @@ char * MQTT_SERVER = "192.168.5.1";
   #define MQTT_KEY         "m5launch"
 #endif
 
-PubSubClient conn_MQTT ( conn_TCP );
+/********************************** NTP ***************************************/
 
-// ***************************************
+/******************************* Global Vars **********************************/
 
-// magic juju to return array size
-// see http://forum.arduino.cc/index.php?topic=157398.0
-template< typename T, size_t N > size_t ArraySize (T (&) [N]){ return N; }
+float                scaleFactor   =  0.0;
+bool atM5 = true;
+
+char uniqueToken [ 9 ];
+
+/************************** Function Prototypes *******************************/
 
 void connect( void );
 void handleReceivedMQTTMessage ( char * topic, byte * payload, unsigned int length );
@@ -117,7 +148,29 @@ int interpretNewCommandString ( char * theTopic, char * thePayload );
 int sendIt ( const char * topic, const char * value );
 bool weAreAtM5 ();
 
+// magic juju to return array size
+// see http://forum.arduino.cc/index.php?topic=157398.0
+template< typename T, size_t N > size_t ArraySize (T (&) [N]){ return N; }
+
+/******************************************************************************/
+/******************************************************************************/
+
 void setup() {
+
+
+
+
+
+
+
+
+
+// somewhat merged up to here. need to remember the M5 hardware configuration
+
+
+
+
+
   
   Serial.begin ( BAUDRATE );
   while ( !Serial && millis() < 5000 ) {
@@ -125,7 +178,7 @@ void setup() {
     delay ( 20 );
   }
     
-  pinMode ( pdLED, OUTPUT );
+  pinMode ( pdThrobber, OUTPUT );
 
   /**************************** Connect to network ****************************/
   
@@ -152,7 +205,7 @@ void setup() {
     
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
-    delay(500);  // implicitly yields but may not pet the nice doggy
+    delay ( 500 );  // implicitly yields but may not pet the nice doggy
   }
   Serial.println();
   
@@ -275,7 +328,7 @@ void loop() {
   }
 
   if ( ( millis() - lastBlinkAt_ms ) > blinkDelay_ms ) {
-    digitalWrite ( pdLED, 1 - digitalRead ( pdLED ) );
+    digitalWrite ( pdThrobber, 1 - digitalRead ( pdThrobber ) );
     lastBlinkAt_ms = millis();
   }
 

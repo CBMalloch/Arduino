@@ -4,6 +4,32 @@
 
 /*
 
+    test_RCWL0516_microwave_motion_sensor.ino
+    2018-04-06
+    Charles B. Malloch, PhD
+
+    Read analog signal from RCWL-0516 microwave motion sensor
+    (which involved wiretapping into pin 12)
+    
+    Target hardware: ATmega328 with the RCWL-0516 analog signal (its pin 12)
+    connected to the ATmega A0 analog input pin; the ATmega RX and TX (pins
+    D0 and D1 respectively) connected to an ESP8266 running ESP_text_to_MQTT.ino
+    
+    
+    NOTE: while loading the program onto the ATmega, we need to disconnect
+    the ESP so its TX isn't fighting with the BUB's TX on the same circuit
+    segment.
+    
+    
+    Note: With auto-sensing, the device will connect (at Chuck's house) to 
+    cbm_IoT_MQTT, not to dd-wrt-03.
+    This means that the Arduino IDE needs to be on the IoT network in order 
+    to push an update...
+    
+    OTA is currently working at my house, but I haven't tried it at M5. It 
+    requires the developer to be co-located on a LAN (since the MQTT server doesn't
+    pass through to the Internet). Thus you must be on the M5_IoT_MQTT network.    
+    
       cbmalloch/tree          : mode for tree
       cbmalloch/tree/set      : third variable (HSV) for tree
       cbmalloch/tree/xVelocity: spatial velocity of pattern
@@ -13,6 +39,14 @@
 
 #include <ArduinoJson.h>
 
+/* 
+  For users other than Chuck, comment out the following #include.
+  In the absence of the include, cbmnetworkinfo_h will remain undefined
+  and this will eliminate Chuck-only aspects of the program
+
+    == Never put anything on GitHub that contains any password ==
+
+*/
 #include <cbmNetworkInfo.h>
 #include <EWMA.h>
 
@@ -161,8 +195,10 @@ void loop() {
         value = constrain ( int ( mediumAbs.value() * 250.0 / float ( maxCounts ) ), 0, 100 );
         break;
       case 1:
-      case 2:
         value = mediumAbs.value() * 250.0 / float ( maxCounts ) / 20.0;
+        break;
+      case 2:
+        value = mediumAbs.value() * 250.0 / float ( maxCounts ) - 2.0;
         break;
     }
     

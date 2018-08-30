@@ -10,6 +10,10 @@
     Program to drive the ESP-01 RX output pins using MQTT
     to drive a 5V string of WS2812 3-color LEDs
     
+    Target hardware: Adafruit ESP8266 Huzzah (at M5 or at Chuck's house) 
+    WITHOUT an RCWL0516 microwave motion sensor connected at A0
+    (receives its commands via MQTT)
+    
     Interesting to use TX = GPIO1 after wresting it away from Serial
     
     With version 0.2, I'm starting to use OTA update
