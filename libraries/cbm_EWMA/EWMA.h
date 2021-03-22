@@ -43,6 +43,7 @@ Note this is a discrete approximation to the exponential.
   The correct formula is ln(1/2) / ln(1 - alpha)
 		
 	Synopsis
+	  #include <EWMA.h>
 		double results[2], z;
 		EWMA myEWMA;
 		myEWMA.setAlpha ( myEWMA.alpha ( 200 ) );
@@ -65,7 +66,7 @@ class EWMA
 		EWMA ( double alpha );
     double setAlpha ( double alpha );
 		void reset ();
-		void load ( int n, double EWMA );
+		void load ( unsigned long n, double EWMA );
 		// void record( double x );
 		double record ( double x );
     double value ();
@@ -88,7 +89,7 @@ class EWMA
 	private:
 		
 		double _alpha;
-		int _n;
+		unsigned long _n;
 		double _currentValue;
     
 		double *_internals();

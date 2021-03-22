@@ -55,7 +55,7 @@ void EWMA::reset() {
 	load(0, 0.0);
 }
 
-void EWMA::load(int n, double loadValue) {
+void EWMA::load ( unsigned long n, double loadValue ) {
 	this->_n             = n;
 	this->_currentValue  = loadValue;
 }

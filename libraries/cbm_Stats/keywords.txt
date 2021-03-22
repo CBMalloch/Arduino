@@ -16,6 +16,8 @@ record	KEYWORD2
 num	KEYWORD2
 mean	KEYWORD2
 stDev	KEYWORD2
+rms KEYWORD2
+zScore KEYWORD2
 results	KEYWORD2
 resultString KEYWORD2
 _internals	KEYWORD2

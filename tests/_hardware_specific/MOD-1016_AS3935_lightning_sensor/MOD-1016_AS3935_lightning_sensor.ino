@@ -1,8 +1,12 @@
 #define PROGNAME "MOD-1016_AS3935_lightning_sensor.ino"
-#define VERSION "0.3.6"
-#define VERDATE "2018-08-17"
+#define VERSION "0.3.14"
+#define VERDATE "2019-08-08"
 
 /*
+
+  NOT THIS ONE!!!
+  
+  
   Other program doesn't work as is. I'm trying the AS3935_demo program, 
     and it appears to read registers OK
   So this program uses the as3935 library.
@@ -23,11 +27,13 @@
   Does calling getInterruptFlags and getState clear these? No.
     When should they be called?
   Add a real-time clock to this setup, then hard-wire it; move it to an ESP so can 
-    query a timeserver?
+    query a timeserver? -- done with perl serial catcher for now
     
   v0.3.0 removed dumping registers unless VERBOSE or actual lightning detected
-  
   v0.3.5  2018-08-15 cbm relinked with updated AS3935 libraries; works once again.
+  v0.3.13 2019-08-08 cbm seems never to trigger; refactoring to try to understand and
+                         correct this
+  v0.3.14 2019-08-08 cbm still tyring to fix; have moved many strings to flash memory F( "..." )
   
 */
 
@@ -47,6 +53,26 @@
 const unsigned long BAUDRATE = 115200;
 const int tabColumn = 40;
 
+// 2 is default; bigger number rejects more spikes
+// back to 2 when I found that debug wires were raising the noise...
+// 2019-06-05 2 -> 1 -> 0
+const int SPIKE_REJECTION_VALUE = 0;  // 0-15
+
+// threshold number of strikes within 1 minute
+// 0x00 -> 1; 0x01 -> 5; 0x02 -> 9; 0x03 -> 16 in bits 5-4 of register 2
+// 2019-06-05 0x01 -> 0x00
+const int STRIKE_THRESHOLD_VALUE = 0x00;
+
+// mask events that are classed as man-made disturbances
+// 2019-06-05 1 -> 0
+// 2019-08-07 0 -> 1 -> 0
+const int DISTURBER_MASK_VALUE = 0;
+
+// 0 -> 1 -> 2 -> 3 -> 0 2018-08-17 cbm
+// back to 0 when I found that debug wires were raising the noise...
+const int NOISE_FLOOR_VALUE = 0;
+
+
 //************************
 //************************
 
@@ -62,8 +88,13 @@ const int tabColumn = 40;
 
 */
 
-const int      piSensor          =    2;  // IRQ pin from sensor
-const int      intSensor         =    0;  // Arduino pin 2 is INT0; pin 3 (not used here) is INT1
+// const int      SDA               =   A0;   // AKA D14; predefined
+// const int      SCL               =   A3;   // AKA D17; predefined
+
+const bool     indoorsP          = true;
+
+const int      piSensor          =    2;  // hardware interrupt pin from sensor
+// const int      intSensor         =    0;  // Arduino pin 2 is INT0; pin 3 (not used here) is INT1
 const int      pdThrobber        =   13;
 
 const uint8_t i2cAddr            = 0x03;
@@ -78,6 +109,8 @@ bool ledState = true;
 AS3935 as3935;
 
 AsyncDelay throbberTimeout, textThrobberTimeout;
+
+bool callbackEnabled = false;  // prevent callback activation until initialization complete
 
 char states [ ] [ 6 ] = { "Off", "PwrUp", "Init1", "Init2", "Listn", "WaitR", "Cal" };
 
@@ -101,30 +134,33 @@ void setup () {
   
   Serial.println ( "Startup" );
 
-  // sda, scl, address, tunCap, indoor, timestamp
-  as3935.initialise ( 14, 17, i2cAddr, antennaTuningValue, true, NULL );
+  // sda, scl, address, tunCap, indoor, cbTriggered (<callback when triggered> or NULL)
+  // NOTE use of constants SDA and SCL makes startup fail!
+  as3935.initialise ( 14, 17, i2cAddr, antennaTuningValue, indoorsP, cbTriggered );
   // no delays necessary - internal to as3935 code
   // delay ( dly );
   
+  // Serial.println ( "Initialized" );
+
   // as3935.reset();
   // delay ( dly );
   // as3935.clearStats();
   // delay ( dly );
   
-  as3935.start();
+  // as3935.calibrate();
   // start implicitly calls calibrate
+  as3935.start();
   // delay ( dly );
-  
+    
+  // Serial.println ( "Started" );
+
   // process steps through initilization states, until it's in Listen state	
   while ( as3935.getState() != AS3935::stateListening ) as3935.process();  // 
   
   // delay ( dly );
   
-  const int desiredNoiseFloor = 0;
-  if ( ! as3935.setNoiseFloor ( desiredNoiseFloor ) ) {
-    // 0 -> 1 -> 2 -> 3 -> 0 2018-08-17 cbm
-    // back to 0 when I found that debug wires were raising the noise...
-    Serial.println ( "Failed to set noise floor!" );
+  if ( ! as3935.setNoiseFloor ( NOISE_FLOOR_VALUE ) ) {
+    Serial.println ( F( "Failed to set noise floor!" ) );
     while ( 1 );
   }
   delay ( dly );
@@ -133,14 +169,14 @@ void setup () {
     // check to see if communications is working...
     uint8_t val = 0xff;
     if ( ! as3935.readRegister ( AS3935::regNoiseFloor , val ) ) {
-      Serial.println ( "Failed to read noise floor register!" );
+      Serial.println ( F( "Failed to read noise floor register!" ) );
       while ( 1 );
     }
     val = ( val >> 4 ) & 0x07;
-    if ( val != desiredNoiseFloor ) {
-      Serial.print ( "Problem - noise floor was set to" );
-      Serial.print ( desiredNoiseFloor );
-      Serial.print ( "but didn't set ==> " );
+    if ( val != NOISE_FLOOR_VALUE ) {
+      Serial.print ( F( "Noise floor was set to" ) );
+      Serial.print ( NOISE_FLOOR_VALUE );
+      Serial.print ( F( "but remained ==> " ) );
       Serial.println ( val );
       while ( 1 );
     }
@@ -149,39 +185,37 @@ void setup () {
   
   // as3935.calibrate();
   // delay ( 20 );
-  // set bit 5 of interrupt mask register to ignore disturbance events
-  as3935.setRegisterBit ( AS3935::regInt, 5, 1 );
+  // bit 5 of interrupt mask register can be set to ignore disturbance events
+  as3935.setRegisterBit ( AS3935::regInt, 5, DISTURBER_MASK_VALUE );
   delay ( 20 );
   
   uint8_t mask, r, newValue;
   
   // set spike rejection
-  // 2 is default; bigger number rejects more spikes
-  // back to 2 when I found that debug wires were raising the noise...
-  newValue = 2;
+  newValue = SPIKE_REJECTION_VALUE;
   mask = B00001111;
   as3935.readRegister ( AS3935::regSpikeRej, r );
-  Serial.print ( "Setting spike rejection; register 0x" ); 
+  Serial.print ( F( "Setting spike rejection; register 0x" ) ); 
   Serial.print ( r, HEX );
   r &= ~ mask;
   r |= newValue << 0;  
-  Serial.print ( " => 0x" ); 
+  Serial.print ( F( " => 0x" ) ); 
   Serial.print ( r, HEX );
   Serial.println ();
   as3935.writeRegister ( AS3935::regSpikeRej, r );
   delay ( 20 );
   
   // set threshold number of strikes within 1 minute 
-  // as3935.setMinimumLightnings ( 1 );
+  // could use as3935.setMinimumLightnings ( 1 ), but instead setting it myself
   // 0x00 -> 1; 0x01 -> 5; 0x02 -> 9; 0x03 -> 16 in bits 5-4 of register 2
   mask = B00110000;
-  newValue = 0x01;
+  newValue = STRIKE_THRESHOLD_VALUE;
   as3935.readRegister ( AS3935::regSpikeRej, r );
-  Serial.print ( "Setting threshold number of spikes; register 0x" ); 
+  Serial.print ( F( "Setting threshold number of spikes; register 0x" ) ); 
   Serial.print ( r, HEX );
   r &= ~ mask;
   r |= newValue << 4;
-  Serial.print ( " => 0x" ); 
+  Serial.print ( F( " => 0x" ) ); 
   Serial.print ( r, HEX );
   Serial.println ();
   as3935.writeRegister ( AS3935::regSpikeRej, r );
@@ -190,13 +224,25 @@ void setup () {
   pinMode ( pdThrobber, OUTPUT );
   digitalWrite ( pdThrobber, ledState );
   
-  pinMode ( piSensor, INPUT );
-  attachInterrupt ( intSensor, ISR_lightning_sensor, RISING );
+  // 2019-07-07 INPUT->INPUT_PULLUP
+  pinMode ( piSensor, INPUT_PULLUP );
+  // 2019-07-07 intSensor -> digitalPinToInterrupt(piSensor)
+  attachInterrupt ( digitalPinToInterrupt(piSensor), ISR_lightning_sensor, RISING );
+  
+  // Serial.println ( F( "Interrupt attached" ) );
+  
+  // 2019-08-08 added just for yuks
+  // as3935.calibrate();
+  // delay ( 20 );
+  
+  
   throbberTimeout.start ( 1000, AsyncDelay::MILLIS );
   
   if ( VERBOSE >= 2 ) {
     textThrobberTimeout.start ( 10UL * 60UL * 1000UL, AsyncDelay::MILLIS );
   }
+  
+  callbackEnabled = true;
   
   #if VERBOSE >= 2
   
@@ -216,30 +262,37 @@ void setup () {
 
 void loop () {
 
-  int interruptFlags = -1;
   int distanceEstimate = -1;
   static int oldState = -1;
   
   /*
     AS3935 software state
       stateOff = 0,
-      statePoweringUp = 1, // first 2ms wait after power applied
+      statePoweringUp = 1,        // first 2ms wait after power applied
       stateInitialising1 = 2,
       stateInitialising2 = 3,
       stateListening = 4,
-      stateWaitingForResult = 5,
+      stateWaitingForResult = 5,  // after interrupt recognized and serviced
       stateCalibrate = 6,
+      
+    4 routines affect the state:
+      initialize
+      start
+      process
+      calibrate
   */
-  int state = as3935.getState();
-  if ( state != oldState ) {
-    for ( int i = 0; i < tabColumn; i++ ) Serial.print ( " " );
-    Serial.print ( "===> new state: " );
-    Serial.println ( states [ as3935.getState() ] );
-    oldState = state;
-  }
   
   if ( as3935.process() ) {
-    interruptFlags = as3935.getInterruptFlags();
+  
+    int state = as3935.getState();
+    if ( state != oldState ) {
+      for ( int i = 0; i < tabColumn; i++ ) Serial.print ( " " );
+      Serial.print ( "===> new state: " );
+      Serial.println ( state );
+      oldState = state;
+    }
+  
+    int interruptFlags = as3935.getInterruptFlags();
     distanceEstimate = as3935.getDistance();
 
     Serial.println ( "\n------ process -------" );
@@ -254,43 +307,46 @@ void loop () {
     Serial.println ();
   }
   
-  if (as3935.getBusError()) Serial.println ( "\nBus error!" );
-
-  if ( as3935.getTriggered() ) {
-    
-    Serial.print ( "\n\n---------- triggered ----------\n" );
-
-    interruptFlags = as3935.getInterruptFlags ();
-    switch ( interruptFlags ) {
-      case 0x01:
-        if ( VERBOSE >= 10 ) displayRegs ( );
-        Serial.print ( "Noise" );
-        break;
-      case 0x04:
-        if ( VERBOSE >= 10 ) displayRegs ( );
-        Serial.print ( "Disturber" );
-        break;
-      case 0x08:
-        displayRegs ( );
-        distanceEstimate = as3935.getDistance();
-        Serial.print ( "Lightning at distance " );
-        Serial.print ( distanceEstimate );
-        Serial.print ( " km" );
-        break;
-      case -1:
-        break;
-      default:
-        if ( VERBOSE >= 20 ) displayRegs ( );
-        Serial.print ( "Something else" );
-        break;
-    }
-    if ( interruptFlags >= 0 ) {
-      Serial.println ( " happened!" );
-      Serial.println("----------------------\n\n");
-    }
-
+  if (as3935.getBusError()) {
+    Serial.println ( "\nBus error!" );
+    as3935.clearBusError();
   }
 
+  // if ( as3935.getTriggered() ) {
+  //   
+  //   Serial.print ( "\n\n---------- triggered ----------\n" );
+  // 
+  //   interruptFlags = as3935.getInterruptFlags ();
+  //   
+  //   bool handled = false;
+  //   if ( interruptFlags & AS3935::intNoiseLevelTooHigh ) {
+  //     if ( VERBOSE >= 10 ) displayRegs ( );
+  //     Serial.print ( "Noise" );
+  //     handled = true;
+  //   }
+  //   if ( interruptFlags & AS3935::intDisturberDetected ) {
+  //     if ( VERBOSE >= 10 ) displayRegs ( );
+  //     Serial.print ( "Disturber" );
+  //     handled = true;
+  //   }
+  //   if ( interruptFlags & AS3935::intLightningDetected ) {
+  //     displayRegs ( );
+  //     distanceEstimate = as3935.getDistance();
+  //     Serial.print ( "Lightning at distance " );
+  //     Serial.print ( distanceEstimate );
+  //     Serial.print ( " km" );
+  //     handled = true;
+  //   }
+  //   if ( handled ) {
+  //     Serial.println ( " happened!" );
+  //     Serial.println("----------------------\n\n");
+  //   } else {
+  //     if ( VERBOSE >= 20 ) displayRegs ( );
+  //     Serial.print ( "Funny flags: 0x0" );
+  //     Serial.println ( interruptFlags, HEX );
+  //   }
+  // 
+  // }
 
   if (throbberTimeout.isExpired()) {
     ledState = ! ledState;
@@ -364,26 +420,26 @@ void displayRegs () {
   uint8_t val;
   
   as3935.readRegister ( 0 , val );
-  Serial.print ( "  AFE gain boost ( 0x12 ): " ); Serial.println ( ( val >> 1 ) & 0x1f, HEX );
-  Serial.print ( "  Power-down ( 0 ): " ); Serial.println ( ( val >> 0 ) & 0x01, HEX );
+  Serial.print ( F( "  AFE gain boost ( 0x12 ): " ) ); Serial.println ( ( val >> 1 ) & 0x1f, HEX );
+  Serial.print ( F( "  Power-down ( 0 ): " ) ); Serial.println ( ( val >> 0 ) & 0x01, HEX );
   
   as3935.readRegister ( 1 , val );
-  Serial.print ( "  Noise Floor Level ( 0 ): " ); Serial.println ( ( val >> 4 ) & 0x03, HEX );
-  Serial.print ( "  Watchdog threshold ( 2 ): " ); Serial.println ( ( val >> 0 ) & 0x0f, HEX );
+  Serial.print ( F( "  Noise Floor Level ( 0 ): " ) ); Serial.println ( ( val >> 4 ) & 0x03, HEX );
+  Serial.print ( F( "  Watchdog threshold ( 2 ): " ) ); Serial.println ( ( val >> 0 ) & 0x0f, HEX );
 
   as3935.readRegister ( 2 , val );
-  Serial.print ( "  Clear statistics ( 1 ): " ); Serial.println ( ( val >> 6 ) & 0x01, HEX );
+  Serial.print ( F( "  Clear statistics ( 1 ): " ) ); Serial.println ( ( val >> 6 ) & 0x01, HEX );
   int num = ( ( val >> 4 ) & 0x03 );
   int nums [] = { 1, 5, 9, 16 };
-  Serial.print ( "  Minimum reportable strikes/min ( 0 ): " ); Serial.print ( num ); 
-    Serial.print ( " => " ); Serial.println ( nums [ num ] );
-  Serial.print ( "  Spike rejection ( 2 ): " ); Serial.println ( ( val >> 0 ) & 0x0f, HEX );
+  Serial.print ( F( "  Minimum reportable strikes/min ( 0 ): " ) ); Serial.print ( num ); 
+    Serial.print ( F( " => " ) ); Serial.println ( nums [ num ] );
+  Serial.print ( F( "  Spike rejection ( 2 ): " ) ); Serial.println ( ( val >> 0 ) & 0x0f, HEX );
 
   as3935.readRegister ( 3 , val );
-  Serial.print ( "  Frequency division ratio for antenna tuning ( 0 ): " ); 
+  Serial.print ( F( "  Frequency division ratio for antenna tuning ( 0 ): " ) ); 
     Serial.println ( ( val >> 6 ) & 0x02, HEX );
-  Serial.print ( "  Mask Disturber ( 0 ): " ); Serial.println ( ( val >> 5 ) & 0x01, HEX );
-  Serial.print ( "  Interrupt ( 0 ): " ); Serial.println ( ( val >> 0 ) & 0x0f, HEX );
+  Serial.print ( F( "  Mask Disturber ( 0 ): " ) ); Serial.println ( ( val >> 5 ) & 0x01, HEX );
+  Serial.print ( F( "  Interrupt ( 0 ): " ) ); Serial.println ( ( val >> 0 ) & 0x0f, HEX );
   
   if ( ! firstTimeP ) {
   
@@ -399,13 +455,13 @@ void displayRegs () {
     as3935.readRegister ( 4 , val );
     energy |= ( val & 0xff );
     if ( energy > 0 ) for ( int i = 0; i < tabColumn; i++ ) Serial.print ( " " );
-    Serial.print ( "  Energy of the single lightning: " ); Serial.println ( energy );
+    Serial.print ( F( "  Energy of the single lightning: " ) ); Serial.println ( energy );
   
     if ( energy > 0 ) {
       as3935.readRegister ( 7 , val );
       val = ( val >> 0 ) & 0x3f;
       if ( val < 0x3f ) for ( int i = 0; i < tabColumn; i++ ) Serial.print ( " " );
-      Serial.print ( "  Distance estimate, km ( 63 ): " );
+      Serial.print ( F( "  Distance estimate, km ( 63 ): " ) );
       Serial.print ( val );
     }
     Serial.println ();
@@ -425,3 +481,68 @@ void displayRegs () {
     
 }
 
+void cbTriggered ( void ) {
+
+  /*
+    This callback is called by AS3935::interruptHandler in AS3935.h, *before* 
+    _triggered is made true, and *before* _state is changed to stateWaitingForResult
+    
+    That may affect what goes on herein...
+    
+    The call stack is this:
+      ISR_lightning_sensor services the hardware interrupt attached to 
+        the pin piSensor
+      ISR_lightning_sensor immediately calls as3935.interruptHandler()
+      which immediately calls *this* routine. Nothing has yet changed any internal flags  
+        or anything, including _interruptFlags (which is what is dumbly returned by 
+        as3935.getInterruptFlags()
+        
+    *BUT*
+    
+    This routine unconditionally prints "---------- triggered;", and that never happens.
+    Therefore, we can conclude that the interrupt is never occurring. 
+    
+    We can test this by manually raising the voltage on the interrupt wire and seeing if 
+    the rougine gets triggered.
+    
+  */
+
+  const int tBufLen = 80;
+  char tBuf [ tBufLen ];
+  bool handled = false;
+  
+  if ( ! callbackEnabled ) {
+    return;
+  }
+
+  int interruptFlags = as3935.getInterruptFlags ();
+  
+  // Serial.print ( "" );
+  snprintf ( tBuf, tBufLen, "\n\n---------- triggered; flags: %#06x ----------\n", interruptFlags );
+  Serial.print ( tBuf );
+
+  
+  if ( interruptFlags & AS3935::intNoiseLevelTooHigh ) {
+    if ( VERBOSE >= 10 ) displayRegs();
+    Serial.print ( F( "Noise " ) );
+    handled = true;
+  }
+  if ( interruptFlags & AS3935::intDisturberDetected ) {
+    if ( VERBOSE >= 10 ) displayRegs();
+    Serial.print ( F( "Disturber " ) );
+    handled = true;
+  }
+  if ( interruptFlags & AS3935::intLightningDetected ) {    
+    distanceEstimate = as3935.getDistance();
+    snprintf ( tBuf, tBufLen, "Lightning at distance %d km ", distanceEstimate );
+    Serial.print ( tBuf );
+    handled = true;
+  }
+  if ( handled ) {
+    Serial.print ( F( "happened!\n----------------------\n\n" ) );
+  } else {
+    if ( VERBOSE >= 20 ) displayRegs();
+    Serial.println ( F( "                                                    Funny flags!" ) );
+  }
+
+}

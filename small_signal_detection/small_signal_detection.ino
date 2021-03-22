@@ -32,18 +32,18 @@ const unsigned long sampleDelay_us = 1000000.0 * pSignal_s / oversample;
 // EWMA
 /*
   each iteration reduces the weights of the old values by a factor
-  of ( 1 - alpha ), so the Quarter-life happens when ( 1 - alpha ) ^ n = 0.5
+  of ( 1 - alpha ), so the half-life happens when ( 1 - alpha ) ^ n = 0.5
   ln ( 1 - alpha ) * n = ln ( 0.5 ) ==> n = ln ( 0.5 ) / ln ( 1 - alpha ) or
   ln ( 1 - alpha ) = ln ( 0.5 ) / n ==> ( 1 - alpha ) = exp ( ln ( 0.5 ) / n )
     ==> alpha = 1 - exp ( ln ( 0.5 ) / n );
   The number of samples in t seconds is t / ( sampleDelay_us / 1e6 )
     = t * 1e6 / sampleDelay_us
-  So if we want the Quarter-life to be 100ms, the number of samples will be
+  So if we want the half-life to be 100ms, the number of samples will be
     0.1 * 1e6 / sampleDelay_us = 1e5 / sampleDelay_us;
-  Then alpha will be 1 - exp ( ln ( 0.5 ) * sampleDelay_us / 1e5;
+  Then alpha must be 1 - exp ( ln ( 0.5 ) * sampleDelay_us / 1e5 )
 */
 const float halfLife_ms = 1000.0;
-const float alpha = 1.0 - exp ( log ( 0.5 ) * sampleDelay_us / ( halfLife_ms * 1e3 ));
+const float alpha = 1.0 - exp ( log ( 0.5 ) * sampleDelay_us / ( halfLife_ms * 1e3 ) );
 
 
 void setup () {
@@ -254,7 +254,8 @@ void loop () {
         lastPrintAt_ms = millis();
       }
 
-    #endif   // SLOW PLOTTIN
+    #endif   // SLOW PLOTTING
+    
   }  // it was time to sample 
     
     

@@ -14,41 +14,44 @@
 
 //    NOTE: the use of this-> is optional
 
-Stats::Stats()
-{
+Stats::Stats() {
+  // for *sample* stats, use basis of n-1; for *population* stats, use n
+  // the bias, which will be added to n, must be thus either 0 or -1
+  this->bias = -1;
 	reset();
 }
 
-const char *Stats::version()
-{
-	return "1.001.000";
+void Stats::setBasis ( int bias ) {
+  if ( bias == BASIS_SAMPLE ) this->bias = BASIS_SAMPLE;
+  if ( bias == BASIS_POPULATION ) this->bias = BASIS_POPULATION;
 }
 
-void Stats::reset()
-{
+const char *Stats::version() {
+	return "1.002.000";
+}
+
+void Stats::reset() {
 	load(0, 0.0, 0.0);
 }
 
-void Stats::load(int n, double xSum, double x2Sum)
-{
+void Stats::load ( unsigned long n, double xSum, double x2Sum ) {
 	this->n     = n;
 	this->xSum  = xSum;
 	this->x2Sum = x2Sum;
 	this->calculated = false;    // force calculation of results
 	this->m = -655.30;
+	this->v = -655.30;
 	this->s = -655.30;
 }
 
-void Stats::record(double x)
-{
+void Stats::record ( double x ) {
   this->n++;
 	this->xSum  += x;
 	this->x2Sum += x * x;
 	this->calculated = false;    // force calculation of results
 }
 
-double *Stats::_internals()
-{
+double *Stats::_internals() {
 	static double ret[3];
 	ret[0] = this->n;
 	ret[1] = this->xSum;
@@ -56,8 +59,7 @@ double *Stats::_internals()
 	return ret;
 }
 
-void Stats::_calculate()
-{
+void Stats::_calculate() {
 	if ( ! this->calculated ) {
 		// recalculate statistics; otherwise they're already done...
 		if ( this->n > 0 ) {
@@ -65,7 +67,8 @@ void Stats::_calculate()
 			if ( this->n > 1 ) {
 				// from WikiPedia; checks with Excel
         if ( this->x2Sum  > ( this->xSum * this->xSum ) / this->n ) {
-          this->s = sqrt( ( this->x2Sum  - (this->xSum * this->xSum ) / this->n ) / ( this->n - 1 ) );
+          this->v = ( this->x2Sum  - (this->xSum * this->xSum ) / this->n ) / ( this->n + this->bias );
+          this->s = sqrt( this->v );
         } else {
           this->s = 0.0;
         }
@@ -75,26 +78,40 @@ void Stats::_calculate()
 	}
 }
 
-int Stats::num ()
-{
+unsigned long Stats::num () {
 	if ( ! this->calculated ) this->_calculate();
   return this->n;
 }
 
-double Stats::mean ()
-{
+double Stats::mean () {
 	if ( ! this->calculated ) this->_calculate();
   return this->m;
 }
 
-double Stats::stDev ()
-{
+double Stats::variance () {
+	if ( ! this->calculated ) this->_calculate();
+  return this->v;
+}
+
+double Stats::stDev () {
 	if ( ! this->calculated ) this->_calculate();
   return this->s;
 }
 
-double *Stats::results()
-{
+double Stats::rms () {
+	if ( ! this->calculated ) this->_calculate();
+  return sqrt ( this->x2Sum / this->n );
+}
+
+double Stats::zScore ( double v ) {
+  if ( this->n < 4 ) return ( -1e16 );
+	if ( ! this->calculated ) this->_calculate();
+	if ( this->s < 1e-16 ) return ( -2e16 );
+  return ( ( v - this->m ) / this->s );
+}
+
+
+double *Stats::results() {
 	/*
 	  stdev is defined as square root of (E(x2) - (E(x))2)
 	*/
@@ -106,8 +123,7 @@ double *Stats::results()
 }
 
 /*
-char *Stats::resultString()
-{
+char *Stats::resultString() {
 	static char res[60];
 	this->_calculate();
 	sprintf(res, "[%2.4f, %2.4f]", this->m, this->s);

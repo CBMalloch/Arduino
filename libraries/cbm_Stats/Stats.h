@@ -15,18 +15,25 @@
 #ifndef Stats_h
 #define Stats_h
 
+#define BASIS_SAMPLE     -1
+#define BASIS_POPULATION  0
+
 class Stats {
 
 public:
 	Stats();
+	void setBasis ( int bias );  // use BASIS_SAMPLE or BASIS_POPULATION
 	const char *version();
   void reset();
-  void load(int n, double xSum, double x2Sum);
-  void record(double x);
+  void load ( unsigned long n, double xSum, double x2Sum );
+  void record ( double x );
 	double *results();
-  int num();
+  unsigned long num();
   double mean();
+  double variance();
   double stDev();
+  double rms ();
+  double zScore ( double v );
 //	char *resultString();
 	double *_internals();
 
@@ -38,10 +45,14 @@ protected:
 	// this-> reportedly not needed
 	
 private:
+  // for *sample* stats, use basis of n-1; for *population* stats, use n
+  // the bias, which will be added to n, must be thus either 0 or -1
+  // set using setBasis with BASIS_SAMPLE or BASIS_POPULATION
+  int bias;
   double xSum, x2Sum;
-	int n;
+	unsigned long n;
 	bool calculated;
-	double m, s;
+	double m, v, s;
 	void _calculate();
 };
 

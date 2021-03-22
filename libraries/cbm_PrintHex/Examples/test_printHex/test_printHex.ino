@@ -9,6 +9,7 @@
 void setup () {
   Serial.begin ( BAUDRATE );
   while ( !Serial && millis() < 5000 );
+  Serial.print ( "\nPrintHex:\n" );
   
   Serial.print ( "0xffffffff: " ); printHex ( ( unsigned long ) 0xffffffff, 8 ); Serial.println ();
   Serial.print ( "0x00000000: " ); printHex ( ( unsigned long ) 0x00000000, 8 ); Serial.println ();
@@ -25,8 +26,10 @@ void setup () {
   Serial.print ( "-1: " );         printHex ( ( unsigned long ) -1,         3 ); Serial.println ();
   Serial.print ( "-1: " );         printHex ( ( unsigned long ) -1,         2 ); Serial.println ();
   Serial.print ( "-1: " );         printHex ( ( unsigned long ) -1,         1 ); Serial.println ();
-  Serial.print ( "0xfffff800: " ); printHex ( ( unsigned long ) 0xffff8000, 4 ); Serial.println ();
-  Serial.print ( "0xfffff800: " ); printHex ( ( unsigned long ) 0xffff8000, 2 ); Serial.println ();
+  Serial.print ( "0x7fff8000: " ); printHex ( ( unsigned long ) 0x7fff8000, 8 ); Serial.println ();
+  Serial.print ( "0xffff8000: " ); printHex ( ( unsigned long ) 0xffff8000, 8 ); Serial.println ();
+  Serial.print ( "0xffff8000: " ); printHex ( ( unsigned long ) 0xffff8000, 4 ); Serial.println ();
+  Serial.print ( "0xfffff800: " ); printHex ( ( unsigned long ) 0xfffff800, 4 ); Serial.println ();
   Serial.print ( "0x00010001: " ); printHex ( ( unsigned long ) 0x00010001, 9 ); Serial.println ();
 }
 

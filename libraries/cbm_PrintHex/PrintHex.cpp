@@ -1,39 +1,57 @@
 #include <string.h>
 #include <PrintHex.h>
 
-char printHex_buf [ 9 ] = "";
-
-void convertHex ( char* destBuf, int lenDestBuf, unsigned long value, int nBytes ) {
-  destBuf [ nBytes + 0 ] = '\0';
+void convertHex ( char* destBuf, int lenDestBuf, unsigned long value, int nNybbles, Stream& out ) {
+  /*
+    Converts nNybbles ( up to 8 ) half-bytes of a single unsigned long value into hex
+    Works from the right, but doesn't change endian-ness
+  */
+  
   int v;
-  if ( nBytes > lenDestBuf ) {
+    
+  // sanitize
+  if ( nNybbles > lenDestBuf ) {
     // error! buffer overrun possibility
     strncpy ( destBuf, "ERROR", lenDestBuf );
     destBuf [ lenDestBuf ] = '\0';
     return;
   }
-  for ( int i = nBytes - 1; i >= 0; i-- ) {
+  
+  // convert into output buffer
+  for ( int i = nNybbles - 1; i >= 0; i-- ) {
     v = value & 0x0000000f;
     value = value >> 4;
     destBuf [ i ] = "0123456789abcdef" [ v ];
+    // out.print ( "->" ); out.print ( destBuf [ i ] ); out.print ( "\n" );
   }
-  if ( ! ( value == 0 || ( ( value == 0xffffffff >> ( nBytes * 4 ) ) && ( v & 0x8 ) ) ) ) {
+  destBuf [ nNybbles + 0 ] = '\0';
+  
+  if ( ! ( value == 0 || ( ( value == 0xffffffff >> ( nNybbles * 4 ) ) && ( v & 0x8 ) ) ) ) {
     // value was too big to translate
     #ifdef PRINTHEX_VERBOSE
-      out.print ( "right-shifted: 0x" ); out.println ( 0xffffffff >> ( nBytes * 4 ), HEX );
-      out.print ( "v & 0x08: 0x" ); out.println ( v & 0x08, HEX );
+      out.print ( "right-shifted: 0x" ); 
+      out.print ( 0xffffffff >> ( nNybbles * 4 ), HEX );
+      out.print ( "\n" );
+      out.print ( "v & 0x08: 0x" ); 
+      out.print ( v & 0x08, HEX );
+      out.print ( "\n" );
     #endif
-    strncpy ( destBuf, "********", nBytes );
-    destBuf [ nBytes ] = '\0';
+    strncpy ( destBuf, "********", nNybbles );
+    destBuf [ nNybbles ] = '\0';
   }
   return;
 }
 
-void printHex ( unsigned long value, int nBytes, Stream& out ) {
-  convertHex ( printHex_buf, 8, value, nBytes );
-  // printer->print ( "0x" ); printer->print ( printHex_buf );
+// don't use if you can use printf ( "0h%04x" ) or something like it
+void printHex ( unsigned long value, int nNybbles, Stream& out ) {
+  char printHex_buf [ 9 ] = "";
+  convertHex ( printHex_buf, 8, value, nNybbles, out );
   out.print ( "0x" ); out.print ( printHex_buf );
 }
+
+
+// NOTE hexdumping can be dangerous - need to preserve byte order
+// even if little-endian
 
 void hexDump ( byte * theBuf, int theLen, int lineLen, Stream& out ) {
   const int pBufLen = 8;
@@ -53,6 +71,11 @@ void hexDump ( byte * theBuf, int theLen, int lineLen, Stream& out ) {
     
     if ( ! ( ( i + 1 ) % 2 ) ) {
       // space between groups
+      out.print ( " " );
+    }
+    
+    if ( ! ( ( i + 1 ) % 8 ) ) {
+      // extra space between blocks
       out.print ( " " );
     }
     

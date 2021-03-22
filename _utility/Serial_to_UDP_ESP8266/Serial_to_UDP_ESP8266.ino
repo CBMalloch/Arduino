@@ -1,13 +1,27 @@
-#define PROGNAME "Serial_to_UDP_ESP8266"
-#define VERSION  "2.3.0"
-#define VERDATE  "2017-04-30"
+// **********************************************
+// **********************************************
+//
+// FELN FELN FELN FELN FELN FELN FELN FELN FELN
+//   Don't forget to set value for UDP port
+// FELN FELN FELN FELN FELN FELN FELN FELN FELN
+//
+// **********************************************
+// **********************************************
+
 
 /* 
   Serial to UDP via ESP8266
   Charles B. Malloch, PhD
+  2016-02-12
   
   Program to replace chunks of my home control system, specifically 
   the XBee-to-Toshiba-Windows2K-to-UDP bits.
+  
+  NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE 
+  
+      port_UDP is configured in this software - verify it's correct before flashing!!!
+
+  NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE 
   
   Broadcast any serial input received ( with a linend ) on the UDP broadcast address and given port
   Respond to (side-channel) conversations at this particular IP address
@@ -29,9 +43,10 @@
   
   Plan: make it more easily configurable with a broadcast object and a conversation object
   
-  Also refactor cbmNetworkInfo to separate the ESP identification from the network address assignment
-  
   2016-02-16  2.0.0 Put some local message echoing into VERBOSE > 2 guards. Now ready for production.
+  2019-02-16  2.2.1 updated to remove access point (AP) mode from WiFi
+  2020-12-31  2.2.2 removed call to flush which only calls endPacket again,
+                    thus broadcasting a zero-length message...
     
 */
 
@@ -45,12 +60,26 @@
 
 #define BAUDRATE    115200
 #define VERBOSE          2
-// locales include M5, CBMM5, CBMDATACOL, CBMDDWRT, CBMDDWRT3, CBMDDWRT3GUEST,
-//   CBMBELKIN, CBM_RASPI_MOSQUITTO
-// need to use CBMDDWRT3 for my own network access
-// can use CBMM5 or CBMDDWRT3GUEST for Sparkfun etc.
+// need to use CBMDDWRT3 or CBMDATACOL for my own network access
 #define WIFI_LOCALE CBMDATACOL
-const unsigned int port_UDP = 9240;
+#define ALLOW_PRINTING_OF_PASSWORD false
+
+
+
+
+
+//                ***** DANGER - need to check / change as needed! *****
+
+
+// HSM: 9202; WFM 9203; HTMM 9204; testing 9208
+const unsigned int port_UDP = 9203;
+
+
+
+
+
+
+
 // either define ( to enable ) or undef
 #define DO_BROADCAST
 #define DO_CONVERSATION
@@ -61,6 +90,10 @@ const unsigned int port_UDP = 9240;
 #define pdThrobber      13
 
 cbmNetworkInfo Network;
+
+#define WLAN_PASS       password
+#define WLAN_SSID       ssid
+
 WiFiUDP conn_UDP;
 
 void handleSerialInput ();
@@ -70,10 +103,10 @@ void handle_UDP_conversation ();
 void setup () {
   
   Serial.begin ( BAUDRATE );
-  for ( int i = 0; i < 5; i++ ) {
-    delay ( 1000 );
-    yield ();
-  }
+  // for ( int i = 0; i < 5; i++ ) {
+  //   delay ( 1000 );
+  //   yield ();
+  // }
   
   while ( !Serial && millis() < 10000 ) {
     delay ( 200 );  // wait up to 5 more seconds for serial to come up
@@ -85,24 +118,30 @@ void setup () {
   
   // for security reasons, the network settings are stored in a private library
   Network.init ( WIFI_LOCALE );
-  
-  if ( ! strncmp ( Network.chipName, "unknown", 12 ) ) {
-    Network.describeESP ( Network.chipName );
-  }
+  // Network.describeESP ( Network.chipName );
 
   // Connect to WiFi access point.
-  Serial.print ( "\nESP8266 device '" );
-  Serial.print ( Network.chipName );
-  Serial.print ( "' connecting to " ); 
-  Serial.println ( Network.ssid );
+  Serial.print ("\nConnecting to '"); Serial.print ( Network.ssid );
+  if ( ( VERBOSE >= 10 ) && ALLOW_PRINTING_OF_PASSWORD ) {
+    Serial.print ( "' with password '" );
+    Serial.print ( Network.password );
+  }
+  Serial.println ( "'" );
+  if ( VERBOSE >= 10 ) {
+    Serial.printf ( "  ip: %s\n", Network.ip.toString().c_str() );
+    Serial.printf ( "  gateway: %s\n", Network.gw.toString().c_str() );
+    Serial.printf ( "  mask: %s\n", Network.mask.toString().c_str() );
+    Serial.printf ( "  dns: %s\n", Network.dns.toString().c_str() );
+  }
   yield ();
   
   WiFi.config ( Network.ip, Network.gw, Network.mask, Network.dns );
+  WiFi.mode ( WIFI_STA );  // 2019-02-16 to remove AP from default mode WIFI_AP_STA
   WiFi.begin ( Network.ssid, Network.password );
   
   while ( WiFi.status() != WL_CONNECTED ) {
     Serial.print ( "." );
-    delay ( 500 );  // implicitly yields but may not pet the nice doggy
+    delay ( 1000 );  // implicitly yields but may not pet the nice doggy
   }
   
   conn_UDP.begin ( port_UDP );
@@ -113,7 +152,7 @@ void setup () {
   Serial.print ( "; will use USB port " ); Serial.println ( port_UDP );
   yield ();
    
-  Serial.println ( PROGNAME " v" VERSION " " VERDATE " cbm" );
+  Serial.println ( F ( "[Serial_to_UDP_ESP8266 v2.2.2 2020-12-31]" ) );
   
   yield ();
   
@@ -172,7 +211,8 @@ void loop() {
         // Serial.println(buffer[strBufPtr], HEX);
         if ( strBufPtr > 5 && strBuf [ strBufPtr ] == '\r' ) {  // 0x0d
           // append terminating null
-          strBuf [ ++strBufPtr ] = '\0';
+          strBuf [ ++strBufPtr ] = '\0';  // leave the \r on the msg
+          // strBuf [ strBufPtr ] = '\0';  // overwrite the \r instead
           broadcastString ( strBuf );
           strBufPtr = 0;
         } else if ( strBuf [ strBufPtr ] == '\n' ) {  // 0x0a
@@ -203,10 +243,10 @@ void loop() {
     Serial.print ( bcast ); Serial.print ( ":" ); Serial.println ( port_UDP );
     // conn_UDP.beginPacket ( Network.ip, port_UDP );
     conn_UDP.beginPacket ( bcast, port_UDP );
-    conn_UDP.println ( strBuffer );
+    conn_UDP.print ( strBuffer );
     // conn_UDP.print ( '\r' );
     conn_UDP.endPacket ();
-    conn_UDP.flush ();
+    // conn_UDP.flush ();  // flush just calls endPacket
     
     yield ();
   }
