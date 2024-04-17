@@ -1,0 +1,36 @@
+#######################################
+# Syntax Coloring Map For EWMA
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+CircularBuffer KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+count	KEYWORD2
+store KEYWORD2
+reset	KEYWORD2
+entries	KEYWORD2
+
+_init KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+_size LITERAL1
+_left LITERAL1
+_right LITERAL1
+_n LITERAL1
+_array LITERAL1
+CircularBuffer_VERSION LITERAL1
+
+
